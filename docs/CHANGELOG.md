@@ -5,6 +5,21 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.5.0] - 2026-11-21 · M4 Webhook, fila e transcrição
+
+### Adicionado
+- Webhook oficial do WhatsApp com assinatura obrigatória e gravação idempotente.
+- Fila em Redis com debounce (6 s / 20 s), prioridade para contato novo, limite anti-abuso e
+  retomada de trabalho.
+- Worker com portões de atendimento (pausa, opt-out, conversa assumida, silêncio) e transcrição de
+  áudio por API.
+- Gateway da Cloud API (Meta ou parceiro) e transcritor, com fakes.
+- Estado da conversa e esquema da extração validados.
+- Cifra AES-256-GCM dos tokens de terceiros no banco.
+
+### Corrigido
+- Logs não mascaram mais os IDs internos (`tenant_id`, `conversation_id`).
+
 ## [0.4.0] - 2026-11-21 · M3 Cálculo de valor e busca
 
 ### Adicionado

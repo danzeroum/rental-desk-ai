@@ -19,6 +19,22 @@ completa (incidentes, restauração, alertas) fecha no M8.
 O `install.sh` pode ser rodado de novo: não troca o `.env` nem apaga dados. Para mudar o domínio,
 edite `DOMAIN` no `.env` e rode `make up`.
 
+## Conectar o WhatsApp e a transcrição
+
+No `.env` (depois `make up`):
+
+| Variável | Valor |
+|---|---|
+| `WHATSAPP_PROVIDER` | `cloud_api` |
+| `WHATSAPP_API_BASE_URL` | URL da Cloud API da Meta ou do parceiro |
+| `WHATSAPP_AUTH_HEADER` / `WHATSAPP_AUTH_SCHEME` | ex.: `Authorization` + `Bearer` (Meta); `D360-API-KEY` + vazio (parceiro) |
+| `WHATSAPP_APP_SECRET` | segredo do app, para conferir a assinatura do webhook |
+| `WHATSAPP_VERIFY_TOKEN` | gerado pelo `gen-env.sh`; cadastrar o mesmo no parceiro/Meta |
+| `TRANSCRIBER_PROVIDER` / `TRANSCRIBER_API_KEY` | `openai_compatible` + chave (contrato sem uso para treino) |
+
+URL do webhook para cadastrar: `https://<domínio>/webhooks/whatsapp`.
+O token de acesso de cada imobiliária fica cifrado no banco (assistente de implantação, M10).
+
 ## Comandos do dia a dia
 
 | Comando | O que faz |
@@ -29,6 +45,13 @@ edite `DOMAIN` no `.env` e rode `make up`.
 | `make down` | Para tudo (dados preservados nos volumes) |
 | `make migrate` | Aplica migrações |
 | `make backup` | Backup cifrado imediato (fica no volume `backups`) |
+
+## Fila
+
+- Trabalhos que falharam 3 vezes vão para o stream `rd:jobs:dead` no Redis
+  (`docker compose ... exec redis redis-cli XRANGE rd:jobs:dead - +`).
+- Logs úteis: `webhook_processado`, `lote_processado`, `lote_sem_resposta`, `limite_anti_abuso_atingido`,
+  `transcricao_falhou`, `trabalho_falhou`.
 
 ## Saúde
 

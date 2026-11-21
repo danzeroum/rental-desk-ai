@@ -210,3 +210,52 @@ A mais recente fica embaixo.
   do SPEC; a busca não filtra por ele. O uso (preferência ou filtro) será tratado na decisão (M5).
 - Os tipos `PropertyData`, `RateData` e `BlockData` foram para `app/domain/catalog.py`; o importador e a
   busca usam a mesma definição.
+
+## D022 · Cifra de segredos no banco: AES-256-GCM com rotação (M4)
+
+- **Escolha:** `cryptography` (AESGCM). Chaves em `DATA_ENCRYPTION_KEYS` (`k2:<base64>,k1:<base64>`):
+  cifra com a primeira, decifra com qualquer uma (rotação sem migração). O contexto
+  (`whatsapp_token:<tenant_id>`) entra como dado associado: um token copiado para outra imobiliária não
+  decifra. Usado no token do WhatsApp (M4) e no segredo TOTP (M7).
+- `gen-env.sh` gera a chave; **guarde-a fora da VPS** (sem ela os tokens não são recuperáveis).
+
+## D023 · Fila, debounce e worker (M4)
+
+- Implementação da D002 em `app/workers/queue.py`, com scripts Lua atômicos:
+  - debounce: prazo = min(última + 6 s, primeira + 20 s), por conversa, num ZSET;
+  - streams `jobs:priority` (primeira mensagem de contato novo, RF20) e `jobs:normal`, grupo `workers`;
+    o worker lê a prioridade antes; confirma (XACK) só depois de concluir; trabalho não confirmado é
+    retomado após 60 s e vai para `jobs:dead` depois de 3 entregas;
+  - trava por conversa (um lote por vez); lote que chega no meio é adiado 2 s;
+  - anti-abuso: janela deslizante de 60 s por contato; na 16ª mensagem, silêncio de 10 min e **um**
+    aviso fixo (`app/domain/messages.py`); mensagens no silêncio são gravadas e não respondidas.
+- A ingestão grava no banco **antes** de agendar. O lote leva todas as mensagens de entrada ainda não
+  tratadas (`message.processed_at`), na ordem de chegada.
+- A transcrição e qualquer chamada externa rodam fora de transação do banco.
+
+## D024 · Autenticação do webhook (M4)
+
+- RF01: `X-Hub-Signature-256` (HMAC-SHA256 do corpo bruto com o app secret) obrigatória; sem segredo
+  configurado, todo POST é recusado (falha fechada). Corpo máximo de 1 MB. Erro interno → 500, para a
+  Meta reenviar; a idempotência pelo ID externo evita duplicar.
+- Se o parceiro (BSP) escolhido não assinar com o app secret da Meta, o modo de autenticação dele entra
+  como alternativa configurável, depois da verificação de coexistência (pendência humana).
+
+## D025 · Ecos do app WhatsApp Business (M4)
+
+- Mensagens do campo `smb_message_echoes` (corretor respondendo pelo app) são gravadas como saída com
+  origem `business_app`, sem efeito no atendimento. O silêncio automático por eco (RF11) só será ligado
+  se a verificação de coexistência passar (SPEC, seção 13, item 3); "responda 1" e o botão "assumir"
+  entram no M6 de qualquer forma.
+
+## D026 · Atualização do `.env` entre versões (M4)
+
+- `deploy/gen-env.sh` em um `.env` existente só **acrescenta** as variáveis novas (com segredos
+  novos), nunca altera as existentes. `install.sh` o chama sempre, então rodar o instalador de novo
+  depois de `git pull` completa o `.env`.
+
+## D027 · Mascaramento de logs não apaga IDs internos (M4)
+
+- Encontrado no teste da stack: o padrão de chave Pix aleatória (UUID) mascarava `tenant_id` e
+  `conversation_id`. Chaves de contexto e chaves terminadas em `_id` (geradas pelo sistema) não passam
+  pelo mascaramento; texto livre continua mascarado, inclusive UUIDs dentro dele.

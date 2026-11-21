@@ -55,6 +55,13 @@ class Direction(StrEnum):
     OUTBOUND = "out"
 
 
+class MessageOrigin(StrEnum):
+    GUEST = "guest"
+    ASSISTANT = "assistant"
+    BUSINESS_APP = "business_app"  # eco do app WhatsApp Business (coexistência)
+    PANEL = "panel"
+
+
 class MessageKind(StrEnum):
     TEXT = "text"
     AUDIO = "audio"

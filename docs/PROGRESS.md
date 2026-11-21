@@ -8,14 +8,55 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M1 · Modelo de dados, RLS, isolamento | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.2.0 |
 | M2 · Planilha: gerador, importador, snapshot, aprovação | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.3.0 |
 | M3 · `pricing` + `search` (TDD) | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.4.0 |
-| M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | ⏳ próximo | | |
-| M5 · Extração, decisão, templates, validador, auditoria | — | | |
+| M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.5.0 |
+| M5 · Extração, decisão, templates, validador, auditoria | ⏳ próximo | | |
 | M6 · Passagem, assumir, escalonamento, pausa, desfecho | — | | |
 | M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | — | | |
 | M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | — | | |
 | M9 · iCal e planilha Google | — | | |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M4 · Webhook, gateway, debounce, rate limit, transcrição, estado — concluído em 21/11/2026
+
+### Entregue
+- **Webhook** `/webhooks/whatsapp`: desafio GET; POST com assinatura obrigatória (RF01), limite de
+  1 MB, leitura tolerante do payload (texto, áudio, imagem, botões; ecos do app do corretor).
+- **Ingestão** idempotente pelo ID externo: número → imobiliária (`tenant_route`), contato, conversa,
+  mensagem; agenda o processamento depois do commit.
+- **Fila em Redis** (D023): debounce 6 s / máx. 20 s (RF05), prioridade para contato novo e limite de
+  15 mensagens/min com um aviso e 10 min de silêncio (RF20), trava por conversa, retomada de trabalho
+  de worker que caiu e fila morta.
+- **Worker** (`python -m app.workers`): processa o lote; portões do passo 3 (pausada, opt-out, muda,
+  silêncio); transcrição de áudio pela API, com a referência da mídia apagada após o sucesso; entrega ao
+  handler de resposta (o pipeline do M5 se encaixa aqui).
+- **Adaptadores** com interface + fake: `WhatsAppGateway` (Cloud API; URL, cabeçalho e prefixo de
+  autenticação configuráveis para Meta ou parceiro; novas tentativas em 429/5xx) e `Transcriber`
+  (formato `/audio/transcriptions`).
+- **Estado da conversa** (`app/domain/state.py`) e **esquema da extração** (`app/domain/extraction.py`)
+  por TDD: mescla pelo código, pergunta de acompanhamento ("e se formos 10?"), referência "a segunda",
+  JSON fora do esquema recusado (RF03), valor impossível vira "não informado".
+- **Cifra de tokens** de terceiros no banco (AES-256-GCM com rotação, D022). Envio de resposta grava
+  mensagem de saída e `audit_log`.
+- Configuração recusa fakes e exige segredos em produção. `gen-env.sh` completa `.env` antigos (D026).
+- Migração `0003`; versão 0.5.0.
+
+### Verificado
+- `make lint test` verdes: 405 testes (2 pulados de propósito), cobertura 94% (núcleo 97%).
+- **Aceite do M4:** rajada de 5 mensagens → 1 processamento com as 5 juntas, no teste com Redis real
+  e também na stack Docker (webhook assinado → app → Postgres/Redis → worker: `lote_processado
+  messages=5`).
+- Reenvio da mesma mensagem gravado uma vez; assinatura inválida → 401 sem gravar nada; número
+  desconhecido ignorado; áudio transcrito e referência apagada; falha de transcrição sinalizada; portões
+  pausada/muda/opt-out; 17 mensagens → um aviso só, auditado; conversa travada é reagendada.
+- Bug encontrado no teste da stack e corrigido: o mascaramento de logs apagava os IDs internos (D027).
+
+### Depende de humano
+- Conta no parceiro (BSP) e verificação de coexistência: confirmar a assinatura do webhook (D024) e o
+  eco do app (D025).
+- Chave do provedor de transcrição, contratado sem uso para treino.
 
 ---
 

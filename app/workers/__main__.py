@@ -1,6 +1,7 @@
-"""Processo `worker`: consome a fila de mensagens (pipeline a partir do M4)."""
+"""Processo `worker`: consome a fila de conversas (debounce, transcrição, resposta)."""
 
 from app.core.service import main
+from app.workers.app import run_worker
 
 if __name__ == "__main__":
-    main("worker")
+    main("worker", background=run_worker)

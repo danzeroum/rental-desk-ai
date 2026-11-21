@@ -69,3 +69,13 @@ def test_stdlib_loggers_also_emit_masked_json(log_stream: io.StringIO) -> None:
 def test_uvicorn_access_logger_is_disabled(log_stream: io.StringIO) -> None:
     logging.getLogger("uvicorn.access").info("GET /")
     assert "GET /" not in log_stream.getvalue()
+
+
+def test_internal_ids_are_not_masked_but_free_text_is(log_stream: io.StringIO) -> None:
+    ident = "123e4567-e89b-12d3-a456-426614174000"
+    bind_context(tenant_id=ident, conversation_id=ident)
+    get_logger("t").info(f"chave pix {ident}", snapshot_id=ident, detail=ident)
+    event = _last_event(log_stream)
+    assert (event["tenant_id"], event["conversation_id"], event["snapshot_id"]) == (ident,) * 3
+    assert event["event"] == "chave pix [CHAVE_PIX]"
+    assert event["detail"] == "[CHAVE_PIX]"

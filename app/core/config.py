@@ -23,6 +23,16 @@ class Environment(StrEnum):
     PRODUCTION = "production"
 
 
+class WhatsAppProvider(StrEnum):
+    CLOUD_API = "cloud_api"  # Cloud API da Meta, direta ou via parceiro oficial (BSP)
+    FAKE = "fake"
+
+
+class TranscriberProvider(StrEnum):
+    OPENAI_COMPATIBLE = "openai_compatible"  # POST multipart em /audio/transcriptions
+    FAKE = "fake"
+
+
 class Settings(BaseSettings):
     """Todas as variáveis aceitas estão documentadas em `.env.example`."""
 
@@ -40,6 +50,32 @@ class Settings(BaseSettings):
     db_pool_size: int = Field(default=10, ge=1, le=100)
     health_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
+    data_encryption_keys: SecretStr
+    """Chaves AES-256 dos segredos no banco: `k1:<base64>[,k0:<base64>]` (D022)."""
+
+    # WhatsApp (formato da Cloud API; URL e cabeçalho configuráveis para BSP ou Meta direta)
+    whatsapp_provider: WhatsAppProvider = WhatsAppProvider.FAKE
+    whatsapp_api_base_url: str = "https://graph.facebook.com/v21.0"
+    whatsapp_auth_header: str = Field(default="Authorization", pattern=r"^[A-Za-z0-9-]{1,40}$")
+    whatsapp_auth_scheme: str = Field(default="Bearer", max_length=20)
+    """Prefixo antes do token ("Bearer"); vazio para parceiros que usam só a chave."""
+    whatsapp_app_secret: SecretStr | None = None
+    """Segredo do app para conferir `X-Hub-Signature-256` do webhook (RF01)."""
+    whatsapp_verify_token: SecretStr | None = None
+    """Token do desafio de verificação (GET) do webhook."""
+
+    # Transcrição de áudio (API sem uso para treino; SPEC, seção 0b)
+    transcriber_provider: TranscriberProvider = TranscriberProvider.FAKE
+    transcriber_api_url: str = "https://api.openai.com/v1/audio/transcriptions"
+    transcriber_api_key: SecretStr | None = None
+    transcriber_model: str = "whisper-1"
+
+    # Fila e atendimento (RF05, RF20)
+    debounce_quiet_seconds: float = Field(default=6.0, gt=0, le=60)
+    debounce_max_seconds: float = Field(default=20.0, gt=0, le=120)
+    rate_limit_per_minute: int = Field(default=15, ge=1, le=1000)
+    rate_limit_silence_seconds: int = Field(default=600, ge=1, le=86400)
+
     @property
     def is_production_like(self) -> bool:
         return self.env in {Environment.STAGING, Environment.PRODUCTION}
@@ -49,7 +85,28 @@ class Settings(BaseSettings):
         if len(self.secret_key.get_secret_value()) < MIN_SECRET_KEY_LENGTH:
             msg = f"SECRET_KEY precisa ter pelo menos {MIN_SECRET_KEY_LENGTH} caracteres"
             raise ValueError(msg)
+        if self.debounce_max_seconds < self.debounce_quiet_seconds:
+            raise ValueError("DEBOUNCE_MAX_SECONDS não pode ser menor que DEBOUNCE_QUIET_SECONDS")
+        if self.env is Environment.PRODUCTION:
+            self._check_production()
         return self
+
+    def _check_production(self) -> None:
+        if self.whatsapp_provider is WhatsAppProvider.FAKE:
+            raise ValueError("WHATSAPP_PROVIDER=fake não é permitido em produção")
+        if self.transcriber_provider is TranscriberProvider.FAKE:
+            raise ValueError("TRANSCRIBER_PROVIDER=fake não é permitido em produção")
+        missing = [
+            name
+            for name, value in (
+                ("WHATSAPP_APP_SECRET", self.whatsapp_app_secret),
+                ("WHATSAPP_VERIFY_TOKEN", self.whatsapp_verify_token),
+                ("TRANSCRIBER_API_KEY", self.transcriber_api_key),
+            )
+            if value is None or not value.get_secret_value()
+        ]
+        if missing:
+            raise ValueError(f"obrigatório em produção: {', '.join(missing)}")
 
 
 @lru_cache(maxsize=1)

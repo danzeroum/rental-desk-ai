@@ -26,6 +26,7 @@ from app.models.enums import (
     HandoffOutcome,
     HandoffStatus,
     MessageKind,
+    MessageOrigin,
     values,
 )
 
@@ -81,6 +82,13 @@ class Message(TenantScoped, Base):
     __table_args__ = (
         CheckConstraint(check_in("direction", values(Direction)), name="direction"),
         CheckConstraint(check_in("kind", values(MessageKind)), name="kind"),
+        CheckConstraint(check_in("origin", values(MessageOrigin)), name="origin"),
+        Index(
+            "ix_message_unprocessed",
+            "conversation_id",
+            "created_at",
+            postgresql_where=text("direction = 'in' AND processed_at IS NULL"),
+        ),
         Index(
             "uq_message_external_id",
             "tenant_id",
@@ -107,6 +115,9 @@ class Message(TenantScoped, Base):
         UUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
     )
     external_timestamp: Mapped[datetime | None]
+    origin: Mapped[str] = mapped_column(String(20), server_default=MessageOrigin.GUEST.value)
+    processed_at: Mapped[datetime | None]
+    """Entrada já tratada pelo pipeline (lote do debounce)."""
     created_at: Mapped[CreatedAt]
 
 

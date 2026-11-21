@@ -40,11 +40,17 @@ SENSITIVE_KEYS: Final = frozenset(
 )
 
 
+def _is_internal_id(key: str) -> bool:
+    """IDs gerados pelo sistema (UUID) não são mascarados: o padrão de chave Pix aleatória
+    também é um UUID e apagaria o `tenant_id`/`conversation_id` dos logs."""
+    return key in CONTEXT_KEYS or key.endswith("_id")
+
+
 def _redact_value(key: str, value: Any) -> Any:
     if key.lower() in SENSITIVE_KEYS:
         return REDACTED
     if isinstance(value, str):
-        return mask_pii(value)
+        return value if _is_internal_id(key) else mask_pii(value)
     if isinstance(value, Mapping):
         return {k: _redact_value(str(k), v) for k, v in value.items()}
     if isinstance(value, list | tuple):

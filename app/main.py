@@ -6,14 +6,17 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from redis.asyncio import Redis
 
 from app import __version__
-from app.api import health
+from app.api import health, webhook
 from app.api.middleware import TraceMiddleware
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine
 from app.core.logging import configure_logging, get_logger
 from app.core.redis import create_redis
+from app.core.rls import scoped_session_factory
+from app.workers.queue import WorkQueue
 
 log = get_logger(__name__)
 
@@ -27,6 +30,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.settings = settings
         app.state.db_engine = create_engine(settings)
         app.state.redis = create_redis(settings)
+        app.state.sessions = scoped_session_factory(app.state.db_engine)
+        app.state.queue = build_queue(app.state.redis, settings)
         log.info("app_iniciado", version=__version__, env=settings.env.value)
         try:
             yield
@@ -45,4 +50,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.add_middleware(TraceMiddleware)
     app.include_router(health.router)
+    app.include_router(webhook.router)
     return app
+
+
+def build_queue(redis: Redis, settings: Settings) -> WorkQueue:
+    return WorkQueue(
+        redis,
+        quiet_seconds=settings.debounce_quiet_seconds,
+        max_seconds=settings.debounce_max_seconds,
+        rate_limit_per_minute=settings.rate_limit_per_minute,
+        silence_seconds=settings.rate_limit_silence_seconds,
+    )

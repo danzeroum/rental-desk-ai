@@ -25,18 +25,34 @@ TEST_DATABASE_OPS_URL = os.environ.get(
 )
 TEST_REDIS_URL = os.environ.get("TEST_REDIS_URL", "redis://localhost:56379/15")
 TEST_SECRET_KEY = "x" * 48
+TEST_ENCRYPTION_KEYS = "k1:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE="  # 32 bytes "A", só testes
 
 
 def make_settings(**overrides: object) -> Settings:
     values: dict[str, object] = {
         "env": Environment.TEST,
         "secret_key": TEST_SECRET_KEY,
+        "data_encryption_keys": TEST_ENCRYPTION_KEYS,
+        "whatsapp_app_secret": "segredo-do-app-de-teste",
+        "whatsapp_verify_token": "token-de-verificacao",
         "database_url": TEST_DATABASE_URL,
         "redis_url": TEST_REDIS_URL,
         "health_timeout_seconds": 1.0,
     }
     values.update(overrides)
     return Settings.model_validate(values)
+
+
+def production_settings(**overrides: object) -> Settings:
+    """Produção com todos os obrigatórios preenchidos (provedores reais, segredos)."""
+    values: dict[str, object] = {
+        "env": Environment.PRODUCTION,
+        "whatsapp_provider": "cloud_api",
+        "transcriber_provider": "openai_compatible",
+        "transcriber_api_key": "chave-de-teste",
+    }
+    values.update(overrides)
+    return make_settings(**values)
 
 
 @pytest.fixture

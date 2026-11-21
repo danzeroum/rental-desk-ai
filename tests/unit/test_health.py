@@ -5,9 +5,9 @@ from fastapi.testclient import TestClient
 
 from app import __version__
 from app.api import health
-from app.core.config import Environment, Settings
+from app.core.config import Settings
 from app.main import create_app
-from tests.conftest import make_settings
+from tests.conftest import production_settings
 
 
 async def _ok(_: object) -> None:
@@ -69,7 +69,7 @@ def test_invalid_incoming_trace_id_is_replaced(client: TestClient) -> None:
 
 
 def test_docs_hidden_in_production() -> None:
-    prod = make_settings(env=Environment.PRODUCTION)
+    prod = production_settings()
     with TestClient(create_app(prod)) as test_client:
         assert test_client.get("/docs").status_code == 404
         assert test_client.get("/openapi.json").status_code == 404

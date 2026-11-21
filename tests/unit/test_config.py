@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import TIMEZONE, Environment, Settings, get_settings
-from tests.conftest import make_settings
+from tests.conftest import make_settings, production_settings
 
 
 def test_timezone_is_sao_paulo() -> None:
@@ -18,6 +18,7 @@ def test_reads_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SECRET_KEY", "s" * 40)
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db:5432/x")
     monkeypatch.setenv("REDIS_URL", "redis://redis:6379/0")
+    monkeypatch.setenv("DATA_ENCRYPTION_KEYS", "k1:" + "A" * 43 + "=")
     monkeypatch.setenv("ENV", "staging")
     get_settings.cache_clear()
     try:
@@ -32,3 +33,26 @@ def test_reads_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_settings_are_immutable(settings: Settings) -> None:
     with pytest.raises(ValidationError):
         settings.log_level = "DEBUG"  # type: ignore[misc]
+
+
+def test_production_refuses_fake_adapters() -> None:
+    with pytest.raises(ValidationError, match="WHATSAPP_PROVIDER=fake"):
+        make_settings(env=Environment.PRODUCTION)
+
+
+def test_production_requires_secrets() -> None:
+    with pytest.raises(ValidationError, match="TRANSCRIBER_API_KEY"):
+        make_settings(
+            env=Environment.PRODUCTION,
+            whatsapp_provider="cloud_api",
+            transcriber_provider="openai_compatible",
+        )
+
+
+def test_production_with_everything_configured() -> None:
+    assert production_settings().is_production_like
+
+
+def test_debounce_window_must_be_consistent() -> None:
+    with pytest.raises(ValidationError, match="DEBOUNCE_MAX_SECONDS"):
+        make_settings(debounce_quiet_seconds=10, debounce_max_seconds=5)
