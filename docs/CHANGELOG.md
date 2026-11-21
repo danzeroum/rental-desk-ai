@@ -5,6 +5,14 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.4.0] - 2026-11-21 · M3 Cálculo de valor e busca
+
+### Adicionado
+- Cálculo do valor estimado com tarifas por noite, pacotes (fechado/aberto), mínimo de noites e
+  taxa de limpeza, em centavos.
+- Busca com filtros obrigatórios, orçamento, dados vencidos e ranking estável (até 3 casas).
+- Exigência de cobertura de 90% nos módulos centrais na CI.
+
 ## [0.3.0] - 2026-11-21 · M2 Planilha modelo, importação e aprovação
 
 ### Adicionado

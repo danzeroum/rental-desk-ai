@@ -9,6 +9,8 @@ from datetime import date
 from enum import StrEnum
 from typing import Any
 
+from app.domain.catalog import BlockData, PropertyData, RateData
+
 
 class Severity(StrEnum):
     ERROR = "error"  # bloqueia a importação
@@ -32,55 +34,15 @@ class Issue:
         return f"{where}: {self.message}"
 
 
+__all__ = ["BlockData", "PropertyData", "RateData"]
+
+
 @dataclass(frozen=True)
 class RawRow:
     """Linha lida da planilha: número da linha no Excel e valores por nome de coluna."""
 
     number: int
     values: dict[str, object]
-
-
-@dataclass(frozen=True)
-class PropertyData:
-    code: str
-    title: str
-    neighborhood: str | None
-    photos_url: str | None
-    max_guests: int
-    bedrooms: int | None
-    suites: int | None
-    bathrooms: int | None
-    parking_spots: int | None
-    has_pool: bool | None
-    accepts_pets: bool | None
-    allows_parties: bool | None
-    ac_in_bedrooms: bool | None
-    has_wifi: bool | None
-    has_barbecue: bool | None
-    beach_distance_m: int | None
-    public_notes: str | None
-
-
-@dataclass(frozen=True)
-class RateData:
-    """Período de tarifa; `end_date` exclusivo (noites de `start_date` até a véspera)."""
-
-    property_code: str
-    start_date: date
-    end_date: date
-    daily_cents: int
-    min_nights: int
-    package_name: str | None
-    package_cents: int | None
-    package_closed: bool
-    cleaning_fee_cents: int
-
-
-@dataclass(frozen=True)
-class BlockData:
-    property_code: str
-    start_date: date
-    end_date: date
 
 
 @dataclass

@@ -45,7 +45,7 @@ restore: ## Restaura um backup (M8)
 	@echo "make restore: disponível a partir do M8" >&2; exit 2
 
 # --- Desenvolvimento ----------------------------------------------------------
-.PHONY: dev fmt lint test test-unit test-deps-up test-deps-down golden golden-live shellcheck security
+.PHONY: dev fmt lint test coverage-core test-unit test-deps-up test-deps-down golden golden-live shellcheck security
 dev: ## Instala as dependências locais (uv)
 	uv sync --frozen
 
@@ -64,6 +64,12 @@ shellcheck:
 
 test: ## Testes de unidade e integração, com cobertura (precisa de make test-deps-up)
 	$(UV) pytest tests/unit tests/integration --cov --cov-report=term-missing
+	@$(MAKE) --no-print-directory coverage-core
+
+# SPEC, seção 5: cobertura ≥ 80% nos módulos centrais (aqui exigimos 90%).
+CORE_MODULES := app/domain/*,app/importer/*
+coverage-core:
+	$(UV) coverage report --include='$(CORE_MODULES)' --fail-under=90 --skip-covered
 
 test-unit: ## Só testes de unidade (sem Postgres/Redis)
 	$(UV) pytest tests/unit

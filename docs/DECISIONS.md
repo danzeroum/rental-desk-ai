@@ -194,3 +194,19 @@ A mais recente fica embaixo.
   O resultado mostrado é só "no ar / fora do ar", sem o conteúdo da resposta.
 - Risco residual conhecido: troca de DNS entre a checagem e a conexão (DNS rebinding). Como a
   resposta não é exposta, o impacto se limita a uma requisição cega.
+
+## D021 · Detalhes de `pricing` e `search` não fixados no SPEC (M3)
+
+- **Pacote fechado coberto em parte:** a estimativa (`total_cents`) soma o **pacote completo** (mais as
+  diárias das noites fora dele e a limpeza), porque é o que a casa aluga nessas datas. O card mostra as
+  datas e o valor do pacote (SPEC); o total só ordena as opções com a mesma flag e entra na soma dos
+  valores estimados do relatório.
+- **Mínimo de noites:** a flag `below_min_nights` não impede a cotação; o total é o das noites pedidas.
+- **Acima do orçamento:** quando nenhuma casa cabe, as "até 3 mais próximas acima" são as de menor total;
+  depois seguem a ordem normal do ranking.
+- **Dados frescos:** "mais de 24 h" é estrito: 24 h exatas ainda é fresco, 24 h e 1 min é vencido; dado
+  nunca atualizado é vencido.
+- **Bairro (`neighborhood`):** está no estado da conversa, mas não está entre os filtros obrigatórios
+  do SPEC; a busca não filtra por ele. O uso (preferência ou filtro) será tratado na decisão (M5).
+- Os tipos `PropertyData`, `RateData` e `BlockData` foram para `app/domain/catalog.py`; o importador e a
+  busca usam a mesma definição.

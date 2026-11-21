@@ -7,8 +7,8 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M0 · Esqueleto | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.1.0 |
 | M1 · Modelo de dados, RLS, isolamento | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.2.0 |
 | M2 · Planilha: gerador, importador, snapshot, aprovação | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.3.0 |
-| M3 · `pricing` + `search` (TDD) | ⏳ próximo | | |
-| M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | — | | |
+| M3 · `pricing` + `search` (TDD) | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.4.0 |
+| M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | ⏳ próximo | | |
 | M5 · Extração, decisão, templates, validador, auditoria | — | | |
 | M6 · Passagem, assumir, escalonamento, pausa, desfecho | — | | |
 | M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | — | | |
@@ -16,6 +16,35 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M9 · iCal e planilha Google | — | | |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M3 · `pricing` + `search` por TDD — concluído em 21/11/2026
+
+### Entregue
+- `app/domain/pricing.py`: estadia (check-out exclusivo; check-in = check-out é recusado), cotação noite
+  a noite, não cotável sem tarifa, pacote inteiro, pacote fechado parcial (`requires_full_package`),
+  pacote aberto parcial em diárias, mínimo de noites pelo maior período tocado (`below_min_nights`),
+  limpeza da tarifa do check-in, tudo em centavos.
+- `app/domain/search.py`: filtros obrigatórios (capacidade, atributos = Sim, bloqueio só com dados
+  frescos, cotável), orçamento com "mais próximas acima", dados vencidos (> 24 h) sem confirmar
+  disponibilidade, ranking estável (flags, folga, total, código), no máximo 3.
+- Cobertura mínima de 90% exigida em `app/domain` e `app/importer` (`make coverage-core`, na CI).
+- Versão 0.4.0.
+
+### Verificado
+- 299 testes (2 pulados de propósito); `pricing` 98% e `search` 100% de cobertura; núcleo 97%.
+- Limites do CLAUDE.md: período que cruza tarifas, pacote parcial (fechado e aberto), mínimo de noites
+  (abaixo, exato, maior entre períodos), check-in = check-out, capacidade exata, dados com 24 h e 1 min,
+  bloqueio encostado no check-in/check-out.
+- Casos do prompt de partida: "Casa para 12 no Réveillon com piscina" com 2 casas livres de pacote
+  fechado → 2 opções com o valor do pacote e sem flags; estadia 30/12–02/01 em casa de pacote fechado →
+  `requires_full_package` com as datas do pacote.
+- Validação com a planilha de exemplo (Demo Riviera): mesma busca devolve 3 casas na ordem esperada.
+
+### Depende de humano
+- Validação do SPEC (seção 10 do PDF): conferir os cálculos com **casos reais feitos à mão por uma
+  imobiliária**. Quando vierem, entram como casos de teste.
 
 ---
 
