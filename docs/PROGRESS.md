@@ -5,9 +5,9 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | Marco | Estado | PR | Versão |
 |---|---|---|---|
 | M0 · Esqueleto | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.1.0 |
-| M1 · Modelo de dados, RLS, isolamento | ✅ concluído | danzeroum/rental-desk-ai#1 (aguardando merge do M0) | 0.2.0 |
-| M2 · Planilha: gerador, importador, snapshot, aprovação | ⏳ próximo | | |
-| M3 · `pricing` + `search` (TDD) | — | | |
+| M1 · Modelo de dados, RLS, isolamento | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.2.0 |
+| M2 · Planilha: gerador, importador, snapshot, aprovação | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.3.0 |
+| M3 · `pricing` + `search` (TDD) | ⏳ próximo | | |
 | M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | — | | |
 | M5 · Extração, decisão, templates, validador, auditoria | — | | |
 | M6 · Passagem, assumir, escalonamento, pausa, desfecho | — | | |
@@ -16,6 +16,43 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M9 · iCal e planilha Google | — | | |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M2 · Planilha: gerador, importador, snapshot, aprovação — concluído em 21/11/2026
+
+### Entregue
+- **Planilha modelo** (`make template`, `python -m app.importer template`): 4 abas com os nomes do SPEC,
+  cabeçalho com comentário de ajuda, obrigatórios em vermelho e validação de células (Sim/Não, inteiros,
+  valores, datas, código da casa escolhido da aba Imoveis). Regras sugeridas já preenchidas.
+- **Exemplo "Imobiliária Demo Riviera"** (`app/importer/sample.py`): 10 casas fictícias, temporada
+  completa (baixa, alta, Réveillon, janeiro, Carnaval calculado pela Páscoa, março), metade com pacote
+  fechado. Base do modo demonstração (RF25, M7).
+- **Importador** (`app/importer/`): leitura defensiva do .xlsx (D019); conversão de células com
+  mensagens para o gestor (datas dd/mm/aaaa, valores "R$ 1.500,00" → centavos, Sim/Não); validação por
+  aba/linha/coluna; avisos não bloqueantes de casa sem tarifa futura, capacidade incoerente, lacuna de
+  tarifa e link de fotos fora do ar (checagem HTTP com proteção contra SSRF, D020).
+- **Snapshot e aprovação** (`app/importer/service.py`): rascunho numerado por imobiliária com hash
+  SHA-256 do conteúdo normalizado; aprovação registra quem, quando e hash (RF15) no `audit_log`, troca a
+  versão ativa e os bloqueios vindos da planilha; rejeição. Nada vai ao ar sem aprovação.
+- `python -m app.importer check arquivo.xlsx [--links]` para o suporte conferir um arquivo.
+- Migração `0002` (bloqueios do arquivo guardados na versão). Versão 0.3.0.
+
+### Verificado
+- `make lint`, `make test` e `make security` verdes: 258 testes (2 pulados de propósito), cobertura
+  96,5%; `pip-audit` e `bandit` sem achados.
+- Aceite do M2: a planilha de exemplo importa sem erros nem avisos, e o hash bate com os dados de
+  origem; uma célula ruim gera exatamente `Tarifas, linha 3, coluna diaria: valor inválido...`.
+- Integração: rascunho não vai ao ar; versões incrementam; link quebrado vira aviso; relatório com erro
+  não é gravado; aprovação registra quem/quando/hash, troca a versão ativa e só os bloqueios da
+  planilha; não aprova duas vezes, nem rejeitada, nem de outra imobiliária.
+
+### Pergunta em aberto
+- `fim` de Tarifas e Bloqueios: implementado como **dia da saída** (D016), aguardando confirmação.
+
+### Fica para os próximos marcos
+- Tela de envio, correção e aprovação no painel, e o botão "baixar modelo" (M7, RF14/RF15 no painel).
+- Planilha Google sincronizada (M9).
 
 ---
 

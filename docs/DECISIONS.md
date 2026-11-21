@@ -141,3 +141,56 @@ A mais recente fica embaixo.
   nova transação (evento `after_begin`) e acrescentam `tenant_id = <atual>` a toda consulta ORM sobre
   modelos `TenantScoped` (`with_loader_criteria`). Mesmo um `where` explícito para outro tenant volta
   vazio. Sem tenant, a política devolve zero linhas (falha fechada).
+
+## D016 · `fim` de Tarifas e Bloqueios = dia da saída (M2) — **aguardando confirmação**
+
+- **Contexto:** o SPEC define check-out exclusivo para a estadia, mas não diz como ler o `fim` das
+  abas Tarifas e Bloqueios. Muda o que o hóspede vê (qual tarifa vale na última noite; se a casa está
+  livre no dia da saída do bloqueio). Pergunta feita ao time no fim do M1.
+- **Escolha provisória:** `fim` = dia da saída, exclusivo, igual ao check-out. É a leitura que faz o
+  caso de aceite do prompt de partida dar certo ("pacote fechado 28/12–02/01" + busca 28/12–02/01 →
+  valor do pacote) e permite períodos encostados (01/12–28/12 e 28/12–02/01) sem lacuna.
+- O cabeçalho e o comentário das colunas explicam a regra ("Ex.: 28/12 a 02/01 = noites de 28/12 a
+  01/01"). Se o gestor usar a outra leitura, o importador mostra um aviso de "noites sem tarifa" em
+  cada emenda, o que torna o engano visível.
+- A conversão está num único ponto (`sheet_end_to_exclusive` em `app/importer/validate.py`). Se a
+  resposta for "última noite", a troca é somar um dia ali e ajustar o texto do cabeçalho.
+
+## D017 · Avisos não bloqueantes da importação (M2)
+
+- RF14 pede avisos para casa sem tarifa futura, link de fotos fora do ar e capacidade incoerente.
+  "Capacidade incoerente" foi traduzida em duas regras conservadoras, só de aviso: mais suítes que
+  quartos; mais de 4 hóspedes por quarto.
+- Acrescentado: **lacuna entre tarifas** da mesma casa (noites sem tarifa = casa não cotável nessas
+  datas, SPEC seção 6). **Sobreposição** de tarifas é **erro**, porque tornaria ambígua a tarifa da
+  noite.
+- Coluna desconhecida = aviso (ignorada); aba Bloqueios ou Regras ausente = aviso; Imoveis ou
+  Tarifas ausente = erro.
+- Erros em cascata são evitados: uma casa com erro em outra coluna não faz suas tarifas acusarem
+  "código inexistente".
+
+## D018 · Aprovação da planilha (M2)
+
+- Aprovar troca `tenant.active_snapshot_id`, marca a versão anterior como `superseded` e grava quem,
+  quando e o hash no `audit_log` (RF15). As versões são numeradas por imobiliária; importações e
+  aprovações da mesma imobiliária são serializadas por trava na linha do tenant.
+- Os bloqueios da aba Bloqueios ficam guardados na versão e só viram linhas de `block` na aprovação,
+  substituindo **apenas** os bloqueios de origem `spreadsheet`. Os de painel, lembrete e iCal ficam.
+- Aprovar uma planilha conta como atualização das datas (`availability_updated_at`, RF13): o gestor
+  acabou de revisar e aprovar a aba Bloqueios.
+
+## D019 · Leitura de .xlsx: openpyxl + defusedxml, com limites (M2)
+
+- `openpyxl` (leitura e geração, com validação de células) e `defusedxml` (o openpyxl passa a usá-lo
+  para o XML, contra ataques de entidade). Dependências leves, puro Python.
+- Limites contra arquivo malicioso: 5 MB, 100 MB descompactados, 500 entradas no zip, e linhas por aba
+  (Imoveis 1.000, Tarifas e Bloqueios 20.000, Regras 50).
+
+## D020 · Checagem dos links de fotos com proteção contra SSRF (M2)
+
+- A checagem roda **antes** e **fora** da transação do banco. Só http/https nas portas padrão;
+  o nome é resolvido e qualquer endereço não público (privado, loopback, link-local, reservado,
+  multicast) é recusado; cada redirecionamento (até 3) é conferido de novo; HEAD com recurso a GET.
+  O resultado mostrado é só "no ar / fora do ar", sem o conteúdo da resposta.
+- Risco residual conhecido: troca de DNS entre a checagem e a conexão (DNS rebinding). Como a
+  resposta não é exposta, o impacto se limita a uma requisição cega.

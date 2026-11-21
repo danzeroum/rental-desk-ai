@@ -1,0 +1,136 @@
+"""Resultado da leitura da planilha: dados normalizados e apontamentos por aba/linha."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field
+from datetime import date
+from enum import StrEnum
+from typing import Any
+
+
+class Severity(StrEnum):
+    ERROR = "error"  # bloqueia a importação
+    WARNING = "warning"  # aparece no painel, não bloqueia
+
+
+@dataclass(frozen=True)
+class Issue:
+    severity: Severity
+    sheet: str
+    message: str
+    row: int | None = None
+    column: str | None = None
+
+    def describe(self) -> str:
+        where = self.sheet
+        if self.row is not None:
+            where += f", linha {self.row}"
+        if self.column:
+            where += f", coluna {self.column}"
+        return f"{where}: {self.message}"
+
+
+@dataclass(frozen=True)
+class RawRow:
+    """Linha lida da planilha: número da linha no Excel e valores por nome de coluna."""
+
+    number: int
+    values: dict[str, object]
+
+
+@dataclass(frozen=True)
+class PropertyData:
+    code: str
+    title: str
+    neighborhood: str | None
+    photos_url: str | None
+    max_guests: int
+    bedrooms: int | None
+    suites: int | None
+    bathrooms: int | None
+    parking_spots: int | None
+    has_pool: bool | None
+    accepts_pets: bool | None
+    allows_parties: bool | None
+    ac_in_bedrooms: bool | None
+    has_wifi: bool | None
+    has_barbecue: bool | None
+    beach_distance_m: int | None
+    public_notes: str | None
+
+
+@dataclass(frozen=True)
+class RateData:
+    """Período de tarifa; `end_date` exclusivo (noites de `start_date` até a véspera)."""
+
+    property_code: str
+    start_date: date
+    end_date: date
+    daily_cents: int
+    min_nights: int
+    package_name: str | None
+    package_cents: int | None
+    package_closed: bool
+    cleaning_fee_cents: int
+
+
+@dataclass(frozen=True)
+class BlockData:
+    property_code: str
+    start_date: date
+    end_date: date
+
+
+@dataclass
+class WorkbookData:
+    properties: list[PropertyData] = field(default_factory=list)
+    rates: list[RateData] = field(default_factory=list)
+    blocks: list[BlockData] = field(default_factory=list)
+    rules: dict[str, str] = field(default_factory=dict)
+
+    def canonical(self) -> dict[str, Any]:
+        """Representação estável (ordenada) para o hash do snapshot."""
+        return {
+            "properties": sorted((asdict(p) for p in self.properties), key=lambda p: p["code"]),
+            "rates": sorted(
+                (asdict(r) for r in self.rates),
+                key=lambda r: (r["property_code"], r["start_date"]),
+            ),
+            "blocks": sorted(
+                (asdict(b) for b in self.blocks),
+                key=lambda b: (b["property_code"], b["start_date"], b["end_date"]),
+            ),
+            "rules": dict(sorted(self.rules.items())),
+        }
+
+    def content_hash(self) -> str:
+        payload = json.dumps(
+            self.canonical(), default=_json_default, ensure_ascii=False, sort_keys=True
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _json_default(value: object) -> str:
+    if isinstance(value, date):
+        return value.isoformat()
+    raise TypeError(f"tipo não serializável: {type(value).__name__}")
+
+
+@dataclass
+class ImportReport:
+    data: WorkbookData
+    issues: list[Issue] = field(default_factory=list)
+
+    @property
+    def errors(self) -> list[Issue]:
+        return [i for i in self.issues if i.severity is Severity.ERROR]
+
+    @property
+    def warnings(self) -> list[Issue]:
+        return [i for i in self.issues if i.severity is Severity.WARNING]
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors

@@ -1,6 +1,6 @@
 [project]
 name = "rental-desk-ai"
-version = "0.2.0"
+version = "0.3.0"
 description = "Central de reservas com IA no WhatsApp para imobiliárias de aluguel por temporada"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -16,6 +16,8 @@ dependencies = [
     "structlog>=26.1,<26.2",
     "jinja2>=3.1.6,<3.2",
     "httpx2>=2.16,<2.17",
+    "openpyxl>=3.1.5,<3.2",
+    "defusedxml>=0.7.1,<0.8",
 ]
 
 [dependency-groups]
@@ -27,6 +29,7 @@ dev = [
     "mypy>=2.4,<2.5",
     "pip-audit>=2.10,<2.11",
     "bandit[toml]>=1.9,<1.10",
+    "types-openpyxl>=3.1.5.20261017",
 ]
 
 [tool.uv]
@@ -43,7 +46,8 @@ ignore = ["PLR0913"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "PLR2004", "S105", "S106"]
-"scripts/**" = ["T201"]  # ferramentas de linha de comando escrevem no terminal
+"scripts/**" = ["T201"]
+"app/**/__main__.py" = ["T201"]  # comandos de terminal  # ferramentas de linha de comando escrevem no terminal
 
 [tool.mypy]
 python_version = "3.12"

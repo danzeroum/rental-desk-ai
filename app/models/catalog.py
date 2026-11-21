@@ -57,6 +57,9 @@ class DataSnapshot(TenantScoped, Base):
     rules: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'"))
     """Aba Regras: chave/valor curto (check-in, check-out, caução, pagamento, cancelamento)."""
     warnings: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'"))
+    """Avisos não bloqueantes da importação (RF14), mostrados no painel."""
+    blocks: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'"))
+    """Aba Bloqueios do arquivo; viram linhas de `block` na aprovação (RF15)."""
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
     )

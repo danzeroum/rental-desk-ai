@@ -13,3 +13,5 @@ htmlcov/
 *.dump
 *.dump.gpg
 .DS_Store
+planilha-modelo.xlsx
+exemplo-demo-riviera.xlsx

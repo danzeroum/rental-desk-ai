@@ -5,6 +5,16 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.3.0] - 2026-11-21 · M2 Planilha modelo, importação e aprovação
+
+### Adicionado
+- Planilha modelo com validação de células (`make template`) e exemplo Demo Riviera com 10 casas.
+- Importador com erros por aba/linha/coluna e avisos não bloqueantes (tarifa futura, lacuna de
+  tarifa, capacidade, link de fotos fora do ar).
+- Checagem HTTP dos links de fotos com proteção contra SSRF.
+- Versões dos dados (snapshot) com hash, aprovação registrada e rejeição.
+- Comando `python -m app.importer` (template, sample, check).
+
 ## [0.2.0] - 2026-11-21 · M1 Modelo de dados, RLS e isolamento
 
 ### Adicionado

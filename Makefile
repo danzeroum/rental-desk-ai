@@ -37,8 +37,9 @@ backup: ## Gera um backup cifrado agora
 seed-demo: ## Tenant de demonstração (RF25, M7)
 	@echo "make seed-demo: disponível a partir do M7" >&2; exit 2
 
-template: ## Gera a planilha modelo (M2)
-	@echo "make template: disponível a partir do M2" >&2; exit 2
+template: ## Gera a planilha modelo (planilha-modelo.xlsx) e o exemplo Demo Riviera
+	$(UV) python -m app.importer template --out planilha-modelo.xlsx
+	$(UV) python -m app.importer sample --out exemplo-demo-riviera.xlsx
 
 restore: ## Restaura um backup (M8)
 	@echo "make restore: disponível a partir do M8" >&2; exit 2
