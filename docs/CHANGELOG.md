@@ -5,6 +5,15 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.2.0] - 2026-11-21 · M1 Modelo de dados, RLS e isolamento
+
+### Adicionado
+- Modelos e migração inicial das tabelas da seção 6 do SPEC.
+- Row-Level Security forçado em todas as tabelas de negócio, com falha fechada.
+- Sessões com escopo de tenant e filtro automático por `tenant_id` nas consultas ORM.
+- Trilha de auditoria só de inclusão, encadeada por hash por tenant, com verificação de integridade.
+- Testes de isolamento entre imobiliárias que cobrem todas as tabelas automaticamente.
+
 ## [0.1.0] - 2026-11-21 · M0 Esqueleto
 
 ### Adicionado

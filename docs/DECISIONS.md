@@ -86,3 +86,58 @@ A mais recente fica embaixo.
   (uid 10001), sistema de arquivos somente leitura, `cap_drop: ALL` e `no-new-privileges` no compose.
 - O Dockerfile aceita um segredo de build opcional `extra_ca` (certificado de proxy corporativo). Sem
   ele, o build é o normal. Não afeta a imagem final.
+
+## D011 · Usuários, vínculos e tabelas globais (M1)
+
+- **Contexto:** o login acontece antes de se saber a imobiliária, e o webhook recebe o
+  `phone_number_id` antes de saber o tenant. Com RLS em tudo, essas duas buscas seriam impossíveis.
+- **Escolha:**
+  - `app_user`: identidade global (e-mail, hash de senha, segredo TOTP cifrado, `is_operator`). Sem
+    `tenant_id` e sem dados de negócio. Implementa o `user` do SPEC.
+  - `tenant_member`: papel (gestor/corretor) de um usuário numa imobiliária. RLS: lê os vínculos do
+    próprio tenant **ou** do usuário logado (`app.current_user_id`); escreve só no próprio tenant.
+  - `tenant_route`: `phone_number_id` → tenant. Leitura global (só identificadores públicos, sem token);
+    escrita só no próprio tenant.
+  - `tenant`: RLS por `id`. O papel da aplicação **não insere** imobiliárias (só o operador, com
+    `rentaldesk_ops`) e só altera as colunas de configuração.
+  - A lista `GLOBAL_TABLES` (`app/models/__init__.py`) é a única exceção aceita pelo teste de
+    isolamento; tabela nova sem `tenant_id` fora dessa lista quebra o teste.
+- **Alternativas:** função `SECURITY DEFINER` para o login e o roteamento (esconde a regra dentro do
+  banco e exige dono com `BYPASSRLS`); `user` com `tenant_id` (gestor de duas imobiliárias precisaria de
+  duas contas).
+
+## D012 · Valores fechados como texto + CHECK (M1)
+
+- **Escolha:** status, papéis, origens e desfechos são `varchar` com `CHECK (col IN (...))`, gerados a
+  partir de `StrEnum` (`app/models/enums.py`).
+- **Alternativa:** `ENUM` do Postgres (acrescentar valor exige migração especial e não roda em
+  transação).
+
+## D013 · Snapshot de dados e bloqueios (M1)
+
+- **Escolha:** imóveis e tarifas pertencem a um `data_snapshot` imutável; `tenant.active_snapshot_id`
+  aponta para o aprovado em uso (RF15). Aprovar = trocar o ponteiro, numa transação. Bloqueios **não** são
+  versionados (mudam pelo painel, pelo lembrete das 9h e pelo iCal, sem aprovação — RF16, RF26, RF27) e
+  referenciam o imóvel pelo `codigo`, estável entre versões.
+- No banco, todo período (estadia, tarifa, bloqueio) é guardado como `start_date` ≤ noite < `end_date`
+  (fim exclusivo). Como a planilha expressa o fim de tarifas e bloqueios é decidido na importação (M2).
+
+## D014 · Auditoria encadeada no banco, por tenant (M1)
+
+- **Escolha:** gatilho `BEFORE INSERT` em `audit_log` calcula `seq`, `prev_hash`, `created_at` e
+  `hash = sha256(prev_hash ‖ campos canônicos)`, com trava consultiva por tenant (a corrente não
+  bifurca com inclusões simultâneas). Valores enviados pelo cliente para esses campos são ignorados.
+  Uma corrente por tenant: imobiliárias não disputam a mesma trava.
+- UPDATE e DELETE: sem permissão para os papéis de execução **e** recusados por gatilho até para o
+  dono do esquema; TRUNCATE também. `audit_log_verify(tenant)` devolve o primeiro `seq` adulterado.
+- `audit_log` não tem chave estrangeira para `conversation`: a trilha sobrevive à anonimização (RF21).
+  O conteúdo gravado não terá nome nem telefone (SPEC, seção 7, item 8), então a trilha pode ser
+  mantida pelo prazo legal sem impedir o direito de exclusão.
+- `privacy_notice` também é imutável por versão.
+
+## D015 · Filtro por tenant também na aplicação (M1)
+
+- **Escolha:** sessões criadas por `scoped_session_factory` aplicam `set_config(..., true)` em toda
+  nova transação (evento `after_begin`) e acrescentam `tenant_id = <atual>` a toda consulta ORM sobre
+  modelos `TenantScoped` (`with_loader_criteria`). Mesmo um `where` explícito para outro tenant volta
+  vazio. Sem tenant, a política devolve zero linhas (falha fechada).

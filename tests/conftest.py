@@ -20,6 +20,9 @@ TEST_DATABASE_MIGRATION_URL = os.environ.get(
     "TEST_DATABASE_MIGRATION_URL",
     "postgresql://rentaldesk_owner:owner_pw@localhost:55432/rentaldesk_test",
 )
+TEST_DATABASE_OPS_URL = os.environ.get(
+    "TEST_DATABASE_OPS_URL", "postgresql://rentaldesk_ops:ops_pw@localhost:55432/rentaldesk_test"
+)
 TEST_REDIS_URL = os.environ.get("TEST_REDIS_URL", "redis://localhost:56379/15")
 TEST_SECRET_KEY = "x" * 48
 

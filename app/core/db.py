@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.core.config import Settings
 
@@ -23,10 +23,6 @@ def create_engine(settings: Settings) -> AsyncEngine:
         pool_pre_ping=True,
         connect_args={"application_name": "rental-desk-ai"},
     )
-
-
-def session_factory(engine: AsyncEngine) -> async_sessionmaker:  # type: ignore[type-arg]
-    return async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def ping_database(engine: AsyncEngine) -> None:

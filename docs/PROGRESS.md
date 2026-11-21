@@ -4,9 +4,9 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 
 | Marco | Estado | PR | Versão |
 |---|---|---|---|
-| M0 · Esqueleto | ✅ concluído | (link no PR do M0) | 0.1.0 |
-| M1 · Modelo de dados, RLS, isolamento | ⏳ próximo | | |
-| M2 · Planilha: gerador, importador, snapshot, aprovação | — | | |
+| M0 · Esqueleto | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.1.0 |
+| M1 · Modelo de dados, RLS, isolamento | ✅ concluído | danzeroum/rental-desk-ai#1 (aguardando merge do M0) | 0.2.0 |
+| M2 · Planilha: gerador, importador, snapshot, aprovação | ⏳ próximo | | |
 | M3 · `pricing` + `search` (TDD) | — | | |
 | M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | — | | |
 | M5 · Extração, decisão, templates, validador, auditoria | — | | |
@@ -16,6 +16,44 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M9 · iCal e planilha Google | — | | |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M1 · Modelo de dados, RLS, isolamento — concluído em 21/11/2026
+
+### Entregue
+- Modelos SQLAlchemy das tabelas da seção 6 do SPEC (`app/models/`) e migração `0001`.
+  `user` do SPEC = `app_user` (identidade global) + `tenant_member` (papel por imobiliária) (D011).
+  Mais `tenant_route` (roteamento do webhook) e `whatsapp_account` (token cifrado, a partir do M4).
+- **RLS ativo e forçado** (`FORCE ROW LEVEL SECURITY`, vale até para o dono) em todas as tabelas com
+  `tenant_id` e em `tenant`; sem tenant definido, zero linhas (falha fechada).
+- **Filtro na aplicação** além do RLS: `app/core/rls.py` (`tenant_session`, `global_session`) aplica o
+  escopo em cada transação e acrescenta `tenant_id` a toda consulta ORM (D015).
+- **`audit_log` só de inclusão**, encadeado por hash no banco, uma corrente por tenant, com verificação
+  (`audit_log_verify`) e recusa de UPDATE/DELETE/TRUNCATE até para o dono (D014). `privacy_notice`
+  imutável. `app/core/audit.py` para incluir e verificar.
+- Restrições no banco: dinheiro em centavos (`bigint`, não negativo), período com fim > início,
+  código de imóvel em maiúsculas, aprovação registrada (quem/quando) para snapshot aprovado, ID externo
+  de mensagem único por tenant (RF01), `state_json` inicial conforme o SPEC.
+- Versão 0.2.0.
+
+### Verificado
+- `make lint` e `make test` verdes: 119 testes (2 pulados de propósito), cobertura 96%.
+- Teste de isolamento (aceite do M1): para **cada** tabela com `tenant_id`, descoberta a partir dos
+  modelos, uma consulta SQL **sem filtro** com o tenant A só devolve linhas de A; sem tenant, zero linhas;
+  UPDATE/DELETE em linhas de B afetam zero; inserir ou mover linha para B é recusado pelo RLS; um
+  `where tenant_id = B` explícito no ORM volta vazio; o papel da aplicação não cria imobiliárias.
+- Catálogo: toda tabela do esquema tem `tenant_id` + RLS forçado + política, ou está em
+  `GLOBAL_TABLES`.
+- Auditoria: encadeamento, campos forjados pelo cliente ignorados, 20 inclusões simultâneas formam uma
+  corrente única, adulteração detectada no `seq` exato.
+- Migração ida e volta e `alembic check` (modelos = banco) na CI; migração e backup rodaram na stack
+  Docker.
+
+### Pergunta em aberto (afeta M2/M3)
+- Fim dos períodos de **Tarifas** e **Bloqueios** na planilha: é o dia de saída (exclusivo, como o
+  check-out) ou a última noite (inclusivo)? Ver resumo do PR. No banco tudo já é exclusivo; a resposta
+  define só a leitura da planilha e o texto do cabeçalho.
 
 ---
 

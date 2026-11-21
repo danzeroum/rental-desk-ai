@@ -171,7 +171,7 @@ Itens **não** aceitos das revisões: fixar um modelo de IA específico no códi
 
 ### Tabelas (todas as de negócio com `tenant_id` + RLS)
 
-`tenant`, `user` (papel: operador | gestor | corretor), `property`, `rate`, `block`, `data_snapshot`, `contact`, `conversation` (inclui `state_json`, `muted_until`, `status`), `message`, `intent`, `search_result`, `handoff` (inclui `outcome`, `assumed_at`, `assumed_by`), `audit_log` (append-only, `prev_hash` + `hash`), `privacy_notice` (versionado), `weekly_report`, `consent` (opt-in do gestor/corretor para mensagens ativas).
+`tenant`, `user` (papel: operador | gestor | corretor; implementado como `app_user` + `tenant_member`, ver DECISIONS D011), `property`, `rate`, `block`, `data_snapshot`, `contact`, `conversation` (inclui `state_json`, `muted_until`, `status`), `message`, `intent`, `search_result`, `handoff` (inclui `outcome`, `assumed_at`, `assumed_by`), `audit_log` (append-only, `prev_hash` + `hash`), `privacy_notice` (versionado), `weekly_report`, `consent` (opt-in do gestor/corretor para mensagens ativas).
 
 RLS: `SET LOCAL app.current_tenant_id` no início de cada transação; política `tenant_id = current_setting('app.current_tenant_id')::uuid`. O papel de banco da aplicação **não** tem `BYPASSRLS`. Tarefas globais do operador usam papel separado e explícito.
 

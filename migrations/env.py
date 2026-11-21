@@ -7,7 +7,9 @@ import os
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-target_metadata = None  # passa a apontar para os modelos a partir do M1
+from app.models import Base
+
+target_metadata = Base.metadata
 
 
 def _migration_url() -> str:
