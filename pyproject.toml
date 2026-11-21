@@ -1,0 +1,74 @@
+[project]
+name = "rental-desk-ai"
+version = "0.1.0"
+description = "Central de reservas com IA no WhatsApp para imobiliárias de aluguel por temporada"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.165,<0.166",
+    "uvicorn[standard]>=0.54,<0.55",
+    "sqlalchemy[asyncio]>=2.1,<2.2",
+    "alembic>=1.20,<1.21",
+    "psycopg[binary]>=3.3,<3.4",
+    "pydantic>=2.14,<2.15",
+    "pydantic-settings>=2.16,<2.17",
+    "redis>=8.1,<8.2",
+    "structlog>=26.1,<26.2",
+    "jinja2>=3.1.6,<3.2",
+    "httpx2>=2.16,<2.17",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2,<9.3",
+    "pytest-asyncio>=1.5,<1.6",
+    "pytest-cov>=7.1,<7.2",
+    "ruff>=0.17,<0.18",
+    "mypy>=2.4,<2.5",
+    "pip-audit>=2.10,<2.11",
+    "bandit[toml]>=1.9,<1.10",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "S", "A", "C4", "DTZ", "T20", "SIM", "RUF", "PL", "ASYNC"]
+ignore = ["PLR0913"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "S105", "S106"]
+"scripts/**" = ["T201"]  # ferramentas de linha de comando escrevem no terminal
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["app", "tests", "scripts", "migrations/env.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: precisa de Postgres e Redis reais",
+]
+addopts = "-ra --strict-markers"
+filterwarnings = ["error::DeprecationWarning:app.*"]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
+
+[tool.bandit]
+exclude_dirs = ["tests"]

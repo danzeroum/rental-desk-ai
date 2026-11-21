@@ -20,6 +20,7 @@ Este arquivo é a **fonte da verdade** do produto. Se algo aqui conflitar com ou
 | Relatório também por WhatsApp ao gestor, com consentimento (RF32) | Gestor lê no celular |
 | **TOTP para todos os usuários do painel**; homologação em **VPS separada**; conjunto de ouro de **100 casos antes do lançamento** | Restaurado o nível de produção que tinha sido cortado para ganhar prazo |
 | Marcos M9 a M11 e **definição de pronto da Versão 1.0** (seção 12) | Critério objetivo para dizer "está pronto para vender" |
+| Login do painel: **e-mail + senha + TOTP para todos**; o link mágico da v0.2 sai. O `Mailer` serve a convite de usuário, recuperação de senha e relatório semanal (esclarecimento de 21/11/2026) | Mesmo nível de segurança para gestor, corretor e operador |
 | O "teste de coexistência" continua, mas é **verificação técnica de 1 hora** de uma dependência externa da Meta, não prova de conceito do produto | Não dá para escrever código contra um comportamento da Meta que ninguém confirmou |
 
 ---
@@ -84,7 +85,7 @@ Itens **não** aceitos das revisões: fixar um modelo de IA específico no códi
   - `WhatsAppGateway`: envio/recebimento no formato da Cloud API. URL base e cabeçalho de autenticação configuráveis, para funcionar com parceiro oficial (BSP) ou Meta direta.
   - `LLMClient`: extração (saída JSON com esquema) e redação curta. Provedor e modelo por variável de ambiente.
   - `Transcriber`: áudio → texto por API.
-  - `Mailer`: e-mail do link mágico e do relatório.
+  - `Mailer`: e-mail de convite de usuário, recuperação de senha e relatório semanal. (Não há link mágico: o painel usa e-mail + senha + TOTP para todos os usuários.)
 - **Proibido**: APIs não oficiais de WhatsApp (QR code / WhatsApp Web).
 
 ### Pipeline de cada mensagem recebida

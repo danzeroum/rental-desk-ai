@@ -1,0 +1,155 @@
+# Uso: make up (equivale a docker compose --project-directory . -f deploy/docker-compose.yml --env-file .env ...)
+# Caminhos relativos partem da raiz do repositório.
+name: rental-desk-ai
+
+x-app-image: &app-image
+  image: ${IMAGE_NAME:-rental-desk-ai}:${APP_VERSION:-dev}
+  build:
+    context: .
+    dockerfile: deploy/Dockerfile
+    args:
+      APP_VERSION: ${APP_VERSION:-dev}
+
+# Cada processo recebe só as variáveis de que precisa (menor privilégio).
+x-app-env: &app-env
+  ENV: ${ENV:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  SECRET_KEY: ${SECRET_KEY:?defina SECRET_KEY no .env}
+  PUBLIC_BASE_URL: https://${DOMAIN:-localhost}
+  DATABASE_URL: postgresql://rentaldesk_app:${DB_APP_PASSWORD:?}@postgres:5432/rentaldesk
+  REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
+
+x-app-common: &app-common
+  <<: *app-image
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  environment: *app-env
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  logging: &logging
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      app: { condition: service_healthy }
+    logging: *logging
+
+  app:
+    <<: *app-common
+
+  worker:
+    <<: *app-common
+    command: ["python", "-m", "app.workers"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.workers", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  scheduler:
+    <<: *app-common
+    command: ["python", "-m", "app.scheduler"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.scheduler", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  # Só roda sob demanda: make migrate
+  migrate:
+    <<: *app-image
+    profiles: [tools]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_MIGRATION_URL: postgresql://rentaldesk_owner:${DB_OWNER_PASSWORD:?}@postgres:5432/rentaldesk
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: rentaldesk
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --locale=C.UTF-8 --encoding=UTF8"
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?}
+      DB_OPS_PASSWORD: ${DB_OPS_PASSWORD:?}
+      TZ: America/Sao_Paulo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-init-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rentaldesk"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    shm_size: 256mb
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  backup:
+    image: ${IMAGE_NAME:-rental-desk-ai}-backup:${APP_VERSION:-dev}
+    build:
+      context: deploy/backup
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      PGDATABASE: rentaldesk
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:?}
+      BACKUP_HOUR: ${BACKUP_HOUR:-03}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      TZ: America/Sao_Paulo
+    volumes:
+      - backups:/backups
+    depends_on:
+      postgres: { condition: service_healthy }
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  backups:

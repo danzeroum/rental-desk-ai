@@ -1,0 +1,33 @@
+# HTTPS automático. DOMAIN=localhost usa certificado interno do Caddy (desenvolvimento).
+{
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	request_body {
+		max_size 20MB
+	}
+
+	reverse_proxy app:8000 {
+		health_uri /health/live
+		health_interval 15s
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
