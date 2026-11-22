@@ -15,7 +15,7 @@ from app.core.crypto import Keyring
 from app.core.rls import tenant_session
 from app.models import Handoff, WhatsAppAccount
 from app.scheduler.quality import refresh_quality, tenants_with_number
-from app.scheduler.runner import Job, Scheduler, tenants_with_open_handoffs
+from app.scheduler.runner import Job, Scheduler, tenants_with, tenants_with_open_handoffs
 from app.workers.channel import seal_token
 from tests.factories import create_tenant, create_user, seed_tenant_data
 
@@ -118,3 +118,16 @@ async def test_number_quality_refresh(
     assert not await refresh_quality(app_sessions, gateway, keyring, without_number)
     broken = FakeWhatsAppGateway(fail_with=GatewayError("fora", retryable=True))
     assert not await refresh_quality(app_sessions, broken, keyring, tenant)
+
+
+async def test_tenants_with_sync_links(
+    ops_engine: AsyncEngine,
+    app_sessions: async_sessionmaker[AsyncSession],
+    ops_sessions: async_sessionmaker[AsyncSession],
+) -> None:
+    tenant = await create_tenant(ops_sessions)
+    await seed_tenant_data(app_sessions, tenant, await create_user(app_sessions))
+    assert tenant in await tenants_with(ops_engine, "calendar_feed")
+    assert tenant in await tenants_with(ops_engine, "sheet_link")
+    with pytest.raises(ValueError, match="não permitida"):
+        await tenants_with(ops_engine, "tenant; DROP TABLE tenant")
