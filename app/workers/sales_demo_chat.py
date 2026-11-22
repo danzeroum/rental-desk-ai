@@ -103,7 +103,7 @@ class SalesDemoChat:
 
     # --- Links (operador) -----------------------------------------------------------
 
-    async def create_link(self, label: str, created_by: uuid.UUID) -> tuple[str, DemoLink]:
+    async def create_link(self, label: str, created_by: uuid.UUID | None) -> tuple[str, DemoLink]:
         label = " ".join(label.split())[:120]
         if not label:
             raise DemoAccessError("Dê um nome ao link (ex.: visita à Imobiliária X).")

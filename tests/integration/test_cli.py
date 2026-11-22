@@ -7,7 +7,7 @@ from collections.abc import Iterator
 import pytest
 from sqlalchemy import select
 
-from app.cli import CliError, create_operator, main, reset_totp
+from app.cli import CliError, create_demo_link, create_operator, main, reset_totp
 from app.core.config import Settings
 from app.core.rls import global_session
 from app.models import AppUser
@@ -41,6 +41,15 @@ def test_create_operator_then_accept_invite(panel: PanelClient) -> None:
     panel.run(reset_totp, service, "op@exemplo.com")
     assert panel.get("/").headers["location"] == "/login"  # sessões encerradas
     assert panel.login_password("op@exemplo.com").headers["location"] == "/totp/cadastro"
+
+
+def test_create_demo_link_opens_the_demo(panel: PanelClient, settings: Settings) -> None:
+    output = panel.run(create_demo_link, panel.app.state.auth, "teste local", settings)
+    url = output.splitlines()[-1]
+    assert url.startswith("https://localhost/demo/entrar/")
+    assert panel.get(url.removeprefix("https://localhost")).headers["location"] == "/demo"
+    with pytest.raises(CliError):
+        panel.run(create_demo_link, panel.app.state.auth, "   ", settings)
 
 
 def test_invalid_input(panel: PanelClient) -> None:

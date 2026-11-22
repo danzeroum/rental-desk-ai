@@ -4,6 +4,7 @@
     python -m app.cli reset-totp --email ana@exemplo.com
     python -m app.cli create-tenant --name "Imobiliária Sol" --gestor-email gestor@sol.com
     python -m app.cli seed-demo [--phone-number-id 1234]   # token em DEMO_WHATSAPP_TOKEN
+    python -m app.cli create-demo-link --label "visita à Imobiliária X"
 
 `create-tenant` e `seed-demo` precisam de `DATABASE_OPS_URL` (só no contêiner do scheduler):
 inserir imobiliária é tarefa global do operador, fora do caminho de requisição.
@@ -29,16 +30,18 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.adapters.factory import build_keyring, build_mailer
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.db import async_url, create_engine
 from app.core.logging import configure_logging
 from app.core.redis import create_redis
 from app.core.rls import global_session, scoped_session_factory
 from app.demo import DemoError, seed_demo
+from app.main import build_queue
 from app.models import AppUser
 from app.onboarding import OnboardingError, create_tenant
 from app.sales_demo import seed_sales_demos
 from app.web.auth import AuthService
+from app.workers.sales_demo_chat import DemoAccessError, SalesDemoChat
 
 
 class CliError(Exception):
@@ -82,6 +85,23 @@ async def create_operator(service: AuthService, email: str, name: str) -> str:
     return await service.send_invite(user, None)
 
 
+async def create_demo_link(service: AuthService, label: str, settings: Settings) -> str:
+    """Link do kit de vendas sem passar pelo painel (revogável em /operador/demo)."""
+    redis = create_redis(settings)
+    try:
+        chat = SalesDemoChat(sessions=service.db, redis=redis, queue=build_queue(redis, settings))
+        token, _ = await chat.create_link(label, None)
+    except DemoAccessError as exc:
+        raise CliError(str(exc)) from exc
+    finally:
+        await redis.aclose()
+    base = settings.public_base_url.rstrip("/")
+    return (
+        "Link da demonstração (aparece só agora; revogue em /operador/demo):\n"
+        f"{base}/demo/entrar/{token}"
+    )
+
+
 async def reset_totp(service: AuthService, email: str) -> None:
     async with global_session(service.db) as session:
         user = await session.scalar(select(AppUser).where(AppUser.email == _normalize(email)))
@@ -104,6 +124,8 @@ def _parser() -> argparse.ArgumentParser:
     tenant.add_argument("--gestor-name", default="Gestor")
     demo = commands.add_parser("seed-demo", help="cria ou renova a Imobiliária Demo Riviera")
     demo.add_argument("--phone-number-id", default=None, help="número de teste da Meta (opcional)")
+    link = commands.add_parser("create-demo-link", help="cria um link do kit de demonstração")
+    link.add_argument("--label", required=True, help="para quem é o link (sem telefone/e-mail)")
     totp = commands.add_parser("reset-totp", help="apaga o autenticador de um usuário")
     totp.add_argument("--email", required=True)
     return parser
@@ -171,6 +193,8 @@ async def _run(args: argparse.Namespace) -> str:
             )
         if args.command == "seed-demo":
             return await _seed_demo(service, args.phone_number_id)
+        if args.command == "create-demo-link":
+            return await create_demo_link(service, args.label, get_settings())
         if args.command == "create-operator":
             link = await create_operator(service, args.email, args.name)
             return f"Operador pronto. Convite (vale 72 h):\n{link}"
