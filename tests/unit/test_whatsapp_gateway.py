@@ -174,3 +174,19 @@ async def test_send_template_payload() -> None:
 def test_template_param_is_flattened_and_capped() -> None:
     assert template_param("linha 1\n\n  linha 2") == "linha 1 · linha 2"
     assert len(template_param("x" * 5000)) == MAX_TEMPLATE_PARAM
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ({"quality_rating": "yellow", "id": "123"}, "YELLOW"),
+        ({"id": "123"}, "UNKNOWN"),
+        ([], "UNKNOWN"),
+    ],
+)
+async def test_phone_quality(body: object, expected: str) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert str(request.url) == f"{BASE}/123?fields=quality_rating"
+        return httpx2.Response(200, json=body)
+
+    assert await gateway(handler).phone_quality(CHANNEL) == expected

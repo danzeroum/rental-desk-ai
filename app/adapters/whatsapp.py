@@ -67,6 +67,10 @@ class WhatsAppGateway(Protocol):
 
     async def fetch_media(self, channel: Channel, media_id: str) -> Media: ...
 
+    async def phone_quality(self, channel: Channel) -> str:
+        """Qualidade do número na Meta: GREEN, YELLOW, RED ou UNKNOWN (RF23)."""
+        ...
+
 
 def template_param(value: str) -> str:
     """A Meta recusa quebras de linha, tabulações e 4+ espaços seguidos nos parâmetros."""
@@ -180,6 +184,16 @@ class CloudApiGateway:
             raise GatewayError("resposta da API sem ID da mensagem", retryable=False) from None
         return message_id
 
+    async def phone_quality(self, channel: Channel) -> str:
+        response = await self._request(
+            "GET", f"{self._base_url}/{channel.phone_number_id}?fields=quality_rating", channel
+        )
+        try:
+            rating = response.json().get("quality_rating")
+        except (ValueError, AttributeError):
+            rating = None
+        return rating.upper()[:20] if isinstance(rating, str) and rating else "UNKNOWN"
+
     async def fetch_media(self, channel: Channel, media_id: str) -> Media:
         meta = await self._request("GET", f"{self._base_url}/{media_id}", channel)
         try:
@@ -219,6 +233,12 @@ class FakeWhatsAppGateway:
         self.sent: list[SentMessage] = []
         self.media = media or {}
         self.fail_with = fail_with
+        self.quality = "GREEN"
+
+    async def phone_quality(self, channel: Channel) -> str:
+        if self.fail_with is not None:
+            raise self.fail_with
+        return self.quality
 
     async def send_text(self, channel: Channel, to: str, body: str) -> str:
         if self.fail_with is not None:

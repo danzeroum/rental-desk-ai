@@ -408,3 +408,26 @@ A mais recente fica embaixo.
 - **Planilha:** até 5 MB; com erro nada é gravado; sem erro vira rascunho e abre a conferência (casas,
   faixa de diária, avisos, casas novas e que saem); só "Aprovar" põe no ar (RF15).
 - Endereço malformado no painel (id inválido) responde 404 em HTML; a API mantém o 422 em JSON.
+
+## D037 · Painel do operador sem BYPASSRLS (M7)
+
+**Contexto:** RF23 pede a saúde de todas as imobiliárias numa tela; CLAUDE.md proíbe papel com BYPASSRLS
+no caminho de requisição.
+
+- **Opção escolhida:** migração 0005 cria `app_current_user_is_operator()` e a política
+  `tenant_operator_read` (só SELECT em `tenant`) para o usuário operador ativo identificado em
+  `app.current_user_id`. As métricas de cada imobiliária são lidas com `tenant_session` e as políticas de
+  sempre. Nenhuma outra tabela de negócio ganhou leitura cruzada.
+- **Alternativas descartadas:** usar `rentaldesk_ops` no processo `app` (viola a regra); tabela global de
+  saúde escrita pelo scheduler (mais uma cópia de dado, atrasada).
+- **Saúde (`app/domain/health.py`):** erro = fila de falhas, mensagem sem processar há 10 min, número
+  vermelho, imobiliária ativa sem planilha aprovada; alerta = pausado, número amarelo, datas vencidas,
+  passagem aguardando há mais de 15 min, frase recusada pelo validador em 24 h, nenhuma mensagem em
+  48 h. Qualidade do número: o scheduler consulta `quality_rating` na Graph API a cada hora (o evento de
+  qualidade da Meta não traz `phone_number_id`).
+- **Criar imobiliária** é tarefa global: `make tenant NAME=... EMAIL=...` roda no contêiner do scheduler
+  (único com `DATABASE_OPS_URL`), cria a imobiliária em `onboarding`, a rota por slug (canal `slug` em
+  `tenant_route`, para o link público do aviso de privacidade), o aviso v1 padrão
+  (`app/domain/privacy.py`, **texto a validar com advogado**) e convida o gestor.
+- **Suporte:** o operador entra em qualquer imobiliária pelo botão "Entrar como suporte"; cada entrada
+  grava `support_access` no `audit_log` da imobiliária.

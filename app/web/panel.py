@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
-from app.web import routes_auth, routes_data, routes_panel, routes_settings
+from app.web import routes_auth, routes_data, routes_operator, routes_panel, routes_settings
 from app.web.common import SECURITY_HEADERS, WEB_DIR, LoginRequired, redirect, render
 
 API_PREFIXES: Final = ("/webhook", "/health")
@@ -74,5 +74,5 @@ def install_panel(app: FastAPI) -> None:
     app.add_exception_handler(LoginRequired, _login_required)
     app.add_exception_handler(HTTPException, _http_error)
     app.add_exception_handler(RequestValidationError, _invalid_request)
-    for module in (routes_auth, routes_panel, routes_data, routes_settings):
+    for module in (routes_auth, routes_panel, routes_data, routes_settings, routes_operator):
         app.include_router(module.router)

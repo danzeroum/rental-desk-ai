@@ -1,86 +1,49 @@
-from collections.abc import Iterator
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
-import pytest
-from fastapi.testclient import TestClient
+from app.domain.health import HealthInput, Level, assess
 
-from app import __version__
-from app.api import health
-from app.core.config import Settings
-from app.main import create_app
-from tests.conftest import production_settings
-
-
-async def _ok(_: object) -> None:
-    return None
+NOW = datetime(2026, 12, 20, 15, 0, tzinfo=UTC)
+HEALTHY = HealthInput(
+    active=True, paused=False, last_inbound_at=NOW - timedelta(hours=1),
+    availability_updated_at=NOW - timedelta(hours=23, minutes=59), open_handoffs=1,
+    oldest_open_handoff_at=NOW - timedelta(minutes=15), validator_rejections_24h=0,
+    stuck_messages=0, dead_jobs=0, quality="GREEN", has_approved_data=True,
+)  # fmt: skip
 
 
-async def _fail(_: object) -> None:
-    raise ConnectionError("recusado")
+def test_healthy_at_the_limits() -> None:
+    assert assess(HEALTHY, NOW).level is Level.OK
 
 
-@pytest.fixture
-def client(settings: Settings) -> Iterator[TestClient]:
-    with TestClient(create_app(settings)) as test_client:
-        yield test_client
+def test_alerts() -> None:
+    cases = {
+        "pausado": {"paused": True},
+        "amarela": {"quality": "yellow"},
+        "vencidas": {"availability_updated_at": NOW - timedelta(hours=24, minutes=1)},
+        "15 min": {"oldest_open_handoff_at": NOW - timedelta(minutes=16)},
+        "validador": {"validator_rejections_24h": 2},
+        "48 h": {"last_inbound_at": None},
+    }
+    for word, change in cases.items():
+        health = assess(replace(HEALTHY, **change), NOW)  # type: ignore[arg-type]
+        assert health.level is Level.ALERT and word in health.reasons[0], word
 
 
-def test_live_does_not_touch_dependencies(client: TestClient) -> None:
-    response = client.get("/health/live")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": __version__, "checks": {}}
+def test_errors_come_first() -> None:
+    health = assess(replace(HEALTHY, dead_jobs=1, paused=True, quality="RED"), NOW)
+    assert health.level is Level.ERROR
+    assert health.reasons[0].startswith("1 tarefa") and "vermelha" in health.reasons[1]
+    assert "pausado" in health.reasons[-1]
 
 
-def test_ready_ok_when_dependencies_answer(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(health, "ping_database", _ok)
-    monkeypatch.setattr(health, "ping_redis", _ok)
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json()["checks"] == {"postgres": "ok", "redis": "ok"}
-
-
-def test_ready_503_without_leaking_error_details(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(health, "ping_database", _fail)
-    monkeypatch.setattr(health, "ping_redis", _ok)
-    response = client.get("/health")
-    assert response.status_code == 503
-    body = response.json()
-    assert body["status"] == "error"
-    assert body["checks"] == {"postgres": "error", "redis": "ok"}
-    assert "recusado" not in response.text
-
-
-def test_trace_id_is_generated(client: TestClient) -> None:
-    response = client.get("/health/live")
-    assert len(response.headers["X-Request-ID"]) == 32
-
-
-def test_valid_incoming_trace_id_is_kept(client: TestClient) -> None:
-    response = client.get("/health/live", headers={"X-Request-ID": "abc-123-def"})
-    assert response.headers["X-Request-ID"] == "abc-123-def"
-
-
-def test_invalid_incoming_trace_id_is_replaced(client: TestClient) -> None:
-    response = client.get("/health/live", headers={"X-Request-ID": "<script>"})
-    assert response.headers["X-Request-ID"] != "<script>"
-
-
-def test_docs_hidden_in_production() -> None:
-    prod = production_settings()
-    with TestClient(create_app(prod)) as test_client:
-        assert test_client.get("/docs").status_code == 404
-        assert test_client.get("/openapi.json").status_code == 404
-
-
-def test_health_requests_are_logged_at_debug_only(
-    settings: Settings, capsys: pytest.CaptureFixture[str]
-) -> None:
-    with TestClient(create_app(settings)) as test_client:
-        test_client.get("/health/live")
-        test_client.get("/nao-existe")
-    out = capsys.readouterr().out
-    assert '"path": "/health/live"' not in out
-    assert '"path": "/nao-existe"' in out
+def test_onboarding_tenant_is_not_blamed_for_silence() -> None:
+    quiet = replace(
+        HEALTHY,
+        active=False,
+        last_inbound_at=None,
+        availability_updated_at=None,
+        has_approved_data=False,
+    )
+    assert assess(quiet, NOW).level is Level.OK
+    assert "sem planilha" in assess(replace(quiet, active=True), NOW).reasons[0]

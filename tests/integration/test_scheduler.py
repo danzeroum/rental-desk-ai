@@ -9,10 +9,14 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.adapters.whatsapp import FakeWhatsAppGateway, GatewayError
 from app.core.config import Settings
+from app.core.crypto import Keyring
 from app.core.rls import tenant_session
-from app.models import Handoff
+from app.models import Handoff, WhatsAppAccount
+from app.scheduler.quality import refresh_quality, tenants_with_number
 from app.scheduler.runner import Job, Scheduler, tenants_with_open_handoffs
+from app.workers.channel import seal_token
 from tests.factories import create_tenant, create_user, seed_tenant_data
 
 pytestmark = pytest.mark.integration
@@ -85,3 +89,32 @@ async def test_ops_role_lists_tenants_with_open_handoffs(
     tenants = await tenants_with_open_handoffs(ops_engine)
     assert with_open in tenants
     assert closed not in tenants
+
+
+async def test_number_quality_refresh(
+    ops_engine: AsyncEngine,
+    app_sessions: async_sessionmaker[AsyncSession],
+    ops_sessions: async_sessionmaker[AsyncSession],
+    settings: Settings,
+) -> None:
+    keyring = Keyring.parse(settings.data_encryption_keys.get_secret_value())
+    tenant = await create_tenant(ops_sessions)
+    async with tenant_session(app_sessions, tenant) as session:
+        session.add(
+            WhatsAppAccount(
+                tenant_id=tenant, phone_number_id=f"PN{tenant.hex[:8]}", display_phone="+5511",
+                access_token_enc=seal_token(keyring, tenant, "tok"),
+            )
+        )  # fmt: skip
+    without_number = await create_tenant(ops_sessions)
+    assert tenant in await tenants_with_number(ops_engine)
+    assert without_number not in await tenants_with_number(ops_engine)
+    gateway = FakeWhatsAppGateway()
+    gateway.quality = "YELLOW"
+    assert await refresh_quality(app_sessions, gateway, keyring, tenant)
+    async with tenant_session(app_sessions, tenant) as session:
+        account = await session.scalar(select(WhatsAppAccount))
+    assert account is not None and account.quality_rating == "YELLOW"
+    assert not await refresh_quality(app_sessions, gateway, keyring, without_number)
+    broken = FakeWhatsAppGateway(fail_with=GatewayError("fora", retryable=True))
+    assert not await refresh_quality(app_sessions, broken, keyring, tenant)

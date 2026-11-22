@@ -62,7 +62,7 @@ class TenantRoute(Base):
     __tablename__ = "tenant_route"
     __table_args__ = (
         UniqueConstraint("channel", "external_id"),
-        CheckConstraint(check_in("channel", ("whatsapp",)), name="channel"),
+        CheckConstraint(check_in("channel", ("whatsapp", "slug")), name="channel"),
     )
 
     id: Mapped[UuidPk]

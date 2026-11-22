@@ -15,7 +15,7 @@ help: ## Lista os comandos
 	@deploy/gen-env.sh .env
 
 # --- Sistema -----------------------------------------------------------------
-.PHONY: up down logs ps migrate operator reset-totp seed-demo template backup restore
+.PHONY: up down logs ps migrate operator tenant reset-totp seed-demo template backup restore
 up: .env ## Sobe tudo (gera .env com segredos na primeira vez)
 	$(COMPOSE) up -d --build --wait
 
@@ -37,6 +37,10 @@ backup: ## Gera um backup cifrado agora
 operator: ## Cria o operador e imprime o convite (EMAIL=voce@exemplo.com)
 	@test -n "$(EMAIL)" || { echo "use: make operator EMAIL=voce@exemplo.com" >&2; exit 2; }
 	$(COMPOSE) exec -T app python -m app.cli create-operator --email "$(EMAIL)"
+
+tenant: ## Cria imobiliária e convida o gestor (NAME="Imobiliária Sol" EMAIL=gestor@...)
+	@test -n "$(NAME)" -a -n "$(EMAIL)" || { echo 'use: make tenant NAME="Imobiliária Sol" EMAIL=gestor@exemplo.com' >&2; exit 2; }
+	$(COMPOSE) exec -T scheduler python -m app.cli create-tenant --name "$(NAME)" --gestor-email "$(EMAIL)"
 
 reset-totp: ## Apaga o autenticador de quem perdeu o celular (EMAIL=...)
 	@test -n "$(EMAIL)" || { echo "use: make reset-totp EMAIL=pessoa@exemplo.com" >&2; exit 2; }

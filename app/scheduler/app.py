@@ -12,6 +12,7 @@ from app.core.config import Settings, get_settings
 from app.core.db import async_url, create_engine
 from app.core.redis import create_redis
 from app.core.rls import scoped_session_factory
+from app.scheduler.quality import QUALITY_EVERY_SECONDS, refresh_quality, tenants_with_number
 from app.scheduler.runner import Job, Scheduler, tenants_with_open_handoffs
 from app.workers.handoffs import HandoffService
 
@@ -25,11 +26,13 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
     engine = create_engine(settings)
     ops_engine = create_async_engine(async_url(str(settings.database_ops_url)), poolclass=NullPool)
     redis = create_redis(settings)
+    sessions, gateway, keyring = (
+        scoped_session_factory(engine),
+        build_gateway(settings),
+        build_keyring(settings),
+    )
     service = HandoffService(
-        sessions=scoped_session_factory(engine),
-        gateway=build_gateway(settings),
-        keyring=build_keyring(settings),
-        mailer=build_mailer(settings),
+        sessions=sessions, gateway=gateway, keyring=keyring, mailer=build_mailer(settings)
     )
 
     async def escalate_all() -> int:
@@ -38,7 +41,15 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
             actions += await service.escalate(tenant_id)
         return actions
 
-    scheduler = Scheduler(redis, [Job("escalonamento", ESCALATION_EVERY_SECONDS, escalate_all)])
+    async def quality_all() -> int:
+        tenants = await tenants_with_number(ops_engine)
+        return sum([await refresh_quality(sessions, gateway, keyring, t) for t in tenants])
+
+    jobs = [
+        Job("escalonamento", ESCALATION_EVERY_SECONDS, escalate_all),
+        Job("qualidade_numero", QUALITY_EVERY_SECONDS, quality_all),
+    ]
+    scheduler = Scheduler(redis, jobs)
     try:
         await scheduler.run(stop)
     finally:
