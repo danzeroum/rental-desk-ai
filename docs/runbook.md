@@ -1,7 +1,7 @@
 # Runbook de operação
 
-Escrito para que outra pessoa opere o sistema sem o autor. Cresce a cada marco; a versão
-completa (incidentes, restauração, alertas) fecha no M8.
+Escrito para que outra pessoa opere o sistema sem o autor: instalação, rotina, alertas,
+backup e restauração, falhas e incidentes.
 
 ## Instalar numa VPS nova
 
@@ -96,6 +96,14 @@ make seed-demo PNID=123456789012345
 - Logs úteis: `passagem_assumida`, `passagem_sem_corretor_de_plantao`, `aviso_passagem_falhou`,
   `alerta_operador_falhou`, `passagem_na_fila_fora_do_horario`.
 
+## Situação da imobiliária e modo sombra
+
+Implantação → **modo sombra** → atendendo, em **Painel → Situação** (gestor ou operador como suporte).
+No modo sombra o assistente lê as conversas reais e só registra o que responderia; a equipe segue
+atendendo pelo app e nenhuma passagem real é criada. Confira as respostas por 2 dias: preço, data ou
+casa errada é problema na planilha ou no calendário. Ativar antes de 2 dias exige confirmação. Cada
+mudança fica no `audit_log` (`status_changed`).
+
 ## Fila
 
 - Trabalhos que falharam 3 vezes vão para o stream `rd:jobs:dead` no Redis
@@ -103,12 +111,84 @@ make seed-demo PNID=123456789012345
 - Logs úteis: `webhook_processado`, `lote_processado`, `lote_sem_resposta`, `limite_anti_abuso_atingido`,
   `transcricao_falhou`, `trabalho_falhou`.
 
+## Capacidade
+
+- O worker atende `WORKER_CONCURRENCY` conversas ao mesmo tempo (padrão 40), porque quase todo o
+  tempo é espera pela IA. Medido em `docs/carga.md`: 200 conversas em 10 imobiliárias com p95 de
+  10,8 s com IA rápida. Com modelo mais lento, use 64. Para dobrar, suba outra réplica do worker.
+- O Postgres sobe com `max_connections=200`.
+
 ## Saúde
 
 - `https://<domínio>/health` → `{"status":"ok", "checks": {"postgres":"ok","redis":"ok"}}`.
   Status 503 indica qual dependência falhou; o motivo está em `make logs` (evento `health_check_falhou`).
 - `worker` e `scheduler` gravam heartbeat no Redis a cada 10 s; o Docker marca o contêiner como
   `unhealthy` se o heartbeat sumir.
+
+## Alertas
+
+O scheduler confere tudo a cada 5 min e manda **um e-mail aos operadores** com os alertas novos (o
+mesmo alerta não se repete por 12 h). Também aparecem em `/operador` e no log `alerta_operacional`.
+Configure ainda um **monitor externo** (ex.: UptimeRobot) chamando `https://<domínio>/health` a cada
+minuto: ele avisa se a VPS inteira cair, coisa que o próprio sistema não consegue avisar.
+
+| Alerta | O que fazer |
+|---|---|
+| Tarefas acumuladas na fila (≥ 100; erro com ≥ 500) | `make ps`: o worker está `healthy`? `make logs` (`trabalho_falhou`, `worker_dependencia_indisponivel`). Limite da conta de IA? Se for volume, suba `WORKER_CONCURRENCY` ou outra réplica. |
+| Tarefa(s) na fila de falhas | Ver o motivo nos logs (`trabalho_falhou` com `conversation_id`); a conversa precisa de um corretor. |
+| Mensagem sem processar há mais de 10 min | O scheduler reagenda sozinho a cada minuto (`mensagens_paradas_reagendadas`); se persistir, o worker está parado. |
+| Disco ≥ 80% (erro com ≥ 90%) | `docker system prune` (imagens antigas), `du -sh` no volume de backups; aumente o disco. |
+| Nenhum backup nas últimas 26 h | `make logs` do serviço `backup` (`backup_falhou`); rode `make backup`. |
+| Backup sem cópia externa | Configure `BACKUP_S3_*` no `.env` e rode `make up` (ou veja `backup_envio_externo_falhou`). |
+| Respostas em contingência (IA fora) | Status do provedor de IA; chave e saldo; o hóspede recebe resposta fixa e passagem. |
+| Frases recusadas pelo validador | Normal em pequeno número; muitas seguidas indicam mudança de modelo ou de prompt: rode `make golden-live`. |
+| Sem planilha aprovada / datas vencidas | Avise o gestor (painel ou lembrete das 9h). |
+| Passagem aguardando há mais de 15 min | O gestor já recebeu o alerta; confirme que há corretor com aviso aceito. |
+| Nenhuma mensagem em 48 h | Webhook desligado no parceiro? Número desconectado? Teste mandando uma mensagem. |
+| Qualidade do número amarela/vermelha | Muitos bloqueios ou denúncias de hóspedes; revise os templates e a frequência de mensagens ativas. |
+
+## Backup e restauração
+
+- Todo dia às `BACKUP_HOUR` (03h) o serviço `backup` gera um dump **cifrado** (gpg AES-256 com
+  `BACKUP_PASSPHRASE`), guarda 30 dias no volume `backups` e, com `BACKUP_S3_*` preenchido, envia uma
+  cópia para o armazenamento externo (S3 compatível), que também guarda 30 dias. `make backup` faz um
+  agora.
+- **Exercício de restauração (trimestral, e antes de cada temporada):** `make restore-drill` restaura o
+  último backup num banco à parte, confere as tabelas e a corrente do `audit_log` de cada imobiliária,
+  mostra o tempo e apaga. Anote o tempo no registro de exercícios. `make restore-drill FILE=remote`
+  testa a cópia externa.
+- **Restaurar de verdade** (RTO ≤ 4 h, RPO ≤ 24 h):
+  1. `make restore FILE=latest CONFIRM=sim` (ou `FILE=remote`, ou o caminho de um arquivo em
+     `/backups`). Isso para app, worker e scheduler, restaura num banco à parte, confere, troca pelo
+     banco em uso (o antigo fica como `rentaldesk_antes_<data>`), aplica migrações e sobe tudo.
+  2. Confira `/health`, entre no painel e veja a última conversa.
+  3. Mensagens recebidas entre o backup e a falha: a Meta reenvia o que não teve resposta 200; o
+     resto se perde (RPO). Avise as imobiliárias.
+  4. Depois de alguns dias, apague o banco antigo:
+     `docker compose ... exec postgres dropdb -U postgres rentaldesk_antes_<data>`.
+- **VPS perdida:** instale uma nova com o `install.sh`, copie o `.env` guardado no cofre (sem o
+  `BACKUP_PASSPHRASE` original os backups não abrem), rode `make restore FILE=remote CONFIRM=sim` e
+  aponte o domínio para a nova VPS.
+
+## Falhas
+
+| Falha | O que acontece | O que fazer |
+|---|---|---|
+| IA fora do ar | Respostas fixas (contingência) e passagem ao corretor; alerta "contingência". | Esperar o provedor; trocar `LLM_MODEL` se for um modelo só. |
+| Redis fora | `/health` 503; o webhook grava a mensagem e responde erro, a Meta reenvia; o worker espera e tenta de novo sem cair. Quando o Redis volta, o scheduler reagenda as mensagens paradas em até 1 min. | `make ps`, `make logs redis`; `make up`. |
+| Postgres fora | `/health` 503; webhook responde erro e a Meta reenvia (por até alguns dias). | `make logs postgres`; disco cheio? `make up`. Se corrompido: restauração. |
+| WhatsApp (parceiro/Meta) fora | Respostas falham com `whatsapp_api_erro`; tentativas automáticas; depois vão para a fila de falhas. | Status do parceiro; após a volta, as conversas com falha precisam de corretor. |
+| VPS inteira fora | O monitor externo avisa. | Provedor da VPS; se perdida, "VPS perdida" acima. |
+
+## Incidente de segurança ou de dados pessoais
+
+1. **Detectar e conter:** pause o assistente das imobiliárias afetadas (painel) ou `make down`; troque
+   as credenciais expostas (`.env`, tokens do parceiro, chave da IA) e encerre sessões do painel
+   (`make reset-totp` para quem for preciso).
+2. **Avaliar:** o que vazou, de quem, desde quando (`audit_log`, logs de 30 dias).
+3. **Avisar a imobiliária (controladora) em até 24 h**, por escrito, com o que se sabe; ela decide sobre
+   avisar a ANPD e os titulares.
+4. **Registrar** em `docs/incidentes/AAAA-MM-DD.md`: linha do tempo, causa, dados afetados, ações.
 
 ## Atualizar e voltar versão
 

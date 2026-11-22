@@ -5,6 +5,25 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.9.0] - 2026-11-22 · M8 Operação
+
+### Adicionado
+- Cópia externa do backup (S3 compatível, opcional), `make restore` (restaura à parte, confere e troca)
+  e `make restore-drill` (exercício com tempo medido).
+- Alertas ao operador por e-mail: fila, disco, backup, IA fora, validador, datas, webhook, qualidade do
+  número, passagens e mensagens paradas.
+- Tela "Situação" no painel: modo sombra para conferir respostas e ativar o atendimento.
+- Worker com várias conversas ao mesmo tempo (`WORKER_CONCURRENCY`); teste de carga (`make load`).
+- Recuperação automática de mensagens paradas; worker resiste a Redis e Postgres fora do ar.
+- Runbook completo (alertas, backup, falhas, incidentes).
+- Ajustes do time: PARAR vale para todos e bloqueia templates; e-mail semanal desligável; auditoria
+  das datas com quem, por onde e quando.
+
+### Corrigido
+- Modo sombra criava passagem real e avisava o corretor.
+- Mensagem perdida quando o Redis caía entre gravar e agendar.
+- Fila de falhas sem limite; restauração sem os donos das tabelas.
+
 ## [0.8.0] - 2026-11-22 · M7 Painel, lembrete, relatório, demonstração e titular
 
 ### Adicionado

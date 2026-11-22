@@ -64,7 +64,7 @@ restore-drill: ## Exercício de restauração (RTO): restaura o último backup n
 	$(COMPOSE) exec -T backup restore-backup "$(or $(FILE),latest)"
 
 # --- Desenvolvimento ----------------------------------------------------------
-.PHONY: dev fmt lint test coverage-core test-unit test-deps-up test-deps-down golden golden-live shellcheck security
+.PHONY: dev fmt lint test coverage-core test-unit test-deps-up test-deps-down golden golden-live shellcheck security load
 dev: ## Instala as dependências locais (uv)
 	uv sync --frozen
 
@@ -104,6 +104,9 @@ golden: ## Conjunto de ouro com o FakeLLM determinístico
 
 golden-live: ## Compara Haiku, Sonnet e Opus no conjunto de ouro (precisa de LLM_API_KEY)
 	$(UV) python -m tests.golden.compare --out docs/golden/comparacao-$$(date +%F).md
+
+load: ## Teste de carga: 200 conversas em 10 imobiliárias (precisa de make test-deps-up)
+	$(UV) python -m tests.load.run_load
 
 security: ## Auditoria de dependências, SAST e segredos no histórico (gitleaks via Docker)
 	uv export --frozen --no-dev --no-hashes --format requirements-txt -o /tmp/rental-desk-requirements.txt

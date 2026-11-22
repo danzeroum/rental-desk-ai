@@ -12,10 +12,44 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M5 · Extração, decisão, templates, validador, auditoria | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.6.0 |
 | M6 · Passagem, assumir, escalonamento, pausa, desfecho | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.7.0 |
 | M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.8.0 |
-| M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | ⏳ próximo | | |
-| M9 · iCal e planilha Google | — | | |
+| M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.9.0 |
+| M9 · iCal e planilha Google | ⏳ próximo | | |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M8 · Backup/restore, monitoramento, carga, modo sombra, runbook — concluído em 22/11/2026
+
+### Entregue
+- **Ajustes do time sobre o M7 (D040):** PARAR com o texto combinado, vale para todos e bloqueia
+  IA, lembrete e template; só o titular reativa; painel mostra quem saiu. E-mail semanal desligável.
+  Datas com quem, por onde e quando no `audit_log`. Mascaramento movido para o core. M12 no SPEC e
+  "Pontos de extensão para outros segmentos" no DECISIONS.
+- **Backup e restauração (D041):** cópia externa S3 opcional, sinal de vida, `make restore` (restaura à
+  parte, confere a corrente de auditoria, troca e guarda o banco antigo) e `make restore-drill`.
+- **Alertas** ao operador (fila, disco, backup, IA, validador, datas, webhook, qualidade do número,
+  passagens, mensagens paradas), sem repetir.
+- **Modo sombra** no painel (Situação) e correção: em sombra não há passagem real.
+- **Carga:** worker com laços concorrentes; `make load`; resultados em `docs/carga.md`.
+- **Falhas:** varredura que reagenda mensagens paradas; worker resiste a Redis/Postgres fora.
+- **Runbook** completo. Versão 0.9.0.
+
+### Verificado
+- `make lint test golden security` verdes (detalhe no resumo do PR).
+- **RTO simulado:** restauração de backup cifrado num banco novo, conferida e trocada, em segundos
+  com o banco de teste (`tests/system/test_backup_restore.py`); o mesmo script roda no `make
+  restore-drill` em produção.
+- **Carga dentro da meta:** 200 conversas em 10 imobiliárias, 200 respondidas, nenhuma perda, p95 de
+  10,8 s depois do debounce (meta 15 s), com IA simulada de 0,8–2,5 s por chamada.
+- **Falhas:** Redis fora no webhook (mensagem recuperada pela varredura), Postgres fora (503 e erro
+  para a Meta reenviar), worker sem cair; carga reduzida roda no CI.
+
+### Depende de humano
+- Conta de armazenamento S3 compatível (`BACKUP_S3_*`) para a cópia externa.
+- Monitor externo do `/health` (ex.: UptimeRobot).
+- Limite de requisições por minuto da conta de IA (até ~400/min no pico de 200 conversas).
+- Exercício de restauração na VPS de produção (`make restore-drill`) e registro do tempo.
 
 ---
 

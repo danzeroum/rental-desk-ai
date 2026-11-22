@@ -514,3 +514,28 @@ Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nad
   rótulo (ou de um parâmetro). Não implementado.
 - **Tenant próprio (M12):** pacote de perguntas e respostas sem disponibilidade nem preço; exige um
   motor alternativo ao `engine` de temporada, escolhido por tenant.
+
+## D041 · Operação: backup, alertas, capacidade, falhas e modo sombra (M8)
+
+- **Backup:** `pg_dump` em formato custom **com dono e permissões** (antes era `--no-owner`: a
+  restauração deixaria as tabelas com o superusuário e as migrações do papel dono falhariam),
+  cifrado com gpg. Cópia externa por `rclone` para qualquer S3 compatível, **desligada** sem
+  `BACKUP_S3_*` (pendência humana: conta de armazenamento); sem ela o painel do operador alerta
+  "sem cópia externa". Sinal de vida em `rd:heartbeat:backup` (Redis) para os alertas.
+- **Restauração:** sempre num banco à parte, com conferência (tabelas e `audit_log_verify` de cada
+  imobiliária) antes de trocar; o banco antigo fica renomeado, não apagado. O mesmo script faz o
+  exercício (sem troca). Alternativa descartada: `pg_restore --clean` direto no banco em uso (sem volta
+  se o arquivo estiver ruim).
+- **Alertas:** scheduler a cada 5 min; um e-mail por rodada aos operadores com os alertas novos; o mesmo
+  alerta (chave + texto) não repete por 12 h. Monitor externo do `/health` fica com o operador
+  (serviço de terceiros, pendência humana). Sem webhook de chat por enquanto.
+- **Capacidade:** o worker roda `WORKER_CONCURRENCY` laços (padrão 40) e lê um trabalho por vez por
+  laço; conexões do banco = metade dos laços + 2. Medido em `docs/carga.md`. Postgres com
+  `max_connections=200`.
+- **Recuperação de mensagens:** varredura a cada minuto reagenda conversas com mensagem de hóspede não
+  processada há mais de 1 min (cobre Redis fora entre gravar e agendar, quando o reenvio da Meta é
+  descartado como duplicado). O worker não cai com Redis/Postgres fora: espera (até 10 s) e tenta.
+- **Modo sombra:** não cria passagem real nem avisa corretor (antes criava); a passagem que o
+  assistente faria fica no registro. Transições implantação → sombra → atendendo (e volta) no painel,
+  só gestor/suporte, com planilha aprovada e número conectado; ativar antes de 2 dias exige confirmação.
+- **Fila de falhas** limitada a 10 mil entradas (antes crescia sem limite).

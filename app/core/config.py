@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     """Papel `rentaldesk_ops` (BYPASSRLS): só no scheduler, para listar trabalho global."""
 
     db_pool_size: int = Field(default=10, ge=1, le=100)
+    worker_concurrency: int = Field(default=40, ge=1, le=128)
+    """Conversas atendidas ao mesmo tempo por processo worker (cada uma espera a IA)."""
     health_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
     data_encryption_keys: SecretStr

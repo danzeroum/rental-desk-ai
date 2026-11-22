@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 from datetime import UTC, datetime
 
 from app.adapters.factory import (
@@ -28,11 +29,18 @@ from app.workers.responder import send_reply
 from app.workers.runner import Worker
 
 
+def worker_pool_size(settings: Settings) -> int:
+    """Conexões do worker: as conversas só usam o banco em transações curtas (a espera da IA
+    fica fora delas), então metade dos laços basta; medido no teste de carga (docs/carga.md)."""
+    return max(settings.db_pool_size, settings.worker_concurrency // 2 + 2)
+
+
 async def run_worker(
     stop: asyncio.Event, settings: Settings | None = None, handler: BatchHandler | None = None
 ) -> None:
     settings = settings or get_settings()
-    engine = create_engine(settings)
+    pool = worker_pool_size(settings)
+    engine = create_engine(settings.model_copy(update={"db_pool_size": pool}))
     redis = create_redis(settings)
     sessions = scoped_session_factory(engine)
     queue = build_queue(redis, settings)
@@ -75,7 +83,12 @@ async def run_worker(
         )  # fmt: skip
 
     try:
-        await Worker(queue, processor, send_notice).run(stop)
+        host = socket.gethostname()
+        loops = [
+            Worker(queue, processor, send_notice, consumer=f"{host}-{index}").run(stop)
+            for index in range(settings.worker_concurrency)
+        ]
+        await asyncio.gather(*loops)
     finally:
         await redis.aclose()
         await engine.dispose()

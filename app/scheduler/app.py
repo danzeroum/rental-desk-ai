@@ -13,8 +13,10 @@ from app.core.config import TIMEZONE, Settings, get_settings
 from app.core.db import async_url, create_engine
 from app.core.redis import create_redis
 from app.core.rls import scoped_session_factory
+from app.main import build_queue
 from app.scheduler.alerts import ALERT_EVERY_SECONDS, AlertService
 from app.scheduler.quality import QUALITY_EVERY_SECONDS, refresh_quality, tenants_with_number
+from app.scheduler.recovery import RECOVERY_EVERY_SECONDS, reschedule_stuck
 from app.scheduler.runner import Job, Scheduler, active_tenants, tenants_with_open_handoffs
 from app.workers.handoffs import HandoffService
 from app.workers.reminders import ReminderService, reminder_due
@@ -97,6 +99,11 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
         public_base_url=settings.public_base_url,
     )
 
+    queue = build_queue(redis, settings)
+
+    async def recover() -> int:
+        return await reschedule_stuck(ops_engine, queue)
+
     async def remind_all() -> int:
         return await send_daily_reminders(redis, ops_engine, reminders)
 
@@ -106,6 +113,7 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
         Job("lembrete_9h", REMINDER_CHECK_SECONDS, remind_all),
         Job("relatorio_semanal", REMINDER_CHECK_SECONDS, report_all),
         Job("alertas", ALERT_EVERY_SECONDS, alerts.run),
+        Job("recuperacao", RECOVERY_EVERY_SECONDS, recover),
     ]
     scheduler = Scheduler(redis, jobs)
     try:
