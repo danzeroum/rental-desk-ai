@@ -31,6 +31,7 @@ from app.workers.calendars import CalendarService
 from app.workers.engine import ConversationEngine
 from app.workers.handoffs import HandoffService
 from app.workers.queue import WorkQueue
+from app.workers.sales_demo_chat import SalesDemoChat
 from app.workers.sheets import SheetSyncService
 from app.workers.simulator import Simulator
 
@@ -57,7 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             mailer=app.state.mailer,
             public_base_url=settings.public_base_url,
         )
-        app.state.gateway = build_gateway(settings)
+        app.state.gateway = build_gateway(settings, app.state.redis)
         app.state.simulator = Simulator(
             sessions=app.state.sessions, engine=ConversationEngine(build_llm(settings)),
             redis=app.state.redis, public_base_url=settings.public_base_url,
@@ -67,6 +68,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             gateway=app.state.gateway,
             keyring=app.state.keyring,
             mailer=app.state.mailer,
+        )
+        app.state.sales_demo = SalesDemoChat(
+            sessions=app.state.sessions, redis=app.state.redis, queue=app.state.queue
         )
         app.state.link_checker = build_link_checker(settings)
         app.state.calendars = CalendarService(

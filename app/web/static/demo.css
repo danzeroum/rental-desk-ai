@@ -1,0 +1,67 @@
+/* Kit de demonstração: conversa com aparência de app de mensagens, sem marca de terceiros. */
+:root {
+  --fundo: #eae6df; --texto: #111b21; --suave: #54656f; --cabecalho: #0b6e5f; --cabecalho-texto: #fff;
+  --conversa: #efeae2; --meu: #d9fdd3; --dele: #fff; --chip: #fff; --acento: #0b6e5f; --erro: #b3261e;
+  --corretor: #3a4a8c;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --fundo: #0b141a; --texto: #e9edef; --suave: #8696a0; --cabecalho: #1f2c34; --conversa: #0b141a;
+          --meu: #005c4b; --dele: #202c33; --chip: #202c33; --acento: #00a884; --erro: #f2b8b5; --corretor: #2b3a6b; }
+}
+* { box-sizing: border-box; }
+body.demo { margin: 0; background: var(--fundo); color: var(--texto); line-height: 1.4; min-height: 100vh; }
+a { color: var(--acento); }
+.oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.demo-topo { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; justify-content: space-between;
+             padding: .6rem 1rem; background: var(--cabecalho); color: var(--cabecalho-texto); }
+.selo-demo { font-size: .8rem; padding: .15rem .55rem; border-radius: 999px; background: rgba(255,255,255,.18); }
+.demo-cartao { max-width: 40rem; margin: 1.5rem auto; padding: 1.25rem; background: var(--dele); border-radius: 12px; }
+.demo-cartao h1 { font-size: 1.3rem; margin-top: 0; }
+.demo-escolha { list-style: none; padding: 0; display: grid; gap: .75rem; }
+.demo-escolha a { display: flex; flex-direction: column; padding: 1rem; border-radius: 10px; text-decoration: none;
+                  color: var(--texto); background: var(--conversa); border: 1px solid rgba(127,127,127,.25); }
+.demo-escolha span, .demo-dica { color: var(--suave); font-size: .88rem; }
+.demo-nav { display: flex; justify-content: space-between; max-width: 64rem; margin: .5rem auto 0; padding: 0 1rem; }
+.telas { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 64rem; margin: .5rem auto 1.5rem; padding: 0 1rem; }
+.celular { display: flex; flex-direction: column; height: min(44rem, calc(100vh - 7rem)); min-height: 30rem;
+           border-radius: 16px; overflow: hidden; background: var(--conversa); box-shadow: 0 2px 12px rgba(0,0,0,.15); }
+.celular-topo { display: flex; gap: .6rem; align-items: center; padding: .6rem .8rem; background: var(--cabecalho); color: var(--cabecalho-texto); }
+.celular.corretor .celular-topo { background: var(--corretor); }
+.celular-topo small { display: block; font-size: .75rem; opacity: .85; }
+.avatar { width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
+          background: rgba(255,255,255,.25); flex: none; }
+.fundo-conversa { flex: 1; overflow-y: auto; padding: .75rem; }
+.mensagens { display: flex; flex-direction: column; gap: .4rem; }
+.balao { max-width: 85%; padding: .4rem .6rem .25rem; border-radius: 8px; background: var(--dele); box-shadow: 0 1px .5px rgba(0,0,0,.13); }
+.balao.meu { align-self: flex-end; background: var(--meu); }
+.balao p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.balao time { display: block; text-align: right; font-size: .68rem; color: var(--suave); }
+.rotulo { display: block; font-size: .7rem; color: var(--suave); margin-bottom: .15rem; }
+.sistema { align-self: center; max-width: 92%; text-align: center; font-size: .8rem; color: var(--suave);
+           background: var(--dele); padding: .35rem .6rem; border-radius: 8px; }
+.digitando { align-self: flex-start; font-size: .85rem; color: var(--suave); font-style: italic; margin: 0; }
+.sugestoes { display: flex; gap: .4rem; overflow-x: auto; padding: .4rem .6rem; }
+.sugestoes form { flex: none; }
+.chip { white-space: nowrap; border: 1px solid rgba(127,127,127,.35); background: var(--chip); color: var(--texto);
+        border-radius: 999px; padding: .35rem .7rem; font: inherit; font-size: .82rem; cursor: pointer; }
+.escrever { display: flex; gap: .4rem; padding: .5rem .6rem; }
+.escrever input { flex: 1; min-width: 0; border: 0; border-radius: 999px; padding: .6rem .9rem; font: inherit; font-size: 1rem;
+                  background: var(--dele); color: var(--texto); }
+.escrever button, .acao-corretor button { border: 0; border-radius: 999px; background: var(--acento); color: #fff;
+                  font: inherit; cursor: pointer; padding: .6rem .95rem; }
+.recomecar { padding: 0 .8rem .6rem; }
+button.link { background: none; border: 0; color: var(--suave); text-decoration: underline; font: inherit; font-size: .82rem; cursor: pointer; padding: 0; }
+.acao-corretor { padding: .5rem .8rem; }
+.acao-corretor button { width: 100%; }
+.celular.corretor .demo-dica { margin: 0; padding: 0 .8rem .8rem; }
+.erro { max-width: 64rem; margin: .5rem auto; padding: .5rem 1rem; color: var(--erro); }
+.so-celular { display: none; }
+@media (max-width: 720px) {
+  .telas { grid-template-columns: 1fr; padding: 0 .5rem; }
+  .celular { height: calc(100svh - 6.5rem); min-height: 26rem; border-radius: 12px; }
+  .celular.corretor { height: auto; min-height: 20rem; max-height: 80svh; }
+  .so-celular { display: inline; }
+  .demo-nav { padding: 0 .5rem; font-size: .9rem; }
+}

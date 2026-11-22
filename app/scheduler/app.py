@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -21,6 +22,7 @@ from app.core.db import async_url, create_engine
 from app.core.redis import create_redis
 from app.core.rls import scoped_session_factory
 from app.main import build_queue
+from app.sales_demo import purge_sales_demos
 from app.scheduler.alerts import ALERT_EVERY_SECONDS, AlertService
 from app.scheduler.quality import QUALITY_EVERY_SECONDS, refresh_quality, tenants_with_number
 from app.scheduler.recovery import RECOVERY_EVERY_SECONDS, reschedule_stuck
@@ -40,6 +42,7 @@ from app.workers.sheets import SheetSyncService
 ESCALATION_EVERY_SECONDS = 60
 REMINDER_CHECK_SECONDS = 300
 REMINDER_KEY_SECONDS = 2 * 24 * 3600
+DEMO_PURGE_CHECK_SECONDS = 900
 
 
 async def send_daily_reminders(
@@ -76,7 +79,7 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
     redis = create_redis(settings)
     sessions, gateway, keyring = (
         scoped_session_factory(engine),
-        build_gateway(settings),
+        build_gateway(settings, redis),
         build_keyring(settings),
     )
     mailer = build_mailer(settings)
@@ -149,6 +152,9 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
     async def recover() -> int:
         return await reschedule_stuck(ops_engine, queue)
 
+    async def purge_demos() -> int:
+        return await purge_sales_demos(redis, ops_engine, sessions, now=datetime.now(UTC))
+
     async def remind_all() -> int:
         return await send_daily_reminders(redis, ops_engine, reminders)
 
@@ -161,6 +167,7 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
         Job("recuperacao", RECOVERY_EVERY_SECONDS, recover),
         Job("calendarios", SYNC_EVERY_SECONDS, sync_calendars),
         Job("planilha_google", SYNC_EVERY_SECONDS, sync_sheets),
+        Job("limpeza_demo", DEMO_PURGE_CHECK_SECONDS, purge_demos),
     ]
     scheduler = Scheduler(redis, jobs)
     try:

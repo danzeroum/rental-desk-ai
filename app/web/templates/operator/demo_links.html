@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Links da demonstração{% endblock %}
+{% block nav %}
+  <a href="/operador">Saúde</a>
+  <a href="/operador/demo">Demonstração</a>
+  <a href="/painel/escolher">Minhas imobiliárias</a>
+{% endblock %}
+{% block content %}
+<h1>Links da demonstração para vendas</h1>
+<p class="dica">Quem tem o link conversa com a Imobiliária Maré Alta e a Pousada Recanto da Enseada (fictícias),
+  sem login e sem WhatsApp. Visitas duram 4 horas; revogar encerra as visitas abertas na hora.
+  Conversas da demonstração são apagadas todo dia.</p>
+{% if new_link %}
+<section class="cartao" role="status">
+  <h2>Link criado</h2>
+  <p>Copie agora: ele não aparece de novo.</p>
+  <p><code class="chave">{{ new_link }}</code></p>
+</section>
+{% endif %}
+<form method="post" action="/operador/demo" class="cartao">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Para quem é o link
+    <input name="label" maxlength="120" required placeholder="ex.: visita à Imobiliária Exemplo, 25/11"></label>
+  <p class="dica">Só um rótulo para você reconhecer o link. Não escreva telefone nem e-mail.</p>
+  <button>Criar link</button>
+</form>
+<div class="tabela"><table>
+  <thead><tr><th>Rótulo</th><th>Criado</th><th>Último uso</th><th>Visitas</th><th>Situação</th><th></th></tr></thead>
+  <tbody>
+  {% for link in links %}
+  <tr>
+    <td>{{ link.label }}</td>
+    <td>{{ fmt(link.created_at, "%d/%m %H:%M") }}</td>
+    <td>{{ fmt(link.last_used_at, "%d/%m %H:%M") }}</td>
+    <td>{{ link.visits }}</td>
+    <td>{% if link.revoked_at %}<span class="selo">revogado em {{ fmt(link.revoked_at, "%d/%m %H:%M") }}</span>{% else %}<span class="selo ok">ativo</span>{% endif %}</td>
+    <td>{% if not link.revoked_at %}
+      <form method="post" action="/operador/demo/{{ link.id }}/revogar">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="perigo">Revogar</button>
+      </form>{% endif %}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6">Nenhum link criado.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

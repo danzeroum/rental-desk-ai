@@ -5,6 +5,14 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+### Adicionado
+- Kit de demonstração para vendas: conversa com aparência de WhatsApp em `/demo` pelo pipeline real,
+  celular do corretor com "Responder 1", imobiliárias fictícias Maré Alta (8 casas) e Pousada Recanto da
+  Enseada (6 quartos), links com token revogáveis em `/operador/demo` e limpeza diária.
+
+### Segurança
+- Tokens de convite, troca de senha e demonstração não aparecem mais no log de requisições.
+
 ## [1.0.0rc1] - 2026-11-22 · M11 Candidata à Versão 1.0
 
 ### Adicionado

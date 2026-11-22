@@ -1,0 +1,41 @@
+{% macro guest(view, oob) %}
+<div id="msgs-hospede" class="mensagens"{% if oob %} hx-swap-oob="true"{% endif %} data-total="{{ view.chat | length }}{{ 't' if view.typing }}">
+  {% if not view.chat %}
+  <p class="sistema">Escreva como um hóspede escreveria ou toque numa sugestão.</p>
+  {% endif %}
+  {% for e in view.chat %}
+  <div class="balao {{ 'meu' if e.inbound else 'dele' }}"><p>{{ e.text | whatsapp }}</p><time>{{ e.at | local("%H:%M") }}</time></div>
+  {% endfor %}
+  {% if view.typing %}<p class="digitando" role="status">digitando…</p>{% endif %}
+  {% if view.assumed %}<p class="sistema">Um corretor assumiu: o assistente fica em silêncio nesta conversa por 24 h.
+    Na vida real o corretor continua pelo app WhatsApp Business. Para testar de novo, toque em Recomeçar.</p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro broker(view, oob) %}
+<div id="msgs-corretor" class="mensagens"{% if oob %} hx-swap-oob="true"{% endif %} data-total="{{ view.broker | length }}">
+  {% if not view.broker %}
+  <p class="sistema">Nenhum aviso ainda. Peça uma opção e diga qual quer (ex.: "quero a primeira") ou peça para falar com uma pessoa.</p>
+  {% endif %}
+  {% for e in view.broker %}
+  <div class="balao {{ 'meu' if e.inbound else 'dele' }}">
+    {% if e.template %}<span class="rotulo">mensagem automática (template aprovado)</span>{% endif %}
+    <p>{{ e.text | whatsapp }}</p><time>{{ e.at | local("%H:%M") }}</time></div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro action(agency, view, csrf, oob) %}
+<div id="acao-corretor" class="acao-corretor"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if view.can_assume %}
+  <form method="post" action="/demo/{{ agency.pnid }}/assumir" hx-post="/demo/{{ agency.pnid }}/assumir" hx-swap="none">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button>Responder 1 (assumir a conversa)</button>
+  </form>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro error_box(error, oob) %}
+<div id="demo-erro"{% if oob %} hx-swap-oob="true"{% endif %}>{% if error %}<p class="erro" role="alert">{{ error }}</p>{% endif %}</div>
+{% endmacro %}
