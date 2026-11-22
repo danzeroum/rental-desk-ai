@@ -155,7 +155,7 @@ A mais recente fica embaixo.
 - Um período de tarifa de uma noite só é válido (`primeira_noite = ultima_noite`). Bloqueio com
   `saida` igual ou antes da `entrada` é erro.
 - Mensagens de sobreposição e lacuna falam em noites ("noites de 28/12/2026 a 28/12/2026 sem tarifa").
-- SPEC, seção 8, e a central de ajuda (`docs/ajuda/planilha.md`) atualizados.
+- SPEC, seção 8, e a central de ajuda (`app/web/content/ajuda/planilha.md`) atualizados.
 
 ## D017 · Avisos não bloqueantes da importação (M2)
 

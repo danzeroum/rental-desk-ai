@@ -76,7 +76,7 @@ async def totp_check(request: Request) -> Response:
         data = await auth(request).check_totp(token, data, str(form.get("code", "")))
     except AuthError as exc:
         return render(request, "totp.html", {"error": str(exc)}, status_code=400)
-    return redirect(await _after_login(request, token, data))
+    return await _logged_in(request, token, data)
 
 
 @router.get("/totp/cadastro", response_class=HTMLResponse)
@@ -104,7 +104,14 @@ async def totp_setup(request: Request) -> Response:
         return render(
             request, "totp_setup.html", {"error": str(exc), "retry": True}, status_code=400
         )
-    return redirect(await _after_login(request, token, data))
+    return await _logged_in(request, token, data)
+
+
+async def _logged_in(request: Request, token: str, data: PanelSession) -> Response:
+    fresh = await auth(request).rotate(token, data)
+    response = redirect(await _after_login(request, fresh, data))
+    set_cookie(response, SESSION_COOKIE, fresh)
+    return response
 
 
 async def _after_login(request: Request, token: str, data: PanelSession) -> str:

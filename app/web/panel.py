@@ -19,6 +19,7 @@ from app.web import (
     routes_operator,
     routes_panel,
     routes_privacy,
+    routes_public,
     routes_results,
     routes_settings,
     routes_shadow,
@@ -96,5 +97,6 @@ def install_panel(app: FastAPI) -> None:
         routes_sync,
         routes_results,
         routes_onboarding,
+        routes_public,
     ):
         app.include_router(module.router)

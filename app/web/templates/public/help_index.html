@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Ajuda{% endblock %}
+{% block content %}
+<h1>Central de ajuda</h1>
+<ul class="cartao lista-ajuda">
+  {% for slug, title in pages %}<li><a href="/ajuda/{{ slug }}">{{ title }}</a></li>{% endfor %}
+</ul>
+<p class="dica"><a href="/termos">Termos de uso</a> · <a href="/politica-de-privacidade">Política de privacidade</a> · <a href="/status">Status do serviço</a></p>
+{% endblock %}

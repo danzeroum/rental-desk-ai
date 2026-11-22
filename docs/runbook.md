@@ -67,7 +67,7 @@ make seed-demo PNID=123456789012345
   API**, crie uma conta de serviço, gere uma chave JSON e cole o JSON inteiro em uma linha em
   `GOOGLE_SERVICE_ACCOUNT_JSON` no `.env` (depois `make up`). O e-mail da conta aparece no painel para
   os gestores compartilharem a planilha.
-- Ajuda para o gestor: `docs/ajuda/calendarios.md`.
+- Ajuda para o gestor: `app/web/content/ajuda/calendarios.md`.
 
 ## Lembrete das 9h e relatório semanal
 

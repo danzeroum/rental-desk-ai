@@ -41,6 +41,7 @@ LOCK_FOR: Final = timedelta(minutes=15)
 IP_ATTEMPTS: Final = 30
 IP_WINDOW_SECONDS: Final = 600
 SESSION_IDLE_SECONDS: Final = 8 * 3600
+SESSION_MAX_SECONDS: Final = 12 * 3600
 INVITE_SECONDS: Final = 72 * 3600
 RESET_SECONDS: Final = 3600
 GENERIC_LOGIN_ERROR: Final = "E-mail ou senha incorretos."
@@ -68,6 +69,8 @@ class PanelSession:
     tenant_id: str | None = None
     pending_totp_secret: str | None = None
     is_operator: bool = False
+    started_at: float = 0.0
+    """Início (epoch) para o limite absoluto de duração, mesmo com uso contínuo."""
     role: str | None = None
     """Papel na imobiliária escolhida: gestor, corretor ou operador (suporte)."""
     tenant_name: str | None = None
@@ -108,7 +111,10 @@ class AuthService:
 
     async def create_session(self, user: AppUser, stage: Stage) -> str:
         token = new_token()
-        data = PanelSession(str(user.id), stage, new_token(), is_operator=user.is_operator)
+        data = PanelSession(
+            str(user.id), stage, new_token(), is_operator=user.is_operator,
+            started_at=self.clock().timestamp(),
+        )  # fmt: skip
         await self._save(token, data)
         await self.redis.sadd(f"rd:user-sess:{user.id}", hash_token(token))
         return token
@@ -125,8 +131,21 @@ class AuthService:
         raw = await self.redis.get(key)
         if raw is None:
             return None
+        data = PanelSession(**json.loads(raw))
+        if self.clock().timestamp() - data.started_at > SESSION_MAX_SECONDS:
+            await self.redis.delete(key)  # passou de 12 h: entra de novo, com senha e código
+            return None
         await self.redis.expire(key, SESSION_IDLE_SECONDS)
-        return PanelSession(**json.loads(raw))
+        return data
+
+    async def rotate(self, token: str, data: PanelSession) -> str:
+        """Token novo ao concluir o autenticador (o da etapa da senha deixa de valer)."""
+        fresh = new_token()
+        await self._save(fresh, data)
+        await self.redis.sadd(f"rd:user-sess:{data.user_id}", hash_token(fresh))
+        await self.redis.srem(f"rd:user-sess:{data.user_id}", hash_token(token))
+        await self.end_session(token)
+        return fresh
 
     async def _require_session(self, token: str) -> PanelSession:
         data = await self.get_session(token)

@@ -1,6 +1,6 @@
 # Como preencher a planilha modelo
 
-Texto-fonte da central de ajuda (RF31). A planilha tem 4 abas. Baixe o modelo no painel
+A planilha tem 4 abas. Baixe o modelo no painel
 (ou `make template`): ele já vem com listas de Sim/Não, formato de data e os códigos das
 casas para escolher.
 

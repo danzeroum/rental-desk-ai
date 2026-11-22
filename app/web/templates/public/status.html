@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Status{% endblock %}
+{% block content %}
+<h1>Status do serviço</h1>
+{% if healthy %}<p class="aviso ok">Tudo funcionando normalmente.</p>
+{% else %}<p class="aviso alerta">Parte do serviço está com instabilidade. A equipe já foi avisada.</p>{% endif %}
+<div class="cartao"><table><tbody>
+  {% for name, state in parts %}
+  <tr><td>{{ name }}</td><td>{% if state == "ok" %}<span class="selo ok">funcionando</span>{% else %}<span class="selo erro">instável</span>{% endif %}</td></tr>
+  {% endfor %}
+</tbody></table></div>
+<p class="dica">Atualizado a cada visita.</p>
+{% endblock %}

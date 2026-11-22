@@ -25,7 +25,7 @@ versionamento semântico (veja `DECISIONS.md`, D007).
   automáticos, alerta após 3 falhas, datas em dia sozinhas quando todas as casas têm calendário.
 - Planilha Google sincronizada: bloqueios entram direto; mudança de casa, tarifa ou regra vira versão que
   pede aprovação, com e-mail ao gestor.
-- Telas "Calendários" e "Planilha Google" no painel; central de ajuda `docs/ajuda/calendarios.md`.
+- Telas "Calendários" e "Planilha Google" no painel; central de ajuda `app/web/content/ajuda/calendarios.md`.
 
 ### Corrigido
 - Tela do modo sombra mostrava a mensagem anterior do hóspede (a resposta agora guarda os ids das

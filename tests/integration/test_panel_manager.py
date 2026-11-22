@@ -186,6 +186,7 @@ async def test_blocks_add_remove_and_confirm(
     assert panel.post(f"/painel/bloqueios/{block.id}/remover").status_code == 303
     assert await _count(app_sessions, team.tenant_id, Block, Block.source == BlockSource.PANEL) == 0
     panel.clock.advance(hours=25)
+    panel.login(team.gestor_email)  # a sessão dura no máximo 12 h
     assert "Vencidas" in panel.get("/painel").text
     assert panel.post("/painel/bloqueios/confirmar").status_code == 303
     assert "Em dia" in panel.get("/painel").text

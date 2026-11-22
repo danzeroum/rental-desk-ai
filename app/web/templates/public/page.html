@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<article class="cartao texto">{{ body | safe }}</article>
+{% if back %}<p><a href="{{ back }}">Todas as páginas de ajuda</a></p>{% endif %}
+<p class="dica"><a href="/ajuda">Ajuda</a> · <a href="/termos">Termos de uso</a> · <a href="/politica-de-privacidade">Política de privacidade</a> · <a href="/status">Status</a></p>
+{% endblock %}

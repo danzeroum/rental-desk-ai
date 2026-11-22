@@ -69,3 +69,7 @@ pre.resposta { white-space: pre-wrap; font: inherit; background: var(--fundo); p
 .grade.numeros .cartao p { margin: .2rem 0; }
 .grafico-rolagem { overflow-x: auto; }
 .grafico-rolagem .grafico { min-width: 560px; }
+.texto { max-width: 46rem; }
+.texto h1 { margin-bottom: .5rem; }
+.texto h2 { margin-top: 1.5rem; }
+.lista-ajuda li { margin: .4rem 0; }

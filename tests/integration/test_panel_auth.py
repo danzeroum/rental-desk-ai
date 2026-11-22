@@ -221,3 +221,22 @@ async def test_memberships_are_only_the_users(
     async with global_session(app_sessions) as session:
         rows = (await session.execute(select(TenantMember))).scalars().all()
     assert rows == []  # sem tenant nem usuário, o RLS esconde tudo
+
+
+async def test_token_rotates_after_totp_and_sessions_expire_after_12h(
+    panel: PanelClient, app_sessions: Sessions, ops_sessions: Sessions
+) -> None:
+    user_id, email = await _user(app_sessions)
+    await _member(app_sessions, ops_sessions, user_id)
+    panel.login_password(email)
+    before = panel.http.cookies[SESSION_COOKIE]
+    panel.setup_totp()
+    after = panel.http.cookies[SESSION_COOKIE]
+    assert after != before
+    stolen = panel.run(panel.app.state.auth.get_session, before)
+    assert stolen is None  # o token da etapa da senha não vale mais
+    assert panel.get("/painel").status_code == 200
+    panel.clock.advance(hours=7)
+    assert panel.get("/painel").status_code == 200  # em uso, dentro do limite
+    panel.clock.advance(hours=5, minutes=1)
+    assert panel.get("/painel").headers["location"] == "/login"  # 12 h: entra de novo
