@@ -46,7 +46,7 @@ O painel exige e-mail + senha + autenticador (TOTP) para todos.
 | `make operator EMAIL=voce@exemplo.com` | Cria o operador e imprime o convite (72 h; também por e-mail com SMTP). O `install.sh` já pergunta no fim. |
 | `make tenant NAME="Imobiliária Sol" EMAIL=gestor@sol.com` | Cria a imobiliária (em implantação), o aviso de privacidade v1 e convida o gestor. Roda no contêiner do scheduler, o único com o papel de operação. |
 | `make reset-totp EMAIL=pessoa@exemplo.com` | Perdeu o celular: apaga o autenticador e encerra as sessões; no próximo login a pessoa cadastra outro. |
-| `make seed-demo` | Cria ou renova a "Imobiliária Demo Riviera" (10 casas fictícias, temporada corrente). |
+| `make seed-demo` | Cria ou renova a "Imobiliária Demo Riviera" (10 casas fictícias, temporada corrente) e as do kit de vendas (Maré Alta e Pousada Recanto da Enseada). Links do kit: Operador → Demonstração (`/operador/demo`); revogar desliga na hora. As conversas das imobiliárias demo são apagadas às 3h. |
 
 O gestor convida a equipe em **Configurações**; cada pessoa aceita os avisos no WhatsApp na própria página
 **Meus avisos** (sem aceite, nenhuma mensagem ativa sai). O operador vê a saúde de todas as imobiliárias

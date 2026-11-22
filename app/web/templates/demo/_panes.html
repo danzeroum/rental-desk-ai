@@ -1,0 +1,5 @@
+{% import "demo/_parts.html" as parts with context %}
+{{ parts.guest(view, true) }}
+{{ parts.broker(view, true) }}
+{{ parts.action(agency, view, csrf, true) }}
+{{ parts.error_box(error, true) }}

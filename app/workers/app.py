@@ -44,7 +44,7 @@ async def run_worker(
     redis = create_redis(settings)
     sessions = scoped_session_factory(engine)
     queue = build_queue(redis, settings)
-    gateway, keyring = build_gateway(settings), build_keyring(settings)
+    gateway, keyring = build_gateway(settings, redis), build_keyring(settings)
     handoffs = HandoffService(
         sessions=sessions, gateway=gateway, keyring=keyring, mailer=build_mailer(settings)
     )

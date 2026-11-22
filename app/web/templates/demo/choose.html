@@ -1,0 +1,19 @@
+{% extends "demo/_layout.html" %}
+{% block title %}Escolha a demonstração{% endblock %}
+{% block content %}
+<main class="demo-cartao">
+  <h1>Converse com o assistente como um hóspede</h1>
+  <p>Escolha uma das empresas fictícias. As respostas saem do mesmo sistema que atende no WhatsApp:
+    o assistente entende o pedido, e os preços, as datas e a disponibilidade vêm só da planilha da empresa.</p>
+  <ul class="demo-escolha">
+    {% for a in agencies %}
+    <li><a href="/demo/{{ a.pnid }}">
+      <strong>{{ a.name }}</strong>
+      <span>{{ a.units }} {{ a.unit_label }} · dados fictícios</span>
+    </a></li>
+    {% endfor %}
+  </ul>
+  <p class="demo-dica">Quando o hóspede escolhe uma opção ou pede um corretor, a tela ao lado mostra o aviso que chega
+    no WhatsApp do corretor e o que acontece quando ele responde 1.</p>
+</main>
+{% endblock %}

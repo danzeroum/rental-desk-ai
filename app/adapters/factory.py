@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from redis.asyncio import Redis
+
+from app.adapters.demo_gateway import DemoGateway, DemoOutbox, RoutingGateway
 from app.adapters.fake_llm import FakeLLM
 from app.adapters.google_sheet import (
     DisabledSheetSource,
@@ -28,14 +31,18 @@ from app.core.logging import get_logger
 log = get_logger(__name__)
 
 
-def build_gateway(settings: Settings) -> WhatsAppGateway:
+def build_gateway(settings: Settings, redis: Redis | None = None) -> WhatsAppGateway:
+    """Com `redis`, os números `demo-` do kit de vendas vão para o gateway de demonstração."""
+    real: WhatsAppGateway = FakeWhatsAppGateway()
     if settings.whatsapp_provider is WhatsAppProvider.CLOUD_API:
-        return CloudApiGateway(
+        real = CloudApiGateway(
             base_url=settings.whatsapp_api_base_url,
             auth_header=settings.whatsapp_auth_header,
             auth_scheme=settings.whatsapp_auth_scheme,
         )
-    return FakeWhatsAppGateway()
+    if redis is None:
+        return real
+    return RoutingGateway(real, DemoGateway(DemoOutbox(redis)))
 
 
 def build_transcriber(settings: Settings) -> Transcriber:

@@ -37,6 +37,7 @@ from app.core.rls import global_session, scoped_session_factory
 from app.demo import DemoError, seed_demo
 from app.models import AppUser
 from app.onboarding import OnboardingError, create_tenant
+from app.sales_demo import seed_sales_demos
 from app.web.auth import AuthService
 
 
@@ -137,21 +138,26 @@ async def _seed_demo(service: AuthService, phone_number_id: str | None) -> str:
     if ops_url is None:
         raise CliError("rode no contêiner do scheduler (precisa de DATABASE_OPS_URL)")
     engine = create_async_engine(async_url(str(ops_url)), poolclass=NullPool)
+    ops = async_sessionmaker(engine, expire_on_commit=False)
     try:
         result = await seed_demo(
-            async_sessionmaker(engine, expire_on_commit=False), service.db, service.keyring,
+            ops, service.db, service.keyring,
             now=datetime.now(UTC), phone_number_id=phone_number_id,
             access_token=os.environ.get("DEMO_WHATSAPP_TOKEN") or None,
         )  # fmt: skip
+        sales = await seed_sales_demos(ops, service.db, service.keyring, now=datetime.now(UTC))
     except DemoError as exc:
         raise CliError(str(exc)) from exc
     finally:
         await engine.dispose()
     verb = "criada" if result.created else "renovada"
     phone = " com o número de teste" if result.phone_connected else " (sem número: só pelo painel)"
-    return (
-        f"Demo {verb}{phone}: planilha versão {result.snapshot_version} aprovada ({result.slug})."
-    )
+    lines = [
+        f"Demo {verb}{phone}: planilha versão {result.snapshot_version} aprovada ({result.slug}).",
+        *(f"Kit de vendas: {s.name} pronta (planilha versão {s.snapshot_version})." for s in sales),
+        "Links do kit de vendas: crie e revogue em /operador/demo.",
+    ]
+    return "\n".join(lines)
 
 
 async def _run(args: argparse.Namespace) -> str:
