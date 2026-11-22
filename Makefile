@@ -86,7 +86,8 @@ golden: ## Conjunto de ouro com o FakeLLM determinístico
 golden-live: ## Compara Haiku, Sonnet e Opus no conjunto de ouro (precisa de LLM_API_KEY)
 	$(UV) python -m tests.golden.compare --out docs/golden/comparacao-$$(date +%F).md
 
-security: ## Auditoria de dependências e SAST local
+security: ## Auditoria de dependências, SAST e segredos no histórico (gitleaks via Docker)
 	uv export --frozen --no-dev --no-hashes --format requirements-txt -o /tmp/rental-desk-requirements.txt
 	$(UV) pip-audit --strict -r /tmp/rental-desk-requirements.txt
 	$(UV) bandit -q -c pyproject.toml -r app
+	docker run --rm -v "$(CURDIR):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 git /repo --redact
