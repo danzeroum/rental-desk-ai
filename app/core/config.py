@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
     llm_refusal_fallback: bool = True
 
+    # E-mail (convites, recuperação de senha, relatório, alertas ao operador)
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str = ""
+    smtp_password: SecretStr | None = None
+    smtp_sender: str = "rental-desk-ai <nao-responda@localhost>"
+
     # Fila e atendimento (RF05, RF20)
     debounce_quiet_seconds: float = Field(default=6.0, gt=0, le=60)
     debounce_max_seconds: float = Field(default=20.0, gt=0, le=120)

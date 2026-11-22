@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.adapters.fake_llm import FakeLLM
 from app.adapters.llm import AnthropicLLMClient, LLMClient
+from app.adapters.mailer import FakeMailer, Mailer, SmtpMailer
 from app.adapters.transcriber import FakeTranscriber, OpenAICompatibleTranscriber, Transcriber
 from app.adapters.whatsapp import CloudApiGateway, FakeWhatsAppGateway, WhatsAppGateway
 from app.core.config import LLMProvider, Settings, TranscriberProvider, WhatsAppProvider
@@ -43,6 +44,18 @@ def build_llm(settings: Settings) -> LLMClient:
             refusal_fallback=settings.llm_refusal_fallback,
         )
     return FakeLLM()
+
+
+def build_mailer(settings: Settings) -> Mailer:
+    if not settings.smtp_host:
+        return FakeMailer()
+    return SmtpMailer(
+        host=settings.smtp_host,
+        port=settings.smtp_port,
+        username=settings.smtp_username,
+        password=settings.smtp_password.get_secret_value() if settings.smtp_password else "",
+        sender=settings.smtp_sender,
+    )
 
 
 def build_keyring(settings: Settings) -> Keyring:

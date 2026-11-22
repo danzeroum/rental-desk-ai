@@ -5,11 +5,13 @@ import pytest
 
 from app.adapters.whatsapp import (
     MAX_MEDIA_BYTES,
+    MAX_TEMPLATE_PARAM,
     Channel,
     CloudApiGateway,
     FakeWhatsAppGateway,
     GatewayError,
     Media,
+    template_param,
 )
 
 BASE = "https://graph.exemplo/v21.0"
@@ -147,3 +149,28 @@ async def test_fake_gateway() -> None:
     assert (await fake.fetch_media(CHANNEL, "m1")).content == b"x"
     with pytest.raises(GatewayError):
         await fake.fetch_media(CHANNEL, "nao-existe")
+
+
+async def test_send_template_payload() -> None:
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request)
+        return httpx2.Response(200, json={"messages": [{"id": "wamid.T"}]})
+
+    gw = gateway(handler)
+    wamid = await gw.send_template(
+        CHANNEL, "5511900000000", "passagem_corretor", ["A\nB", "x\ty   z"]
+    )
+    assert wamid == "wamid.T"
+    body = json.loads(seen[0].content)
+    assert body["type"] == "template"
+    assert body["template"]["name"] == "passagem_corretor"
+    assert body["template"]["language"] == {"code": "pt_BR"}
+    params = body["template"]["components"][0]["parameters"]
+    assert [p["text"] for p in params] == ["A · B", "x y z"]
+
+
+def test_template_param_is_flattened_and_capped() -> None:
+    assert template_param("linha 1\n\n  linha 2") == "linha 1 · linha 2"
+    assert len(template_param("x" * 5000)) == MAX_TEMPLATE_PARAM

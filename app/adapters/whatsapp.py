@@ -8,7 +8,7 @@ Proibido qualquer acesso não oficial (WhatsApp Web, QR code e similares).
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 from urllib.parse import urlsplit
@@ -20,6 +20,7 @@ from app.core.logging import get_logger
 MAX_ATTEMPTS: Final = 3
 MAX_MEDIA_BYTES: Final = 16 * 1024 * 1024  # limite de áudio do WhatsApp
 TIMEOUT_SECONDS: Final = 15.0
+MAX_TEMPLATE_PARAM: Final = 1000
 RETRYABLE_STATUS: Final = frozenset({429, 500, 502, 503, 504})
 
 log = get_logger(__name__)
@@ -53,7 +54,24 @@ class WhatsAppGateway(Protocol):
         """Envia texto; devolve o ID externo (wamid) da mensagem."""
         ...
 
+    async def send_template(
+        self,
+        channel: Channel,
+        to: str,
+        template: str,
+        params: Sequence[str],
+        language: str = "pt_BR",
+    ) -> str:
+        """Mensagem ativa (fora da janela de 24 h) por template aprovado na Meta."""
+        ...
+
     async def fetch_media(self, channel: Channel, media_id: str) -> Media: ...
+
+
+def template_param(value: str) -> str:
+    """A Meta recusa quebras de linha, tabulações e 4+ espaços seguidos nos parâmetros."""
+    flat = " · ".join(part.strip() for part in value.splitlines() if part.strip())
+    return " ".join(flat.replace("\t", " ").split())[:MAX_TEMPLATE_PARAM]
 
 
 class CloudApiGateway:
@@ -123,6 +141,39 @@ class CloudApiGateway:
         response = await self._request(
             "POST", f"{self._base_url}/{channel.phone_number_id}/messages", channel, json=payload
         )
+        return self._message_id(response)
+
+    async def send_template(
+        self,
+        channel: Channel,
+        to: str,
+        template: str,
+        params: Sequence[str],
+        language: str = "pt_BR",
+    ) -> str:
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to,
+            "type": "template",
+            "template": {
+                "name": template,
+                "language": {"code": language},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [{"type": "text", "text": template_param(p)} for p in params],
+                    }
+                ],
+            },
+        }
+        response = await self._request(
+            "POST", f"{self._base_url}/{channel.phone_number_id}/messages", channel, json=payload
+        )
+        return self._message_id(response)
+
+    @staticmethod
+    def _message_id(response: httpx2.Response) -> str:
         try:
             message_id: str = response.json()["messages"][0]["id"]
         except (ValueError, KeyError, IndexError, TypeError):
@@ -155,6 +206,8 @@ class SentMessage:
     to: str
     body: str
     external_id: str
+    template: str | None = None
+    params: tuple[str, ...] = ()
 
 
 class FakeWhatsAppGateway:
@@ -173,6 +226,29 @@ class FakeWhatsAppGateway:
         external_id = f"wamid.fake.{len(self.sent) + 1}"
         self.sent.append(SentMessage(channel, to, body, external_id))
         return external_id
+
+    async def send_template(
+        self,
+        channel: Channel,
+        to: str,
+        template: str,
+        params: Sequence[str],
+        language: str = "pt_BR",
+    ) -> str:
+        if self.fail_with is not None:
+            raise self.fail_with
+        external_id = f"wamid.fake.{len(self.sent) + 1}"
+        clean = tuple(template_param(p) for p in params)
+        self.sent.append(SentMessage(channel, to, " | ".join(clean), external_id, template, clean))
+        return external_id
+
+    @property
+    def templates(self) -> list[SentMessage]:
+        return [m for m in self.sent if m.template is not None]
+
+    @property
+    def texts(self) -> list[SentMessage]:
+        return [m for m in self.sent if m.template is None]
 
     async def fetch_media(self, channel: Channel, media_id: str) -> Media:
         if media_id not in self.media:
