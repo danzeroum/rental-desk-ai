@@ -145,6 +145,7 @@ class ReportService:
             .join(TenantMember, TenantMember.user_id == AppUser.id)
             .where(
                 TenantMember.role == MemberRole.GESTOR,
+                TenantMember.weekly_email_off_at.is_(None),
                 AppUser.is_active.is_(True),
                 AppUser.password_hash.is_not(None),
             )

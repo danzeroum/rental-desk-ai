@@ -10,8 +10,7 @@ RATE_LIMIT_NOTICE: Final = (
 )
 
 OPT_OUT_CONFIRMED: Final = (
-    "Pronto: este número não vai mais receber mensagens automáticas da nossa central. "
-    "Se quiser voltar a ser atendido, escreva VOLTAR."
+    "Pronto, não enviaremos mais mensagens. Se quiser voltar a falar com a gente, escreva VOLTAR."
 )
 STOP_WORDS: Final = frozenset({"parar", "pare", "stop", "sair", "descadastrar"})
 RESUME_WORDS: Final = frozenset({"voltar", "volta", "reativar"})

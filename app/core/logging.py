@@ -15,7 +15,7 @@ from typing import Any, Final
 import structlog
 from structlog.typing import EventDict, WrappedLogger
 
-from app.domain.masking import mask_pii
+from app.core.masking import mask_pii
 
 CONTEXT_KEYS: Final = ("tenant_id", "conversation_id", "trace_id")
 

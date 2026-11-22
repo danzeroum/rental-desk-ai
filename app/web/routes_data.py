@@ -241,7 +241,8 @@ async def add_block(request: Request, ctx: TenantCtx) -> Response:
         await append_audit(
             session, tenant_id=ctx.tenant_id, event_type="block_added",
             payload={"block_id": str(block.id), "codigo": code, "entrada": start.isoformat(),
-                     "saida": end.isoformat(), "user_id": str(ctx.user_id), "via": "panel"},
+                     "saida": end.isoformat(), "user_id": str(ctx.user_id), "via": "panel",
+                     "at": ctx.now().isoformat()},
         )  # fmt: skip
     return redirect("/painel/bloqueios")
 
@@ -262,7 +263,7 @@ async def remove_block(request: Request, block_id: uuid.UUID, ctx: TenantCtx) ->
         await append_audit(
             session, tenant_id=ctx.tenant_id, event_type="block_removed",
             payload={"block_id": str(block_id), "codigo": block.property_code,
-                     "user_id": str(ctx.user_id)},
+                     "user_id": str(ctx.user_id), "via": "panel", "at": ctx.now().isoformat()},
         )  # fmt: skip
     return redirect("/painel/bloqueios")
 
@@ -278,6 +279,7 @@ async def confirm_dates(request: Request, ctx: TenantCtx) -> Response:
         tenant.availability_updated_at = ctx.now()
         await append_audit(
             session, tenant_id=ctx.tenant_id, event_type="availability_confirmed",
-            payload={"user_id": str(ctx.user_id), "via": "panel"},
+            payload={"user_id": str(ctx.user_id), "via": "panel",
+                     "at": ctx.now().isoformat()},
         )  # fmt: skip
     return redirect("/painel/bloqueios")

@@ -138,10 +138,14 @@ class ConversationProcessor:
         pending = await self._load(tenant_id, conversation_id)
         if not pending.messages:
             return ProcessOutcome(handled=False, skipped=SkipReason.NOTHING_PENDING)
-        if await self._member_command(tenant_id, conversation_id, pending):
-            return ProcessOutcome(handled=True, skipped=SkipReason.MEMBER_COMMAND)
+        # PARAR vem antes de tudo (vale também para corretor e gestor): depois dele, nada
+        # automático sai para o número até o próprio titular escrever VOLTAR.
         if await self._opt_out(tenant_id, conversation_id, pending):
             return ProcessOutcome(handled=True, skipped=SkipReason.OPT_OUT_NOW)
+        if pending.skip != SkipReason.OPTED_OUT and await self._member_command(
+            tenant_id, conversation_id, pending
+        ):
+            return ProcessOutcome(handled=True, skipped=SkipReason.MEMBER_COMMAND)
         if pending.skip is None and await self.queue.is_silenced(tenant_id, pending.contact_id):
             pending.skip = SkipReason.SILENCED
         if pending.skip is not None:
@@ -213,7 +217,7 @@ class ConversationProcessor:
         text = " ".join(m.body or "" for m in pending.messages)
         opted_out = pending.skip == SkipReason.OPTED_OUT
         if opted_out and is_resume(text):
-            await self._set_opt_out(tenant_id, pending.contact_id, None, "opt_in_again")
+            await self._set_opt_out(tenant_id, pending.contact_id, None, "opt_in_again", "VOLTAR")
             pending.skip = None
             return False
         if opted_out or not is_stop(text):
@@ -227,12 +231,17 @@ class ConversationProcessor:
             )  # fmt: skip
         except (GatewayError, ChannelMissingError, RecipientUnavailableError) as exc:
             log.warning("confirmacao_parar_falhou", error_type=type(exc).__name__)
-        await self._set_opt_out(tenant_id, pending.contact_id, self.clock(), "opt_out")
+        await self._set_opt_out(tenant_id, pending.contact_id, self.clock(), "opt_out", "PARAR")
         await self._save(tenant_id, pending.messages, [], processed=True)
         return True
 
     async def _set_opt_out(
-        self, tenant_id: uuid.UUID, contact_id: uuid.UUID, at: datetime | None, event: str
+        self,
+        tenant_id: uuid.UUID,
+        contact_id: uuid.UUID,
+        at: datetime | None,
+        event: str,
+        command: str,
     ) -> None:
         async with tenant_session(self.sessions, tenant_id) as session:
             await session.execute(
@@ -240,7 +249,11 @@ class ConversationProcessor:
             )
             await append_audit(
                 session, tenant_id=tenant_id, event_type=event,
-                payload={"contact_id": str(contact_id)},
+                payload={
+                    "contact_id": str(contact_id),
+                    "command": command,
+                    "at": self.clock().isoformat(),
+                },
             )  # fmt: skip
         log.info(event)
 

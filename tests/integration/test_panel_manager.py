@@ -194,6 +194,12 @@ async def test_blocks_add_remove_and_confirm(
         AuditLog.event_type.in_(["block_added", "block_removed", "availability_confirmed"]),
     )  # fmt: skip
     assert events == 3
+    async with tenant_session(app_sessions, team.tenant_id) as session:
+        audited = await session.scalar(
+            select(AuditLog.payload).where(AuditLog.event_type == "block_added")
+        )
+    assert audited is not None and audited["via"] == "panel" and "at" in audited
+    assert audited["user_id"] == str(team.gestor_id)
 
 
 # --- Passagens e pausa -------------------------------------------------------------------
@@ -370,6 +376,7 @@ async def test_alert_consent_given_changed_and_revoked(
         old.revoked_at is not None and new.phone_e164 == "+5511977776666" and new.revoked_at is None
     )
     panel.post("/painel/avisos", {"phone": "11 97777-6666"})
+    assert "weekly_email" not in panel.get("/painel/avisos").text  # só o gestor tem e-mail semanal
     assert all(
         c.revoked_at is not None
         for c in await _consents(app_sessions, team.tenant_id, team.corretor_id)
@@ -398,3 +405,22 @@ async def test_other_tenant_is_invisible(
     assert panel.post("/painel/escolher", {"tenant_id": str(other)}).status_code == 403
     assert "+5511977776666" not in panel.get("/painel/passagens?show=todas").text
     assert panel.get("/painel/dados/nao-e-uuid").status_code == 404
+
+
+async def test_manager_turns_weekly_email_off_without_consent(
+    panel: PanelClient, team: Team, app_sessions: Sessions
+) -> None:
+    panel.login(team.gestor_email)
+    assert 'name="weekly_email" value="1" checked' in panel.get("/painel/avisos").text
+    panel.post("/painel/avisos", {"phone": ""})  # caixa desmarcada: desliga, sem pedir aceite
+    async with tenant_session(app_sessions, team.tenant_id) as session:
+        member = await session.scalar(
+            select(TenantMember).where(TenantMember.user_id == team.gestor_id)
+        )
+    assert member is not None and member.weekly_email_off_at is not None
+    panel.post("/painel/avisos", {"phone": "", "weekly_email": "1"})
+    async with tenant_session(app_sessions, team.tenant_id) as session:
+        member = await session.scalar(
+            select(TenantMember).where(TenantMember.user_id == team.gestor_id)
+        )
+    assert member is not None and member.weekly_email_off_at is None

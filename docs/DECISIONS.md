@@ -41,7 +41,7 @@ A mais recente fica embaixo.
   SQLAlchemy). Todo evento tem `tenant_id`, `conversation_id` e `trace_id` (nulos quando não se aplicam).
   Um processador central **descarta** valores de chaves sensíveis (`phone`, `text`, `name`, `body`,
   `token`...) e **mascara** CPF, CNPJ, cartão, e-mail, chave Pix aleatória e telefone em qualquer texto.
-  O mascaramento é puro (`app/domain/masking.py`) e será reaproveitado nos prompts (M5).
+  O mascaramento é puro (`app/core/masking.py` (movido do `domain` no M8: o core não importa o domínio)) e será reaproveitado nos prompts (M5).
 - O log de acesso do uvicorn fica desligado; o `TraceMiddleware` registra cada requisição com
   `trace_id` e duração. `/health` e `/health/live` vão para DEBUG (Docker, Caddy e o monitor chamam a
   cada poucos segundos).
@@ -475,3 +475,42 @@ no caminho de requisição.
 - **Painel:** datas sempre no fuso de São Paulo (filtro `local`); o estilo embutido do HTMX fica
   desligado (`htmx-config`) para manter a CSP sem `unsafe-inline`. Resposta de atributo sem artigo
   ("Sobrado Azul (CASA03): piscina, não."), porque o título da casa pode ser masculino.
+
+## D040 · Ajustes do time sobre o M7 (PARAR, e-mail semanal, auditoria das datas)
+
+- **PARAR:** uma única confirmação, com o texto do time ("Pronto, não enviaremos mais mensagens. Se
+  quiser voltar a falar com a gente, escreva VOLTAR."). Depois, nada automático sai para o número: nem
+  IA, nem lembrete, nem template (o filtro fica em `brokers._with_consent`, o ponto único de quem recebe
+  aviso ativo). PARAR vale também para corretor e gestor e vem antes de qualquer comando ("1", "OK").
+  Só o próprio titular reativa, escrevendo VOLTAR; o painel mostra "saiu (PARAR)" nas passagens e na
+  equipe, sem botão de reativar. PARAR e VOLTAR entram no `audit_log` com `command` e `at`.
+- **Relatório semanal por e-mail:** aprovado como comunicação do serviço contratado, só com números
+  agregados. O gestor desliga em "Meus avisos", sem pedir aceite (`tenant_member.weekly_email_off_at`,
+  migração 0006; mudança auditada).
+- **Datas:** corretor pode confirmar e bloquear. Cada confirmação, bloqueio e liberação grava no
+  `audit_log` quem (`user_id`), por onde (`via`: `panel` ou `reminder`) e quando (`at`). O lembrete das
+  9h continua só para o gestor.
+
+## Pontos de extensão para outros segmentos
+
+Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nada disto foi refatorado).
+
+- **Regra de dependência:** `app/core` não importa `app/domain`. Violação encontrada e corrigida no M8:
+  `app/core/logging.py` importava `app/domain/masking.py`; o mascaramento passou para `app/core/masking.py`.
+- **Peças genéricas fora do core:** mensageria (gateway, responder), fila e debounce, passagem e
+  escalonamento, opt-out e consentimento vivem em `app/workers/` e `app/adapters/`, não em `app/core/`.
+  Não importam o domínio de imóveis diretamente, exceto: `workers/engine.py` e `workers/pipeline.py`
+  (orquestram busca/cards de temporada) e `workers/reminders.py` (códigos de casa no lembrete). Um
+  segmento novo trocaria o motor (`engine`) e o lembrete; a fila, o webhook, a passagem e a auditoria
+  servem como estão.
+- **Domínio com peças genéricas:** `domain/hours.py` (horário comercial), `domain/rotation.py`
+  (rodízio), `domain/phones.py`, `domain/messages.py` (PARAR/VOLTAR) e `domain/health.py` não dependem
+  de imóveis e poderiam subir para o core quando houver segundo segmento.
+- **Pousadas:** usam o mesmo domínio (unidade, capacidade, tarifa por noite, bloqueio), trocando
+  "casa/imóvel" por "quarto". O rótulo da unidade aparece em textos fixos (`domain/render.py`,
+  `domain/notices.py`, `domain/reminder.py`), na planilha modelo (`importer/schema.py`) e nos templates
+  do painel. **Avaliação:** pode virar configuração do tenant (`unit_label` singular/plural, com gênero
+  para os artigos) passada ao `render`; os templates aprovados na Meta precisariam de uma versão por
+  rótulo (ou de um parâmetro). Não implementado.
+- **Tenant próprio (M12):** pacote de perguntas e respostas sem disponibilidade nem preço; exige um
+  motor alternativo ao `engine` de temporada, escolhido por tenant.

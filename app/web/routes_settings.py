@@ -18,7 +18,7 @@ from app.core.audit import append_audit
 from app.core.rls import global_session
 from app.domain.hours import WEEKDAYS, BusinessHours, InvalidHoursError
 from app.domain.phones import InvalidPhoneError, to_e164
-from app.models import AppUser, Consent, Tenant, TenantMember
+from app.models import AppUser, Consent, Contact, Tenant, TenantMember
 from app.models.enums import ConsentPurpose, MemberRole, Tone
 from app.web.common import auth, redirect, render, verify_csrf
 from app.web.context import ManagerCtx, TenantContext, TenantCtx
@@ -84,6 +84,16 @@ async def _settings_context(ctx: TenantContext) -> dict[str, Any]:
                 .order_by(TenantMember.role, AppUser.display_name)
             )
         ).all()
+        stopped = set(
+            (
+                await session.execute(
+                    select(Contact.phone_e164).where(
+                        Contact.opted_out_at.is_not(None),
+                        Contact.phone_e164.in_([m.whatsapp_phone for m, _ in members]),
+                    )
+                )
+            ).scalars()
+        )
         consents = (
             await session.execute(select(Consent).where(Consent.revoked_at.is_(None)))
         ).scalars()
@@ -103,6 +113,7 @@ async def _settings_context(ctx: TenantContext) -> dict[str, Any]:
                 "phone": m.whatsapp_phone,
                 "active": u.is_active and bool(u.password_hash),
                 "alerts": ConsentPurpose.HANDOFF_ALERT.value in active.get(m.user_id, set()),
+                "stopped": m.whatsapp_phone is not None and m.whatsapp_phone in stopped,
             }
             for m, u in members
         ],
@@ -237,6 +248,7 @@ async def my_alerts(request: Request, ctx: TenantCtx, error: str | None = None) 
         request, "panel/alerts.html",
         {
             "member": member, "granted": granted, "error": error,
+            "is_gestor": ctx.panel.role == MemberRole.GESTOR,
             "purposes": [(p, PURPOSE_LABELS[p]) for p in _purposes_for(ctx.panel.role)],
         },
         status_code=400 if error else 200,
@@ -251,11 +263,29 @@ async def save_my_alerts(request: Request, ctx: TenantCtx) -> Response:
         phone = to_e164(raw) if raw else None
     except InvalidPhoneError as exc:
         return await my_alerts(request, ctx, error=f"Telefone: {exc}.")
+    await _set_weekly_email(ctx, wants=form.get("weekly_email") == "1")
     wanted = {p for p in _purposes_for(ctx.panel.role) if form.get(p)} if phone else set()
     if wanted and form.get("aceite") != "sim":
         return await my_alerts(request, ctx, error="Marque a concordância para receber avisos.")
     await _apply_consents(ctx, phone, wanted)
     return redirect("/painel/avisos")
+
+
+async def _set_weekly_email(ctx: TenantContext, *, wants: bool) -> None:
+    """Relatório semanal por e-mail: comunicação do serviço; o gestor desliga quando quiser."""
+    if ctx.panel.role != MemberRole.GESTOR:
+        return
+    async with ctx.db() as session:
+        member = await session.scalar(
+            select(TenantMember).where(TenantMember.user_id == ctx.user_id).with_for_update()
+        )
+        if member is None or (member.weekly_email_off_at is None) == wants:
+            return
+        member.weekly_email_off_at = None if wants else ctx.now()
+        await append_audit(
+            session, tenant_id=ctx.tenant_id, event_type="weekly_email_changed",
+            payload={"user_id": str(ctx.user_id), "enabled": wants, "at": ctx.now().isoformat()},
+        )  # fmt: skip
 
 
 async def _apply_consents(ctx: TenantContext, phone: str | None, wanted: set[str]) -> None:

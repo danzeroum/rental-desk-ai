@@ -13,7 +13,7 @@ from sqlalchemy import and_, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.rotation import Broker
-from app.models import AppUser, Consent, Handoff, TenantMember
+from app.models import AppUser, Consent, Contact, Handoff, TenantMember
 from app.models.enums import ConsentPurpose, MemberRole
 
 
@@ -28,6 +28,12 @@ def _with_consent(  # type: ignore[no-untyped-def]
             Consent.revoked_at.is_(None),
         )
     )
+    opted_out = exists().where(
+        and_(
+            Contact.phone_e164 == TenantMember.whatsapp_phone,
+            Contact.opted_out_at.is_not(None),
+        )
+    )
     return (
         select(TenantMember.user_id, AppUser.display_name, TenantMember.whatsapp_phone)
         .join(AppUser, AppUser.id == TenantMember.user_id)
@@ -36,6 +42,7 @@ def _with_consent(  # type: ignore[no-untyped-def]
             TenantMember.whatsapp_phone.is_not(None),
             AppUser.is_active.is_(True),
             consented,
+            ~opted_out,  # PARAR: nenhum template para o número (RF21)
         )
         .order_by(TenantMember.created_at, TenantMember.user_id)
     )

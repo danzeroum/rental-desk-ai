@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.adapters.mailer import FakeMailer
 from app.core.config import TIMEZONE
 from app.core.rls import global_session, tenant_session
-from app.models import AppUser, WeeklyReport
+from app.models import AppUser, TenantMember, WeeklyReport
 from app.models.enums import MemberRole
 from app.scheduler.app import send_weekly_reports
 from app.workers.reports import ReportService, offered_totals, report_due
@@ -71,6 +71,13 @@ async def test_weekly_report(world: World, ops_engine: AsyncEngine) -> None:
     assert (metrics.contacts, metrics.handoffs, metrics.without_outcome) == (2, 1, 1)
     assert metrics.offered_value_cents > 0 and metrics.first_response_median_s is not None
     assert await service.weekly(world.tenant) is None  # uma vez por semana
+    # Gestor que desligou o e-mail em "Meus avisos" não recebe na semana seguinte.
+    async with tenant_session(world.app, world.tenant) as session:
+        await session.execute(update(TenantMember).values(weekly_email_off_at=world.clock.now))
+    world.clock.now += timedelta(days=7)
+    before = len(world.mailer.sent)
+    assert await service.weekly(world.tenant) is not None
+    assert len(world.mailer.sent) == before
     [mail] = [m for m in world.mailer.sent if m.to == email]
     assert "Contatos atendidos: 2" in mail.body and "show=sem-desfecho" in mail.body
     assert "+55" not in mail.body  # sem telefone de hóspede

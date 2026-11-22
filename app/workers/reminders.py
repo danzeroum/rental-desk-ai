@@ -149,7 +149,8 @@ class ReminderService:
                     payload={"block_id": str(row.id), "codigo": block.property_code,
                              "entrada": block.start_date.isoformat(),
                              "saida": block.end_date.isoformat(),
-                             "user_id": str(user_id), "via": "reminder"},
+                             "user_id": str(user_id), "via": "reminder",
+                             "at": now.isoformat()},
                 )  # fmt: skip
             if reply.confirm:
                 tenant = await session.get(Tenant, tenant_id, with_for_update=True)
@@ -157,7 +158,7 @@ class ReminderService:
                     tenant.availability_updated_at = now
                 await append_audit(
                     session, tenant_id=tenant_id, event_type="availability_confirmed",
-                    payload={"user_id": str(user_id), "via": "reminder"},
+                    payload={"user_id": str(user_id), "via": "reminder", "at": now.isoformat()},
                 )  # fmt: skip
         return _answer(reply)
 

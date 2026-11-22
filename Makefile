@@ -79,7 +79,7 @@ test: ## Testes de unidade e integração, com cobertura (precisa de make test-d
 	@$(MAKE) --no-print-directory coverage-core
 
 # SPEC, seção 5: cobertura ≥ 80% nos módulos centrais (aqui exigimos 90%).
-CORE_MODULES := app/domain/*,app/importer/*,app/workers/engine.py
+CORE_MODULES := app/domain/*,app/importer/*,app/workers/engine.py,app/core/masking.py
 coverage-core:
 	$(UV) coverage report --include='$(CORE_MODULES)' --fail-under=90 --skip-covered
 

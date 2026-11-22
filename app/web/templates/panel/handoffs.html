@@ -15,7 +15,7 @@
     <td>{{ r.created }}</td>
     <td>{{ r.reason }}</td>
     <td>{{ r.summary }}</td>
-    <td>{{ r.guest }}</td>
+    <td>{{ r.guest }}{% if r.opted_out %}<br><span class="selo alerta" title="O hóspede escreveu PARAR; só ele reativa, escrevendo VOLTAR.">saiu (PARAR)</span>{% endif %}</td>
     <td>{{ r.status_label }}{% if r.assumed_by %}<br><span class="dica">{{ r.assumed_by }}, {{ r.assumed }}</span>{% endif %}
         {% if r.outcome %}<br><span class="selo">{{ r.outcome }}</span>{% endif %}</td>
     <td class="acoes">

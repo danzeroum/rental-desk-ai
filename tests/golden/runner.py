@@ -23,8 +23,8 @@ import yaml
 
 from app.adapters.fake_llm import FakeLLM
 from app.adapters.llm import LLMClient, LLMResponse
+from app.core.masking import mask_pii
 from app.domain.catalog import BlockData
-from app.domain.masking import mask_pii
 from app.domain.prompts import HistoryItem
 from app.domain.render import LEGAL_NOTICE, br_date, brl
 from app.domain.state import ConversationState

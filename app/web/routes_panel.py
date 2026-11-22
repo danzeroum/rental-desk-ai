@@ -137,7 +137,7 @@ async def pause(request: Request, ctx: ManagerCtx) -> Response:
 
 async def _handoff_rows(ctx: TenantContext, show: str) -> list[dict[str, Any]]:
     query = (
-        select(Handoff, Contact.phone_e164, AppUser.display_name)
+        select(Handoff, Contact.phone_e164, AppUser.display_name, Contact.opted_out_at)
         .join(Conversation, Conversation.id == Handoff.conversation_id)
         .join(Contact, Contact.id == Conversation.contact_id)
         .outerjoin(AppUser, AppUser.id == Handoff.assumed_by)
@@ -162,8 +162,9 @@ async def _handoff_rows(ctx: TenantContext, show: str) -> list[dict[str, Any]]:
             "assumed_by": name,
             "assumed": local(h.assumed_at) if h.assumed_at else None,
             "outcome": OUTCOME_LABELS.get(h.outcome or "", None),
+            "opted_out": opted_out is not None,
         }
-        for h, phone, name in rows
+        for h, phone, name, opted_out in rows
     ]
 
 

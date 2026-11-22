@@ -34,7 +34,7 @@
     {% for m in members %}
     <tr><td>{{ m.name }}{% if not m.active %} <span class="selo alerta">convite pendente</span>{% endif %}</td>
       <td>{{ m.email }}</td><td>{{ m.role }}</td>
-      <td>{% if m.alerts %}<span class="selo ok">aceitos</span>{% else %}<span class="selo">não aceitos</span>{% endif %}</td>
+      <td>{% if m.stopped %}<span class="selo alerta">saiu (PARAR)</span>{% elif m.alerts %}<span class="selo ok">aceitos</span>{% else %}<span class="selo">não aceitos</span>{% endif %}</td>
       <td>{% if m.id != ctx.user_id %}
         <form method="post" action="/painel/membros/{{ m.id }}/remover">
           <input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Remover</button>

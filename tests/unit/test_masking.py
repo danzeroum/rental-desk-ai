@@ -1,6 +1,6 @@
 import pytest
 
-from app.domain.masking import mask_pii
+from app.core.masking import mask_pii
 
 
 @pytest.mark.parametrize(

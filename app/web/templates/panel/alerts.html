@@ -11,6 +11,11 @@
   {% endfor %}
   <label><input type="checkbox" name="aceite" value="sim" {% if granted %}checked{% endif %}>
     Concordo em receber essas mensagens. Posso desmarcar a qualquer momento nesta página.</label>
+  {% if is_gestor %}
+  <h2>E-mail</h2>
+  <label><input type="checkbox" name="weekly_email" value="1" {% if not member or not member.weekly_email_off_at %}checked{% endif %}>
+    Receber o resumo semanal por e-mail (só números da semana, sem dados de hóspedes)</label>
+  {% endif %}
   <p class="dica">Os avisos de passagem trazem o telefone e o pedido do hóspede, para você atender. Não use esse dado para outra finalidade.</p>
   <button>Salvar</button>
 </form>

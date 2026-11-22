@@ -15,8 +15,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Final
 
+from app.core.masking import mask_pii
 from app.domain.extraction import IntentKind
-from app.domain.masking import mask_pii
 from app.domain.search import Attribute
 from app.domain.state import ConversationState
 

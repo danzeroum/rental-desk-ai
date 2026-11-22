@@ -300,6 +300,7 @@ O sistema gera o arquivo modelo (`make template` e botão no painel).
 | M9 | Sincronização iCal e planilha Google (RF26, RF27) | Bloqueio criado no Airbnb aparece em até 15 min; mudança de preço na planilha Google pede aprovação |
 | M10 | Assistente de implantação, corretores com plantão e rodízio, painel de resultados, relatório por WhatsApp (RF28–RF30, RF32) | Uma pessoa que não conhece o sistema ativa uma imobiliária fictícia sozinha seguindo o painel |
 | M11 | Páginas de produto (RF31), revisão de segurança, conjunto de ouro com 100 casos, `CHANGELOG`, tag `v1.0.0` | Definição de pronto abaixo atendida |
+| M12 *(depois da Versão 1.0; nada dele entra antes do M11)* | **Tenant próprio:** o número da BuildToValue como primeiro tenant em produção, com um pacote de domínio simples de perguntas e respostas (serviços, segmentos, link dos cardápios, agendar diagnóstico), sem disponibilidade nem preço. Desse tenant, o comando "DEMO <segmento>" abre uma conversa no modo demonstração (RF25), com dados fictícios marcados como tal | O número da BuildToValue responde só com o conteúdo aprovado; "DEMO temporada" abre a demonstração com dados marcados como fictícios |
 
 ### Definição de pronto da Versão 1.0
 

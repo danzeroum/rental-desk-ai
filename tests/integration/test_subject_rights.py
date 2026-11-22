@@ -177,3 +177,21 @@ async def test_public_privacy_notice(
     assert panel.get(f"/privacidade/{created.slug}/v1").status_code == 200
     assert panel.get(f"/privacidade/{created.slug}/v9").status_code == 404
     assert panel.get("/privacidade/nao-existe").status_code == 404
+
+
+async def test_member_stop_blocks_templates_and_commands(world: World) -> None:
+    from tests.integration.test_handoffs import ANA  # noqa: PLC0415
+
+    await team(world)
+    await world.say("PARAR", sender=ANA.removeprefix("+"))  # corretora pede para sair
+    assert world.gateway.texts[-1].body == messages.OPT_OUT_CONFIRMED
+    sent = len(world.gateway.sent)
+    assert (await world.say("1", sender=ANA.removeprefix("+"))).skipped == SkipReason.OPTED_OUT
+    await world.say("Quero falar com um corretor")
+    assert world.templates_to(ANA) == []  # nenhum template para quem saiu
+    assert not [m for m in world.gateway.sent[sent:] if m.to == ANA.removeprefix("+")]
+    async with tenant_session(world.app, world.tenant) as session:
+        payload = await session.scalar(
+            select(AuditLog.payload).where(AuditLog.event_type == "opt_out")
+        )
+    assert payload is not None and payload["command"] == "PARAR" and "at" in payload
