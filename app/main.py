@@ -9,7 +9,14 @@ from fastapi import FastAPI
 from redis.asyncio import Redis
 
 from app import __version__
-from app.adapters.factory import build_gateway, build_keyring, build_link_checker, build_mailer
+from app.adapters.factory import (
+    build_fetcher,
+    build_gateway,
+    build_keyring,
+    build_link_checker,
+    build_mailer,
+    build_sheet_source,
+)
 from app.api import health, webhook
 from app.api.middleware import TraceMiddleware
 from app.core.config import Settings, get_settings
@@ -19,8 +26,10 @@ from app.core.redis import create_redis
 from app.core.rls import scoped_session_factory
 from app.web.auth import AuthService
 from app.web.panel import install_panel
+from app.workers.calendars import CalendarService
 from app.workers.handoffs import HandoffService
 from app.workers.queue import WorkQueue
+from app.workers.sheets import SheetSyncService
 
 log = get_logger(__name__)
 
@@ -52,6 +61,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             mailer=app.state.mailer,
         )
         app.state.link_checker = build_link_checker(settings)
+        app.state.calendars = CalendarService(
+            sessions=app.state.sessions, fetcher=build_fetcher(settings), keyring=app.state.keyring,
+            mailer=app.state.mailer, public_base_url=settings.public_base_url,
+        )  # fmt: skip
+        app.state.sheets = SheetSyncService(
+            sessions=app.state.sessions, source=build_sheet_source(settings),
+            link_checker=app.state.link_checker, mailer=app.state.mailer,
+            public_base_url=settings.public_base_url,
+        )  # fmt: skip
         log.info("app_iniciado", version=__version__, env=settings.env.value)
         try:
             yield

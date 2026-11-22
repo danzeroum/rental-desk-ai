@@ -1,7 +1,7 @@
 """Modelos do banco. Importar este pacote registra todas as tabelas em `Base.metadata`."""
 
 from app.models.base import Base
-from app.models.catalog import Block, DataSnapshot, Property, Rate
+from app.models.catalog import Block, CalendarFeed, DataSnapshot, Property, Rate, SheetLink
 from app.models.compliance import AuditLog, Consent, PrivacyNotice, WeeklyReport
 from app.models.conversation import Contact, Conversation, Handoff, Intent, Message, SearchResult
 from app.models.tenant import AppUser, Tenant, TenantMember, TenantRoute, WhatsAppAccount
@@ -15,6 +15,7 @@ __all__ = [
     "AuditLog",
     "Base",
     "Block",
+    "CalendarFeed",
     "Consent",
     "Contact",
     "Conversation",
@@ -26,6 +27,7 @@ __all__ = [
     "Property",
     "Rate",
     "SearchResult",
+    "SheetLink",
     "Tenant",
     "TenantMember",
     "TenantRoute",

@@ -539,3 +539,30 @@ Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nad
   assistente faria fica no registro. Transições implantação → sombra → atendendo (e volta) no painel,
   só gestor/suporte, com planilha aprovada e número conectado; ativar antes de 2 dias exige confirmação.
 - **Fila de falhas** limitada a 10 mil entradas (antes crescia sem limite).
+
+## D042 · Calendários iCal e planilha Google (M9)
+
+- **iCal (RF26):** leitor próprio (`app/domain/ical.py`, puro, testado com exportações do Airbnb e com
+  data/hora e fuso): só VEVENT com UID/DTSTART/DTEND, ignora cancelados. Alternativa descartada: a
+  biblioteca `icalendar` (dependência a mais para o pouco que usamos). Dia inteiro já tem fim
+  exclusivo; com hora, vale a data local de São Paulo do início e do fim.
+- **Endereço do calendário cifrado** (o do Airbnb leva token); o painel mostra só o domínio. Leitura com
+  a mesma proteção contra SSRF do verificador de links (http(s), porta padrão, endereço público a cada
+  redirecionamento), até 2 MB e 15 s. Limitação conhecida: a checagem de DNS e a conexão são dois
+  passos (rebinding); aceitável porque o conteúdo vira só datas.
+- **Bloqueios do link** são trocados a cada leitura (`block.calendar_feed_id`; remover o link remove os
+  bloqueios). Só eventos que terminam depois de hoje.
+- **Validade das datas (RF13) pelo iCal:** só quando **toda** casa da planilha aprovada tem calendário
+  e todos foram lidos com sucesso nos últimos 30 min. Com casa sem calendário, o "OK" diário continua
+  necessário (renovar parcialmente diria "livre" para uma casa não conferida).
+- **Planilha Google (RF27):** conta de serviço (`GOOGLE_SERVICE_ACCOUNT_JSON`, pendência humana), token
+  por JWT RS256 com `cryptography` (já era dependência). Sem a variável, a ligação aparece desligada no
+  painel. A planilha é exportada como .xlsx e passa pelo mesmo importador da planilha modelo.
+- **O que entra direto e o que pede aprovação:** compara o hash do catálogo (casas, tarifas, regras,
+  sem bloqueios) com o da versão no ar. Igual → só bloqueios mudaram → entram direto (origem
+  `google_sheet`), sem renovar a validade das datas (mexer na planilha não é conferir as datas). Diferente
+  → rascunho (origem `google_sheet`) que espera aprovação, com e-mail ao gestor; rascunho igual
+  pendente não é duplicado. A aprovação troca os bloqueios de planilha das duas origens (upload e Google):
+  a planilha aprovada é a fonte única deles.
+- **Falhas:** 3 seguidas (link fora, planilha com erro, não compartilhada) → e-mail ao gestor uma vez e
+  alerta na saúde da imobiliária (operador); um sucesso zera.

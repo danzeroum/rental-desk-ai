@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from app.adapters.fake_llm import FakeLLM
+from app.adapters.google_sheet import DisabledSheetSource, GoogleSheetSource, SheetSource
+from app.adapters.http_fetch import FakeFetcher, Fetcher, HttpFetcher
 from app.adapters.link_checker import FakeLinkChecker, HttpLinkChecker, LinkChecker
 from app.adapters.llm import AnthropicLLMClient, LLMClient
 from app.adapters.mailer import FakeMailer, Mailer, SmtpMailer
@@ -72,3 +74,14 @@ def build_keyring(settings: Settings) -> Keyring:
 def build_link_checker(settings: Settings) -> LinkChecker:
     """Testes não saem para a internet; os demais ambientes conferem os links de fotos."""
     return FakeLinkChecker() if settings.env == Environment.TEST else HttpLinkChecker()
+
+
+def build_fetcher(settings: Settings) -> Fetcher:
+    """Calendários iCal: testes não saem para a internet."""
+    return FakeFetcher() if settings.env == Environment.TEST else HttpFetcher()
+
+
+def build_sheet_source(settings: Settings) -> SheetSource:
+    if settings.google_service_account_json is None:
+        return DisabledSheetSource()
+    return GoogleSheetSource(settings.google_service_account_json.get_secret_value())

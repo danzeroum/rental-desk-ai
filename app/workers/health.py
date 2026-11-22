@@ -17,13 +17,22 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.rls import tenant_session
 from app.domain.health import STUCK_AFTER, HealthInput
-from app.models import AuditLog, Handoff, Message, Tenant, WhatsAppAccount
+from app.models import (
+    AuditLog,
+    CalendarFeed,
+    Handoff,
+    Message,
+    SheetLink,
+    Tenant,
+    WhatsAppAccount,
+)
 from app.models.enums import Direction, HandoffStatus, TenantStatus
 from app.workers.queue import DEAD_LETTER
 
 DEAD_SCAN: Final = 1000
 DAY: Final = timedelta(hours=24)
 HOUR: Final = timedelta(hours=1)
+SYNC_ALERT_FAILURES: Final = 3
 
 
 @dataclass(frozen=True)
@@ -85,6 +94,19 @@ async def collect(
             )
         )
         account = await session.scalar(select(WhatsAppAccount).limit(1))
+        failing_syncs = sum(
+            [
+                int(
+                    await session.scalar(
+                        select(func.count())
+                        .select_from(model)
+                        .where(model.consecutive_failures >= SYNC_ALERT_FAILURES)
+                    )
+                    or 0
+                )
+                for model in (CalendarFeed, SheetLink)
+            ]
+        )
     data = HealthInput(
         active=tenant.status == TenantStatus.ACTIVE,
         paused=tenant.paused_at is not None,
@@ -98,5 +120,6 @@ async def collect(
         quality=account.quality_rating if account else None,
         has_approved_data=tenant.active_snapshot_id is not None,
         llm_failures_1h=int(llm_failures or 0),
+        failing_syncs=failing_syncs,
     )
     return TenantSnapshot(data, account)

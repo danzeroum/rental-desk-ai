@@ -34,6 +34,8 @@ class HealthInput:
     quality: str | None
     has_approved_data: bool
     llm_failures_1h: int = 0
+    failing_syncs: int = 0
+    """Calendários iCal ou planilha Google com 3+ falhas seguidas (RF26, RF27)."""
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,8 @@ def assess(data: HealthInput, now: datetime) -> Health:
         alerts.append(
             f"{data.open_handoffs} passagem(ns) aguardando, a mais antiga há mais de 15 min"
         )
+    if data.failing_syncs:
+        alerts.append(f"{data.failing_syncs} calendário(s)/planilha sem sincronizar (3+ falhas)")
     if data.llm_failures_1h:
         alerts.append(
             f"{data.llm_failures_1h} resposta(s) em contingência (IA fora) na última hora"

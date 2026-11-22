@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     database_ops_url: PostgresDsn | None = None
     """Papel `rentaldesk_ops` (BYPASSRLS): só no scheduler, para listar trabalho global."""
 
+    google_service_account_json: SecretStr | None = None
+    """RF27: JSON da conta de serviço do Google (leitura das planilhas compartilhadas com ela)."""
+
     db_pool_size: int = Field(default=10, ge=1, le=100)
     worker_concurrency: int = Field(default=40, ge=1, le=128)
     """Conversas atendidas ao mesmo tempo por processo worker (cada uma espera a IA)."""

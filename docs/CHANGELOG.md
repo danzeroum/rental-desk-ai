@@ -5,6 +5,19 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.10.0] - 2026-11-22 · M9 Calendários e planilha Google
+
+### Adicionado
+- Calendário iCal por casa (Airbnb, Booking, Vrbo ou sistema próprio): leitura a cada 15 min, bloqueios
+  automáticos, alerta após 3 falhas, datas em dia sozinhas quando todas as casas têm calendário.
+- Planilha Google sincronizada: bloqueios entram direto; mudança de casa, tarifa ou regra vira versão que
+  pede aprovação, com e-mail ao gestor.
+- Telas "Calendários" e "Planilha Google" no painel; central de ajuda `docs/ajuda/calendarios.md`.
+
+### Corrigido
+- Tela do modo sombra mostrava a mensagem anterior do hóspede (a resposta agora guarda os ids das
+  mensagens do lote, sem o texto).
+
 ## [0.9.0] - 2026-11-22 · M8 Operação
 
 ### Adicionado

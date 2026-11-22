@@ -13,9 +13,32 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M6 · Passagem, assumir, escalonamento, pausa, desfecho | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.7.0 |
 | M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.8.0 |
 | M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.9.0 |
-| M9 · iCal e planilha Google | ⏳ próximo | | |
-| M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
+| M9 · iCal e planilha Google | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.10.0 |
+| M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | ⏳ próximo | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M9 · iCal e planilha Google — concluído em 22/11/2026
+
+### Entregue
+- **iCal (RF26, D042):** leitor próprio testado com exportações reais do Airbnb; link por casa,
+  cifrado; leitura segura (SSRF, 2 MB, 15 s) a cada 15 min; bloqueios trocados a cada leitura; 3 falhas
+  → e-mail ao gestor e alerta ao operador; com todas as casas cobertas, conta como datas em dia (RF13).
+- **Planilha Google (RF27):** conta de serviço (JWT RS256), exportação .xlsx pelo mesmo importador;
+  só bloqueios → entram direto; casa/tarifa/regra → rascunho com e-mail e aprovação.
+- Painel: "Calendários" e seção "Planilha Google"; migração 0007 (RLS nas tabelas novas).
+- Consulta de e-mails de gestores centralizada (antes repetida em 3 módulos). Versão 0.10.0.
+
+### Verificado
+- `make lint test golden security` verdes (detalhe no resumo do PR).
+- **Aceite do M9:** reserva criada no Airbnb tira a casa da busca do hóspede na leitura seguinte (a cada
+  15 min); reserva cancelada libera; mudança de preço na planilha Google vira rascunho e não vai ao ar
+  até a aprovação; bloqueio novo na planilha Google entra direto.
+
+### Depende de humano
+- Conta de serviço do Google (`GOOGLE_SERVICE_ACCOUNT_JSON`) e ativação da Drive API.
+- Um link iCal real de cada plataforma para um teste de ponta a ponta na VPS.
 
 ---
 

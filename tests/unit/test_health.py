@@ -24,6 +24,7 @@ def test_alerts() -> None:
         "15 min": {"oldest_open_handoff_at": NOW - timedelta(minutes=16)},
         "validador": {"validator_rejections_24h": 2},
         "48 h": {"last_inbound_at": None},
+        "sem sincronizar": {"failing_syncs": 1},
     }
     for word, change in cases.items():
         health = assess(replace(HEALTHY, **change), NOW)  # type: ignore[arg-type]

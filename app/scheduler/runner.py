@@ -43,6 +43,23 @@ async def tenants_with_open_handoffs(ops_engine: AsyncEngine) -> list[uuid.UUID]
         return [row[0] for row in rows]
 
 
+SYNC_TABLES: Final = frozenset({"calendar_feed", "sheet_link"})
+
+
+async def tenants_with(ops_engine: AsyncEngine, table: str) -> list[uuid.UUID]:
+    """Imobiliárias (não suspensas) com linhas na tabela de sincronização."""
+    if table not in SYNC_TABLES:
+        raise ValueError(f"tabela não permitida: {table}")
+    async with ops_engine.connect() as conn:
+        rows = await conn.execute(
+            text(
+                f"SELECT DISTINCT s.tenant_id FROM {table} s JOIN tenant t ON t.id = s.tenant_id"  # noqa: S608 - nome da lista fixa
+                " WHERE t.status <> 'suspended'"
+            )
+        )
+        return [row[0] for row in rows]
+
+
 async def active_tenants(ops_engine: AsyncEngine) -> list[uuid.UUID]:
     """Imobiliárias atendendo de verdade (demonstração não recebe lembrete nem relatório)."""
     async with ops_engine.connect() as conn:

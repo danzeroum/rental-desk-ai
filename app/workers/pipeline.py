@@ -110,6 +110,8 @@ class ResponsePipeline:
         loaded = await self._load(batch)
         result = await self.engine.run(loaded.context)
         payload = self._audit_payload(loaded, result)
+        # Ids internos das mensagens do lote (sem texto): ligam a resposta ao que o hóspede disse.
+        payload["inbound_message_ids"] = [str(m.id) for m in batch.messages]
         catalog = loaded.context.catalog
         if loaded.tenant_status == TenantStatus.SHADOW:
             await self._record_shadow(batch, result, payload)

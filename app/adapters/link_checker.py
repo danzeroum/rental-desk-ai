@@ -54,6 +54,19 @@ def _is_public(address: str) -> bool:
     return ip.is_global and not ip.is_multicast
 
 
+async def ensure_public_url(url: str, resolve: Resolver = _system_resolver) -> None:
+    """Só http(s) na porta padrão e para endereço público (contra SSRF)."""
+    parts = urlsplit(url)
+    if parts.scheme not in {"http", "https"} or not parts.hostname:
+        raise UnsafeDestinationError("endereço inválido")
+    default_port = 443 if parts.scheme == "https" else 80
+    if parts.port not in (None, default_port):
+        raise UnsafeDestinationError("porta não permitida")
+    addresses = await resolve(parts.hostname, default_port)
+    if not addresses or not all(_is_public(a) for a in addresses):
+        raise UnsafeDestinationError("endereço não público")
+
+
 class HttpLinkChecker:
     def __init__(
         self,
@@ -82,15 +95,7 @@ class HttpLinkChecker:
         return dict(results)
 
     async def _ensure_safe(self, url: str) -> None:
-        parts = urlsplit(url)
-        if parts.scheme not in {"http", "https"} or not parts.hostname:
-            raise UnsafeDestinationError("endereço inválido")
-        default_port = 443 if parts.scheme == "https" else 80
-        if parts.port not in (None, default_port):
-            raise UnsafeDestinationError("porta não permitida")
-        addresses = await self._resolve(parts.hostname, default_port)
-        if not addresses or not all(_is_public(a) for a in addresses):
-            raise UnsafeDestinationError("endereço não público")
+        await ensure_public_url(url, self._resolve)
 
     async def _check_one(self, client: httpx2.AsyncClient, url: str) -> LinkStatus:
         current = url

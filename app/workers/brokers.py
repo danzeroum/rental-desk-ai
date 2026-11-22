@@ -89,3 +89,18 @@ async def operator_emails(session: AsyncSession) -> list[str]:
         select(AppUser.email).where(AppUser.is_operator.is_(True), AppUser.is_active.is_(True))
     )
     return list(rows.scalars())
+
+
+async def manager_emails(session: AsyncSession, *, weekly_report: bool = False) -> list[str]:
+    """E-mails dos gestores ativos (com `weekly_report`, só quem não desligou o relatório)."""
+    query = (
+        select(AppUser.email)
+        .join(TenantMember, TenantMember.user_id == AppUser.id)
+        .where(TenantMember.role == MemberRole.GESTOR, AppUser.is_active.is_(True))
+        .order_by(AppUser.email)
+    )
+    if weekly_report:
+        query = query.where(
+            TenantMember.weekly_email_off_at.is_(None), AppUser.password_hash.is_not(None)
+        )
+    return list((await session.execute(query)).scalars())

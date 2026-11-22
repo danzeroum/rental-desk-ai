@@ -8,7 +8,14 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.adapters.factory import build_gateway, build_keyring, build_mailer
+from app.adapters.factory import (
+    build_fetcher,
+    build_gateway,
+    build_keyring,
+    build_link_checker,
+    build_mailer,
+    build_sheet_source,
+)
 from app.core.config import TIMEZONE, Settings, get_settings
 from app.core.db import async_url, create_engine
 from app.core.redis import create_redis
@@ -17,10 +24,18 @@ from app.main import build_queue
 from app.scheduler.alerts import ALERT_EVERY_SECONDS, AlertService
 from app.scheduler.quality import QUALITY_EVERY_SECONDS, refresh_quality, tenants_with_number
 from app.scheduler.recovery import RECOVERY_EVERY_SECONDS, reschedule_stuck
-from app.scheduler.runner import Job, Scheduler, active_tenants, tenants_with_open_handoffs
+from app.scheduler.runner import (
+    Job,
+    Scheduler,
+    active_tenants,
+    tenants_with,
+    tenants_with_open_handoffs,
+)
+from app.workers.calendars import SYNC_EVERY_SECONDS, CalendarService
 from app.workers.handoffs import HandoffService
 from app.workers.reminders import ReminderService, reminder_due
 from app.workers.reports import ReportService, report_due
+from app.workers.sheets import SheetSyncService
 
 ESCALATION_EVERY_SECONDS = 60
 REMINDER_CHECK_SECONDS = 300
@@ -100,6 +115,32 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
     )
 
     queue = build_queue(redis, settings)
+    calendars = CalendarService(
+        sessions=sessions,
+        fetcher=build_fetcher(settings),
+        keyring=keyring,
+        mailer=mailer,
+        public_base_url=settings.public_base_url,
+    )
+    sheets = SheetSyncService(
+        sessions=sessions,
+        source=build_sheet_source(settings),
+        link_checker=build_link_checker(settings),
+        mailer=mailer,
+        public_base_url=settings.public_base_url,
+    )
+
+    async def sync_calendars() -> int:
+        return sum(
+            [
+                await calendars.sync_tenant(t)
+                for t in await tenants_with(ops_engine, "calendar_feed")
+            ]
+        )
+
+    async def sync_sheets() -> int:
+        tenants = await tenants_with(ops_engine, "sheet_link")
+        return sum([await sheets.sync(t) is not None for t in tenants])
 
     async def recover() -> int:
         return await reschedule_stuck(ops_engine, queue)
@@ -114,6 +155,8 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
         Job("relatorio_semanal", REMINDER_CHECK_SECONDS, report_all),
         Job("alertas", ALERT_EVERY_SECONDS, alerts.run),
         Job("recuperacao", RECOVERY_EVERY_SECONDS, recover),
+        Job("calendarios", SYNC_EVERY_SECONDS, sync_calendars),
+        Job("planilha_google", SYNC_EVERY_SECONDS, sync_sheets),
     ]
     scheduler = Scheduler(redis, jobs)
     try:

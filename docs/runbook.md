@@ -58,6 +58,17 @@ export DEMO_WHATSAPP_TOKEN='...'   # não vai para o .env nem para o histórico 
 make seed-demo PNID=123456789012345
 ```
 
+## Calendários e planilha Google
+
+- O scheduler lê os calendários iCal e as planilhas Google a cada 15 min (`job=calendarios`,
+  `job=planilha_google`). Logs: `calendario_sincronizado`, `calendario_falhou`,
+  `planilha_google_sincronizada`, `planilha_google_falhou`.
+- **Conta de serviço do Google (uma vez):** no Google Cloud, crie um projeto, ative a **Google Drive
+  API**, crie uma conta de serviço, gere uma chave JSON e cole o JSON inteiro em uma linha em
+  `GOOGLE_SERVICE_ACCOUNT_JSON` no `.env` (depois `make up`). O e-mail da conta aparece no painel para
+  os gestores compartilharem a planilha.
+- Ajuda para o gestor: `docs/ajuda/calendarios.md`.
+
 ## Lembrete das 9h e relatório semanal
 
 - O scheduler manda o template `lembrete_datas` uma vez por dia (9h-18h) ao gestor que aceitou em "Meus

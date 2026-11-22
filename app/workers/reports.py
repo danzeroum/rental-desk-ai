@@ -27,8 +27,8 @@ from app.domain.report import (
     email_text,
     week_before,
 )
-from app.models import AppUser, AuditLog, Conversation, Handoff, Tenant, TenantMember, WeeklyReport
-from app.models.enums import MemberRole
+from app.models import AuditLog, Conversation, Handoff, Tenant, WeeklyReport
+from app.workers.brokers import manager_emails
 from app.workers.handoffs import hours_of
 
 SEND_FROM: Final = time(8, 0)
@@ -89,7 +89,7 @@ class ReportService:
                     metrics=metrics.to_json(),
                 )
             )  # fmt: skip
-            emails = await self._manager_emails(session)
+            emails = await manager_emails(session, weekly_report=True)
             await append_audit(
                 session, tenant_id=tenant_id, event_type="weekly_report",
                 payload={"period_start": period[0].isoformat(), "recipients": len(emails)},
@@ -137,18 +137,3 @@ class ReportService:
         ).scalars()
         totals = [total for payload in payloads for total in offered_totals(payload)]
         return compute(period, conversations, handoffs, totals, hours_of(tenant))
-
-    @staticmethod
-    async def _manager_emails(session: AsyncSession) -> list[str]:
-        rows = await session.execute(
-            select(AppUser.email)
-            .join(TenantMember, TenantMember.user_id == AppUser.id)
-            .where(
-                TenantMember.role == MemberRole.GESTOR,
-                TenantMember.weekly_email_off_at.is_(None),
-                AppUser.is_active.is_(True),
-                AppUser.password_hash.is_not(None),
-            )
-            .order_by(AppUser.email)
-        )
-        return list(rows.scalars())

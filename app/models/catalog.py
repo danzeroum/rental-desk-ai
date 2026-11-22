@@ -20,6 +20,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -158,7 +159,61 @@ class Block(TenantScoped, Base):
     end_date: Mapped[date] = mapped_column(Date)
     source: Mapped[str] = mapped_column(String(20))
     external_uid: Mapped[str | None] = mapped_column(String(255))
-    """iCal: UID do evento, para sincronizar sem duplicar (RF26)."""
+    """iCal: `<id do link>:<UID do evento>`, para sincronizar sem duplicar (RF26)."""
+    calendar_feed_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("calendar_feed.id", ondelete="CASCADE"), index=True
+    )
+    """iCal: link de origem; remover o link remove os bloqueios dele."""
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[CreatedAt]
+
+
+class SyncState:
+    """Situação de uma sincronização periódica (iCal, planilha Google)."""
+
+    last_attempt_at: Mapped[datetime | None]
+    last_success_at: Mapped[datetime | None]
+    consecutive_failures: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    last_error: Mapped[str | None] = mapped_column(String(300))
+    """Mensagem para o painel (sem dado pessoal)."""
+    alerted_at: Mapped[datetime | None]
+    """Alerta das 3 falhas seguidas já dado (zera no próximo sucesso)."""
+
+
+class CalendarFeed(SyncState, TenantScoped, Base):
+    """Link iCal de uma casa (RF26). O endereço costuma ter um token secreto: fica cifrado."""
+
+    __tablename__ = "calendar_feed"
+    __table_args__ = (
+        CheckConstraint(PROPERTY_CODE_CHECK.replace("code", "property_code"), name="code"),
+    )
+
+    id: Mapped[UuidPk]
+    property_code: Mapped[str] = mapped_column(String(20))
+    label: Mapped[str] = mapped_column(String(40))
+    """Origem para o gestor (Airbnb, Booking, Vrbo, outro), deduzida do endereço."""
+    url_enc: Mapped[bytes] = mapped_column(LargeBinary)
+    url_hint: Mapped[str] = mapped_column(String(80))
+    """Domínio e final do endereço, para o gestor reconhecer o link sem expor o token."""
+    events: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[CreatedAt]
+
+
+class SheetLink(SyncState, TenantScoped, Base):
+    """Planilha Google sincronizada (RF27): uma por imobiliária."""
+
+    __tablename__ = "sheet_link"
+    __table_args__ = (UniqueConstraint("tenant_id"),)
+
+    id: Mapped[UuidPk]
+    sheet_id: Mapped[str] = mapped_column(String(100))
+    last_content_hash: Mapped[str | None] = mapped_column(String(64))
+    """Hash da última leitura, para não refazer nada quando a planilha não mudou."""
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
     )

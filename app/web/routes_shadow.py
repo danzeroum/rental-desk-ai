@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any, Final
 
@@ -14,7 +15,6 @@ from app.core.audit import append_audit
 from app.domain.lifecycle import TRANSITIONS, Readiness, TransitionError, check_transition
 from app.domain.notices import reason_label
 from app.models import AuditLog, Message, Tenant, WhatsAppAccount
-from app.models.enums import Direction
 from app.web.common import local_time, redirect, render, verify_csrf
 from app.web.context import ManagerCtx, TenantContext
 
@@ -60,17 +60,13 @@ async def _samples(session: AsyncSession) -> list[dict[str, Any]]:
     ).scalars()
     samples = []
     for event in events:
-        guest = await session.scalar(
-            select(func.string_agg(Message.body, " / "))
-            .where(
-                Message.conversation_id == event.conversation_id,
-                Message.direction == Direction.INBOUND,
-                Message.processed_at <= event.created_at,
+        ids = [uuid.UUID(i) for i in event.payload.get("inbound_message_ids") or []]
+        bodies = (
+            await session.execute(
+                select(Message.body).where(Message.id.in_(ids)).order_by(Message.created_at)
             )
-            .group_by(Message.processed_at)
-            .order_by(Message.processed_at.desc())
-            .limit(1)
-        )
+        ).scalars()
+        guest = " / ".join(b for b in bodies if b)
         handoff = event.payload.get("handoff")
         samples.append(
             {

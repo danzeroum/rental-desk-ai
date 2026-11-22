@@ -67,6 +67,12 @@ class WorkbookData:
             "rules": dict(sorted(self.rules.items())),
         }
 
+    def catalog_hash(self) -> str:
+        """Hash sem os bloqueios: muda só com casa, tarifa ou regra (RF27: pede aprovação)."""
+        canonical = {k: v for k, v in self.canonical().items() if k != "blocks"}
+        payload = json.dumps(canonical, default=_json_default, ensure_ascii=False, sort_keys=True)
+        return hashlib.sha256(payload.encode()).hexdigest()
+
     def content_hash(self) -> str:
         payload = json.dumps(
             self.canonical(), default=_json_default, ensure_ascii=False, sort_keys=True

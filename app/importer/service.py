@@ -9,7 +9,7 @@ Fluxo: `prepare_import` (lê, valida e confere links, sem banco) →
 from __future__ import annotations
 
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from datetime import date, datetime
 from typing import Any
 
@@ -20,7 +20,7 @@ from app.adapters.link_checker import LinkChecker
 from app.core.audit import append_audit
 from app.core.logging import get_logger
 from app.importer.analyze import analyze_workbook
-from app.importer.model import ImportReport, Issue, Severity
+from app.importer.model import ImportReport, Issue, PropertyData, RateData, Severity, WorkbookData
 from app.importer.schema import IMOVEIS
 from app.models import Block, DataSnapshot, Property, Rate, Tenant
 from app.models.enums import BlockSource, SnapshotSource, SnapshotStatus
@@ -92,14 +92,7 @@ async def save_draft(
         file_name=file_name,
         rules=data.rules,
         warnings=[_issue_json(i) for i in report.warnings],
-        blocks=[
-            {
-                "codigo": b.property_code,
-                "start_date": b.start_date.isoformat(),
-                "end_date": b.end_date.isoformat(),
-            }
-            for b in data.blocks
-        ],
+        blocks=blocks_json(data),
         created_by=user_id,
     )
     session.add(snapshot)
@@ -180,10 +173,29 @@ async def approve_snapshot(
 
 
 async def _replace_spreadsheet_blocks(
-    session: AsyncSession, tenant_id: uuid.UUID, snapshot: DataSnapshot, user_id: uuid.UUID
+    session: AsyncSession, tenant_id: uuid.UUID, snapshot: DataSnapshot, user_id: uuid.UUID | None
+) -> None:
+    """A planilha aprovada (upload ou Google) é a fonte única dos bloqueios de planilha."""
+    source = (
+        BlockSource.GOOGLE_SHEET
+        if snapshot.source == SnapshotSource.GOOGLE_SHEET
+        else BlockSource.SPREADSHEET
+    )
+    await replace_sheet_blocks(session, tenant_id, snapshot.blocks, source, user_id)
+
+
+async def replace_sheet_blocks(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    blocks: list[Any],
+    source: BlockSource,
+    user_id: uuid.UUID | None,
 ) -> None:
     await session.execute(
-        delete(Block).where(Block.tenant_id == tenant_id, Block.source == BlockSource.SPREADSHEET)
+        delete(Block).where(
+            Block.tenant_id == tenant_id,
+            Block.source.in_([BlockSource.SPREADSHEET, BlockSource.GOOGLE_SHEET]),
+        )
     )
     session.add_all(
         Block(
@@ -191,11 +203,39 @@ async def _replace_spreadsheet_blocks(
             property_code=b["codigo"],
             start_date=date.fromisoformat(b["start_date"]),
             end_date=date.fromisoformat(b["end_date"]),
-            source=BlockSource.SPREADSHEET,
+            source=source,
             created_by=user_id,
         )
-        for b in snapshot.blocks
+        for b in blocks
     )
+
+
+def blocks_json(data: WorkbookData) -> list[dict[str, str]]:
+    return [
+        {
+            "codigo": b.property_code,
+            "start_date": b.start_date.isoformat(),
+            "end_date": b.end_date.isoformat(),
+        }
+        for b in data.blocks
+    ]
+
+
+async def active_catalog_hash(session: AsyncSession, snapshot: DataSnapshot) -> str:
+    """Hash do catálogo (sem bloqueios) da versão aprovada, montado do banco."""
+    props = (
+        await session.execute(select(Property).where(Property.snapshot_id == snapshot.id))
+    ).scalars()
+    rates = (await session.execute(select(Rate).where(Rate.snapshot_id == snapshot.id))).scalars()
+    data = WorkbookData(
+        properties=[
+            PropertyData(**{f.name: getattr(p, f.name) for f in fields(PropertyData)})
+            for p in props
+        ],
+        rates=[RateData(**{f.name: getattr(r, f.name) for f in fields(RateData)}) for r in rates],
+        rules=dict(snapshot.rules or {}),
+    )
+    return data.catalog_hash()
 
 
 async def reject_snapshot(

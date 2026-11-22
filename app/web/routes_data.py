@@ -29,6 +29,7 @@ from app.models import Block, DataSnapshot, Property, Rate, Tenant
 from app.models.enums import BlockSource, SnapshotStatus
 from app.web.common import local_time, redirect, render, verify_csrf
 from app.web.context import ManagerCtx, TenantContext, TenantCtx
+from app.web.routes_sync import sheet_context
 
 router = APIRouter(prefix="/painel")
 log = get_logger(__name__)
@@ -58,7 +59,8 @@ async def data_page(request: Request, ctx: ManagerCtx) -> Response:
                 )
             ).scalars()
         )
-    return render(request, "panel/data.html", {"snapshots": snapshots, "ctx": ctx})
+    sheet = await sheet_context(request, ctx)
+    return render(request, "panel/data.html", {"snapshots": snapshots, "ctx": ctx, **sheet})
 
 
 @router.get("/dados/modelo")

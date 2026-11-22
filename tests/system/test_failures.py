@@ -23,7 +23,7 @@ from app.main import create_app
 from app.models import Message
 from app.scheduler.recovery import reschedule_stuck
 from app.workers.processor import RecordingHandler
-from app.workers.queue import WorkQueue
+from app.workers.queue import WorkQueue, conversation_key
 from app.workers.runner import Worker
 from tests.integration.test_webhook_flow import (  # noqa: F401 - fixtures
     Sessions,
@@ -62,18 +62,15 @@ async def test_redis_down_on_webhook_then_retry_is_recovered(
         )
     assert await redis.zcard("rd:debounce:due") == 0  # ninguém agendou
     assert await reschedule_stuck(ops_engine, WorkQueue(redis)) >= 1
+    conversation_id = stored[0].conversation_id
+    key = conversation_key(tenant_id, conversation_id)
+    assert await redis.zscore("rd:debounce:due", key) is not None  # reagendada pela varredura
     handler = RecordingHandler()
-    worker = Worker(
-        later_queue(redis),
-        processor(app_sessions, later_queue(redis), keyring, handler),
-        _unused_notice,
+    outcome = await processor(app_sessions, later_queue(redis), keyring, handler).process(
+        tenant_id, conversation_id
     )
-    await worker.queue.ensure_groups()
-    for _ in range(50):  # a varredura é global: pode reagendar conversas de outros testes
-        if not await worker.tick(block_ms=100):
-            break
-    ours = [m.text for b in handler.batches if b.tenant_id == tenant_id for m in b.messages]
-    assert ours == ["Casa para 4 de 10/12 a 15/12"]
+    assert outcome.handled
+    assert [m.text for b in handler.batches for m in b.messages] == ["Casa para 4 de 10/12 a 15/12"]
 
 
 async def test_postgres_down_on_webhook_and_health(
