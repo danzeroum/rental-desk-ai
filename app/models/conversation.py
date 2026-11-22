@@ -160,7 +160,17 @@ class Handoff(TenantScoped, Timestamped, Base):
             f"outcome IS NULL OR {check_in('outcome', values(HandoffOutcome))}", name="outcome"
         ),
         CheckConstraint("status <> 'assumed' OR assumed_at IS NOT NULL", name="assumed_recorded"),
+        CheckConstraint(
+            "assumed_via IS NULL OR assumed_via IN ('whatsapp', 'panel', 'echo')",
+            name="assumed_via",
+        ),
         Index("ix_handoff_queue", "tenant_id", "status", "created_at"),
+        Index(
+            "ix_handoff_pending",
+            "status",
+            "clock_started_at",
+            postgresql_where=text("status = 'open'"),
+        ),
     )
 
     id: Mapped[UuidPk]
@@ -178,6 +188,17 @@ class Handoff(TenantScoped, Timestamped, Base):
     assumed_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("app_user.id", ondelete="SET NULL")
     )
+    clock_started_at: Mapped[datetime | None]
+    """Início da contagem do escalonamento (abertura do plantão, se criada fora do horário)."""
+    notified_at: Mapped[datetime | None]
+    """Último aviso ao corretor (rodízio a cada 10 min comerciais)."""
+    notify_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    manager_alerted_at: Mapped[datetime | None]
+    """RF12: alerta ao gestor e ao operador aos 15 min comerciais."""
+    guest_notified_at: Mapped[datetime | None]
+    """RF12: mensagem ao hóspede aos 60 min comerciais (ou fora do horário, na criação)."""
+    assumed_via: Mapped[str | None] = mapped_column(String(20))
+    """whatsapp ("responda 1") | panel | echo (só se a coexistência for comprovada)."""
     outcome: Mapped[str | None] = mapped_column(String(20))
     outcome_at: Mapped[datetime | None]
     outcome_by: Mapped[uuid.UUID | None] = mapped_column(
