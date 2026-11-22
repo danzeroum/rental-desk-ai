@@ -13,7 +13,7 @@ import unicodedata
 from datetime import date
 from typing import Any, Final
 
-from app.adapters.llm import LLMUnavailableError
+from app.adapters.llm import LLMResponse, LLMUnavailableError
 from app.domain.prompts import EXTRACTION_SCHEMA, WRITER_SCHEMA
 
 _TODAY: Final = re.compile(r"^Hoje: (\d{4}-\d{2}-\d{2})", re.MULTILINE)
@@ -86,17 +86,29 @@ class FakeLLM:
 
     async def complete_json(
         self, *, system: str, user: str, schema: dict[str, Any], max_tokens: int = 1024
-    ) -> str:
+    ) -> LLMResponse:
         if self.fail:
             raise LLMUnavailableError("falha simulada")
         if schema is WRITER_SCHEMA:
             self.calls.append("writer")
             opening, closing = self.writer_text
-            return json.dumps({"abertura": opening, "fechamento": closing}, ensure_ascii=False)
+            return self._response(
+                json.dumps({"abertura": opening, "fechamento": closing}, ensure_ascii=False), user
+            )
         if schema is not EXTRACTION_SCHEMA:
             raise LLMUnavailableError("esquema desconhecido pelo FakeLLM")
         self.calls.append("extraction")
-        return json.dumps(self._extract(user), ensure_ascii=False)
+        return self._response(json.dumps(self._extract(user), ensure_ascii=False), user)
+
+    @staticmethod
+    def _response(text: str, prompt: str) -> LLMResponse:
+        # Estimativa grosseira (~4 caracteres por token), só para exercitar os relatórios.
+        return LLMResponse(
+            text=text,
+            model="fake",
+            input_tokens=len(prompt) // 4,
+            output_tokens=len(text) // 4,
+        )
 
     def _extract(self, user: str) -> dict[str, Any]:
         today_match = _TODAY.search(user)

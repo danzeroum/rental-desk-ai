@@ -273,6 +273,14 @@ A mais recente fica embaixo.
   modelo se o primeiro recusar. Desligável com `LLM_REFUSAL_FALLBACK=false`. Se ainda assim vier
   recusa, ou a saída for cortada (`max_tokens`), ou houver erro de rede/API, vale a contingência do SPEC
   (frase fixa + passagem).
+- **Revisão de 22/11/2026 (decisão do time):** o `.env` gerado passa a sugerir `claude-haiku-5-5`.
+  `make golden-live` compara `claude-haiku-5-5`, `claude-sonnet-5-5` e `claude-opus-5-5` no conjunto de
+  ouro e grava `docs/golden/comparacao-AAAA-MM-DD.md` com acertos, critérios de produção, latência p95
+  por volta e custo estimado por conversa. Fica o **mais barato aprovado em todos os critérios do SPEC
+  (seção 11) com p95 ≤ 15 s**. O fallback de recusa continua ligado, e cada acionamento fica no
+  `audit_log` da resposta (`llm_refusal_fallback`: modelo que recusou e modelo que respondeu), junto da
+  lista de chamadas ao LLM (`llm_calls`: modelo, tokens, latência). Esses dados também servem à meta de
+  custo do SPEC (seção 5).
 - `FakeLLM` por regras, determinístico, para `make golden` e desenvolvimento. Outros provedores entram
   como novas implementações da mesma interface, se o conjunto de ouro indicar.
 - Pendência humana: chave do provedor com contrato sem uso dos dados para treino.

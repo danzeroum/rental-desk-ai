@@ -83,8 +83,8 @@ test-deps-down:
 golden: ## Conjunto de ouro com o FakeLLM determinístico
 	$(UV) pytest tests/golden -q -s
 
-golden-live: ## Conjunto de ouro com o LLM real (precisa de LLM_MODEL e LLM_API_KEY no ambiente)
-	GOLDEN_LIVE=1 $(UV) pytest tests/golden -q -s
+golden-live: ## Compara Haiku, Sonnet e Opus no conjunto de ouro (precisa de LLM_API_KEY)
+	$(UV) python -m tests.golden.compare --out docs/golden/comparacao-$$(date +%F).md
 
 security: ## Auditoria de dependências e SAST local
 	uv export --frozen --no-dev --no-hashes --format requirements-txt -o /tmp/rental-desk-requirements.txt

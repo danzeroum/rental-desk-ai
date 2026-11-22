@@ -36,8 +36,10 @@ async def test_sends_schema_effort_and_refusal_fallback() -> None:
         seen.append(request)
         return httpx2.Response(200, json=message())
 
-    text = await client(handler).complete_json(system="s", user="u", schema=SCHEMA)
-    assert json.loads(text) == {"ok": True}
+    response = await client(handler).complete_json(system="s", user="u", schema=SCHEMA)
+    assert json.loads(response.text) == {"ok": True}
+    assert (response.model, response.fallback_from) == ("claude-opus-5-5", None)
+    assert (response.input_tokens, response.output_tokens) == (10, 5)
     body = json.loads(seen[0].content)
     assert body["output_config"] == {
         "effort": "low",
@@ -100,10 +102,28 @@ async def test_fake_llm_extraction_and_writer() -> None:
         user="Hoje: 2026-11-21\nhóspede (última): casa para 12 no réveillon",
         schema=EXTRACTION_SCHEMA,
     )
-    data = json.loads(raw)
+    data = json.loads(raw.text)
     assert data["slots_update"]["guests"] == 12
     assert data["slots_update"]["check_in"] == "2026-12-28"
-    writer = json.loads(await fake.complete_json(system="", user="", schema=WRITER_SCHEMA))
+    writer = json.loads((await fake.complete_json(system="", user="", schema=WRITER_SCHEMA)).text)
     assert set(writer) == {"abertura", "fechamento"}
     with pytest.raises(LLMUnavailableError):
         await FakeLLM(fail=True).complete_json(system="", user="", schema=SCHEMA)
+
+
+async def test_refusal_fallback_is_reported() -> None:
+    body = message()
+    body["model"] = "claude-opus-5"
+    body["content"] = [
+        {
+            "type": "fallback",
+            "from": {"model": "claude-opus-5-5"},
+            "to": {"model": "claude-opus-5"},
+        },
+        {"type": "text", "text": '{"ok": true}'},
+    ]
+    response = await client(lambda r: httpx2.Response(200, json=body)).complete_json(
+        system="s", user="u", schema=SCHEMA
+    )
+    assert (response.model, response.fallback_from) == ("claude-opus-5", "claude-opus-5-5")
+    assert response.audit("extraction")["fallback_from"] == "claude-opus-5-5"

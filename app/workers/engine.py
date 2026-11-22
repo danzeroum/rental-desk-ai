@@ -84,6 +84,12 @@ class TurnResult:
     handoff: HandoffPlan | None = None
     validator: dict[str, Any] = field(default_factory=dict)
     llm_unavailable: bool = False
+    llm_calls: list[dict[str, Any]] = field(default_factory=list)
+    """Uma entrada por chamada ao LLM: modelo que respondeu, fallback, tokens, latência."""
+
+    @property
+    def refusal_fallbacks(self) -> list[dict[str, Any]]:
+        return [c for c in self.llm_calls if c.get("fallback_from")]
 
 
 class ConversationEngine:
@@ -91,40 +97,45 @@ class ConversationEngine:
         self.llm = llm
 
     async def run(self, ctx: TurnContext) -> TurnResult:
-        result = await self._body(ctx)
+        calls: list[dict[str, Any]] = []
+        result = await self._body(ctx, calls)
+        result.llm_calls = calls
         if ctx.first_response:
             intro = render.intro(ctx.assistant_name, ctx.tenant_name, ctx.privacy_url)
             result.text = f"{intro}\n\n{result.text}"
         return result
 
-    async def _body(self, ctx: TurnContext) -> TurnResult:
+    async def _body(self, ctx: TurnContext, calls: list[dict[str, Any]]) -> TurnResult:
         if ctx.audio_not_understood and not ctx.new_text:
             return TurnResult(render.AUDIO_NOT_UNDERSTOOD, ctx.state)
         try:
-            extraction = await self._extract(ctx)
+            extraction = await self._extract(ctx, calls)
         except LLMUnavailableError:
             plan = self._handoff_plan(ctx.state, HandoffReason.LLM_UNAVAILABLE, None)
             return TurnResult(render.CONTINGENCY, ctx.state, handoff=plan, llm_unavailable=True)
         decision = decide(extraction, ctx.state, today=ctx.today)
-        result = await self._act(ctx, decision)
+        result = await self._act(ctx, decision, calls)
         result.decision = decision
         result.extraction = extraction.model_dump(mode="json") if extraction else None
         return result
 
-    async def _extract(self, ctx: TurnContext) -> Extraction | None:
+    async def _extract(self, ctx: TurnContext, calls: list[dict[str, Any]]) -> Extraction | None:
         prompt = extraction_input(
             today=ctx.today, state=ctx.state, history=ctx.history, new_text=ctx.new_text or ""
         )
-        raw = await self.llm.complete_json(
+        response = await self.llm.complete_json(
             system=EXTRACTION_SYSTEM, user=prompt, schema=EXTRACTION_SCHEMA
         )
-        parsed = loads_object(raw)
+        calls.append(response.audit("extraction"))
+        parsed = loads_object(response.text)
         extraction = parse_extraction(parsed) if parsed is not None else None
         if extraction is None:
             log.warning("extracao_invalida")  # RF03: não chega à decisão
         return extraction
 
-    async def _act(self, ctx: TurnContext, decision: Decision) -> TurnResult:
+    async def _act(
+        self, ctx: TurnContext, decision: Decision, calls: list[dict[str, Any]]
+    ) -> TurnResult:
         state = decision.state
         match decision.action:
             case Action.HANDOFF:
@@ -148,7 +159,7 @@ class ConversationEngine:
             case Action.ANSWER_ATTRIBUTE:
                 return self._answer_attribute(ctx, decision)
             case Action.SEARCH:
-                return await self._search(ctx, state)
+                return await self._search(ctx, state, calls)
 
     def _answer_attribute(self, ctx: TurnContext, decision: Decision) -> TurnResult:
         prop = ctx.catalog.property(decision.property_code or "") if ctx.catalog else None
@@ -161,7 +172,9 @@ class ConversationEngine:
         state = decision.state.model_copy(update={"pending_questions": questions})
         return TurnResult(render.ATTRIBUTE_UNKNOWN, state)
 
-    async def _search(self, ctx: TurnContext, state: ConversationState) -> TurnResult:
+    async def _search(
+        self, ctx: TurnContext, state: ConversationState, calls: list[dict[str, Any]]
+    ) -> TurnResult:
         stay = stay_from(state)
         if ctx.catalog is None or stay is None or state.slots.guests is None:
             plan = self._handoff_plan(state, HandoffReason.HUMAN, None)
@@ -188,12 +201,12 @@ class ConversationEngine:
             return TurnResult(render.NO_RESULTS, state, search_query=query_json, search=outcome)
         state = record_offer(state, [o.property.code for o in outcome.offers])
         cards = render.render_offers(outcome, stay.check_in, stay.check_out)
-        opening, closing, validator = await self._phrases(ctx, outcome)
+        opening, closing, validator = await self._phrases(ctx, outcome, calls)
         text = f"{opening}\n\n{cards}\n\n{closing}"
         return TurnResult(text, state, search_query=query_json, search=outcome, validator=validator)
 
     async def _phrases(
-        self, ctx: TurnContext, outcome: SearchOutcome
+        self, ctx: TurnContext, outcome: SearchOutcome, calls: list[dict[str, Any]]
     ) -> tuple[str, str, dict[str, Any]]:
         """Duas frases do LLM; validador recusa → tenta mais uma vez → frase fixa (SPEC 3.10)."""
         codes = ctx.catalog.codes if ctx.catalog else frozenset()
@@ -205,13 +218,14 @@ class ConversationEngine:
         rejections: list[list[str]] = []
         for _ in range(MAX_WRITER_ATTEMPTS):
             try:
-                raw = await self.llm.complete_json(
+                response = await self.llm.complete_json(
                     system=WRITER_SYSTEM, user=prompt, schema=WRITER_SCHEMA, max_tokens=300
                 )
+                calls.append(response.audit("writer"))
             except LLMUnavailableError:
                 rejections.append(["llm_unavailable"])
                 break
-            data = loads_object(raw) or {}
+            data = loads_object(response.text) or {}
             opening, closing = str(data.get("abertura", "")), str(data.get("fechamento", ""))
             reasons = [
                 str(r)

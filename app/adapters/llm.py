@@ -12,6 +12,8 @@ conversa ao corretor (seção 7, item 10).
 from __future__ import annotations
 
 import json
+import time
+from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
 import anthropic
@@ -33,6 +35,28 @@ REFUSAL_FALLBACK_MODELS: Final = frozenset(
 REFUSAL_FALLBACK_BETA: Final = "server-side-fallback-2026-07-01"
 
 
+@dataclass(frozen=True)
+class LLMResponse:
+    text: str
+    model: str
+    """Modelo que de fato respondeu (com o fallback, pode ser outro que o pedido)."""
+    fallback_from: str | None = None
+    """Modelo que recusou o pedido, quando o fallback de recusa foi acionado."""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_seconds: float = 0.0
+
+    def audit(self, purpose: str) -> dict[str, Any]:
+        return {
+            "purpose": purpose,
+            "model": self.model,
+            "fallback_from": self.fallback_from,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "latency_ms": round(self.latency_seconds * 1000),
+        }
+
+
 class LLMUnavailableError(Exception):
     """O provedor não entregou uma resposta utilizável."""
 
@@ -40,7 +64,7 @@ class LLMUnavailableError(Exception):
 class LLMClient(Protocol):
     async def complete_json(
         self, *, system: str, user: str, schema: dict[str, Any], max_tokens: int = 1024
-    ) -> str:
+    ) -> LLMResponse:
         """Devolve o texto JSON produzido segundo `schema` (validação fica com quem chama)."""
         ...
 
@@ -65,7 +89,8 @@ class AnthropicLLMClient:
 
     async def complete_json(
         self, *, system: str, user: str, schema: dict[str, Any], max_tokens: int = 1024
-    ) -> str:
+    ) -> LLMResponse:
+        started = time.perf_counter()
         request: dict[str, Any] = {
             "model": self.model,
             "max_tokens": max_tokens,
@@ -89,7 +114,28 @@ class AnthropicLLMClient:
         except anthropic.APIStatusError as exc:
             log.warning("llm_erro_api", status=exc.status_code, request_id=exc.request_id)
             raise LLMUnavailableError(f"provedor de IA respondeu {exc.status_code}") from exc
-        return self._text_of(response)
+        text = self._text_of(response)
+        usage = getattr(response, "usage", None)
+        fallback_from = next(
+            (
+                getattr(getattr(block, "from_", None), "model", None)
+                for block in response.content
+                if getattr(block, "type", "") == "fallback"
+            ),
+            None,
+        )
+        if fallback_from is not None:
+            log.warning("llm_fallback_de_recusa", recusou=fallback_from, respondeu=response.model)
+        return LLMResponse(
+            text=text,
+            model=str(getattr(response, "model", self.model)),
+            fallback_from=fallback_from,
+            input_tokens=_tokens(
+                usage, "input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"
+            ),
+            output_tokens=_tokens(usage, "output_tokens"),
+            latency_seconds=time.perf_counter() - started,
+        )
 
     def _text_of(self, response: Any) -> str:
         stop = getattr(response, "stop_reason", None)
@@ -104,6 +150,10 @@ class AnthropicLLMClient:
         if text is None:
             raise LLMUnavailableError("resposta do provedor sem texto")
         return str(text)
+
+
+def _tokens(usage: Any, *fields: str) -> int:
+    return sum(int(getattr(usage, f, 0) or 0) for f in fields)
 
 
 def loads_object(text: str) -> dict[str, Any] | None:

@@ -22,7 +22,7 @@ from typing import Any, Final
 import yaml
 
 from app.adapters.fake_llm import FakeLLM
-from app.adapters.llm import LLMClient
+from app.adapters.llm import LLMClient, LLMResponse
 from app.domain.catalog import BlockData
 from app.domain.masking import mask_pii
 from app.domain.prompts import HistoryItem
@@ -73,6 +73,11 @@ class TurnReport:
     reservation_claim: bool
     handoff_expected: str | None
     handoff_actual: str | None
+    llm_seconds: float = 0.0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    models: tuple[str, ...] = ()
+    refusal_fallbacks: int = 0
 
 
 def load_cases(directory: Path = CASES_DIR) -> list[Case]:
@@ -115,7 +120,7 @@ class RecordingLLM:
 
     async def complete_json(
         self, *, system: str, user: str, schema: dict[str, Any], max_tokens: int = 1024
-    ) -> str:
+    ) -> LLMResponse:
         self.prompts.append(user)
         return await self.inner.complete_json(
             system=system, user=user, schema=schema, max_tokens=max_tokens
@@ -226,6 +231,11 @@ async def run_case(case: Case, llm: LLMClient | None = None) -> list[TurnReport]
                 reservation_claim=bool(_RESERVATION_CLAIMS.search(result.text)),
                 handoff_expected=turn.expect.get("handoff"),
                 handoff_actual=result.handoff.reason if result.handoff else None,
+                llm_seconds=sum(c["latency_ms"] for c in result.llm_calls) / 1000,
+                input_tokens=sum(c["input_tokens"] for c in result.llm_calls),
+                output_tokens=sum(c["output_tokens"] for c in result.llm_calls),
+                models=tuple(c["model"] for c in result.llm_calls),
+                refusal_fallbacks=len(result.refusal_fallbacks),
             )
         )  # fmt: skip
         state = result.state

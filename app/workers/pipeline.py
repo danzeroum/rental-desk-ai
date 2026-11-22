@@ -195,6 +195,13 @@ class ResponsePipeline:
             "validator": result.validator,
             "handoff": result.handoff.reason if result.handoff else None,
             "llm_unavailable": result.llm_unavailable,
+            "llm_calls": result.llm_calls,
+            # Fallback de recusa acionado: qual modelo recusou e qual respondeu (pedido do time).
+            "llm_refusal_fallback": [
+                {"from": c["fallback_from"], "to": c["model"], "purpose": c["purpose"]}
+                for c in result.refusal_fallbacks
+            ]
+            or None,
             "first_response": loaded.context.first_response,
         }
 

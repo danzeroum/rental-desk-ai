@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.adapters.fake_llm import FakeLLM
 from app.adapters.link_checker import FakeLinkChecker
+from app.adapters.llm import LLMResponse
 from app.adapters.transcriber import FakeTranscriber
 from app.adapters.whatsapp import FakeWhatsAppGateway, GatewayError
 from app.adapters.whatsapp_webhook import InboundMessage
@@ -270,3 +272,40 @@ async def test_stale_dates_never_claim_availability(
     body = world.gateway.sent[0].body
     assert "Disponibilidade a confirmar com o corretor." in body
     assert "disponível" not in body.lower()
+
+
+class FallbackFakeLLM(FakeLLM):
+    """Simula o fallback de recusa: o modelo pedido recusou e outro respondeu."""
+
+    async def complete_json(self, **kwargs: Any) -> LLMResponse:
+        response = await super().complete_json(**kwargs)
+        return dataclasses.replace(response, model="claude-opus-5", fallback_from="claude-opus-5-5")
+
+
+async def test_refusal_fallback_is_recorded_in_audit_log(
+    app_sessions: Sessions, ops_sessions: Sessions, redis: Redis, keyring: Keyring
+) -> None:
+    tenant_id, pnid = await setup_tenant(app_sessions, ops_sessions, keyring)
+    world = World(app_sessions, redis, keyring, FallbackFakeLLM())
+    await world.say(pnid, "Casa para 4 de 10/12 a 15/12")
+    async with tenant_session(app_sessions, tenant_id) as session:
+        audit = (
+            await session.execute(select(AuditLog).where(AuditLog.event_type == "response_sent"))
+        ).scalar_one()
+    fallbacks = audit.payload["llm_refusal_fallback"]
+    assert {"from": "claude-opus-5-5", "to": "claude-opus-5", "purpose": "extraction"} in fallbacks
+    assert all(call["model"] == "claude-opus-5" for call in audit.payload["llm_calls"])
+
+
+async def test_audit_lists_llm_calls_without_fallback(
+    app_sessions: Sessions, ops_sessions: Sessions, redis: Redis, keyring: Keyring
+) -> None:
+    tenant_id, pnid = await setup_tenant(app_sessions, ops_sessions, keyring)
+    world = World(app_sessions, redis, keyring, FakeLLM())
+    await world.say(pnid, "Casa para 4 de 10/12 a 15/12")
+    async with tenant_session(app_sessions, tenant_id) as session:
+        audit = (
+            await session.execute(select(AuditLog).where(AuditLog.event_type == "response_sent"))
+        ).scalar_one()
+    assert [c["purpose"] for c in audit.payload["llm_calls"]] == ["extraction", "writer"]
+    assert audit.payload["llm_refusal_fallback"] is None
