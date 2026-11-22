@@ -14,6 +14,7 @@ from app.core.security import (
     verify_password,
     verify_totp,
 )
+from app.web.common import local_time
 
 RFC_SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"  # "12345678901234567890" em base32
 
@@ -90,3 +91,9 @@ def test_tokens_are_random_and_hashed() -> None:
     a, b = new_token(), new_token()
     assert a != b and len(a) >= 40
     assert hash_token(a) == hash_token(a) and len(hash_token(a)) == 64
+
+
+def test_local_time_filter_uses_sao_paulo() -> None:
+    assert local_time(datetime(2026, 11, 22, 5, 31, tzinfo=UTC)) == "22/11/2026 02:31"
+    assert local_time(datetime(2026, 11, 22, 2, 0, tzinfo=UTC), "%d/%m/%Y") == "21/11/2026"
+    assert local_time(None) == "—"

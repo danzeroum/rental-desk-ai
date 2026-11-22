@@ -47,3 +47,6 @@ th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(-
 .selo.erro { color: var(--erro); border-color: var(--erro); }
 .selo.alerta { color: var(--alerta); border-color: var(--alerta); }
 .acoes { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+/* Indicadores do HTMX (o estilo embutido dele fica desligado por causa da CSP). */
+.htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }

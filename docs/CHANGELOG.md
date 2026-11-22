@@ -5,6 +5,26 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.8.0] - 2026-11-22 · M7 Painel, lembrete, relatório, demonstração e titular
+
+### Adicionado
+- Painel com e-mail + senha + TOTP obrigatório para todos; convite, nova senha, bloqueio por tentativas,
+  CSRF e CSP restrita.
+- Painel do gestor: estado e pausa do assistente, envio/conferência/aprovação da planilha, datas (bloquear,
+  liberar, confirmar), passagens (assumir, desfecho), configurações (nome, tom, telefone, horário),
+  equipe e "Meus avisos" (consentimento dado pela própria pessoa).
+- Painel do operador: saúde de cada imobiliária e entrada como suporte auditada; `make tenant`,
+  `make operator`, `make reset-totp`.
+- Lembrete das 9h por WhatsApp com respostas "OK" e "CASA12 28/12-02/01"; relatório semanal por e-mail.
+- Direitos do titular: PARAR/VOLTAR, exportar e apagar por telefone; aviso de privacidade público.
+- Modo demonstração (`make seed-demo`), com o número de teste da Meta opcional.
+- Qualidade do número consultada a cada hora. Conjunto de ouro com 70 casos.
+
+### Corrigido
+- Telefone do hóspede não vai mais para o `audit_log` na confirmação ao corretor.
+- Falha no escalonamento quando o hóspede tinha pedido PARAR.
+- Resposta de atributo com artigo errado em casas de nome masculino ("A Sobrado").
+
 ## [0.7.0] - 2026-11-22 · M6 Passagem ao corretor
 
 ### Adicionado

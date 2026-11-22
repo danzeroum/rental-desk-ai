@@ -216,7 +216,7 @@ def answer_attribute(prop: PropertyData, asked: str | None) -> str | None:
     value = getattr(prop, spec.field)
     if value is None:
         return None
-    subject = f"A {prop.title} ({prop.code})"
+    subject = f"{prop.title} ({prop.code})"  # sem artigo: o título pode ser "Sobrado", "Chalé"…
     match spec.kind:
         case "bool":
             return f"{subject}: {spec.label}, {'sim' if value else 'não'}."

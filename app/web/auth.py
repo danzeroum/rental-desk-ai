@@ -1,7 +1,7 @@
 """Autenticação do painel: senha + TOTP obrigatório, sessões, convite e recuperação.
 
 Sessões vivem no Redis (`rd:sess:<sha256 do token>`); o cookie só carrega o token
-aleatório. Estágios: `password` (senha conferida, falta TOTP), `totp_setup`
+aleatório. Estágios: `awaiting_totp` (senha conferida, falta TOTP), `totp_setup`
 (primeiro acesso: precisa cadastrar o TOTP) e `active`.
 """
 
@@ -55,7 +55,7 @@ def _utcnow() -> datetime:
 
 
 class Stage(StrEnum):
-    PASSWORD = "password"  # noqa: S105 - nome do estágio, não segredo
+    AWAITING_TOTP = "awaiting_totp"
     TOTP_SETUP = "totp_setup"
     ACTIVE = "active"
 
@@ -169,7 +169,7 @@ class AuthService:
                 raise AuthError("Conta bloqueada por excesso de tentativas. Tente em 15 minutos.")
             if verify_password(user.password_hash, password):
                 user.failed_logins, user.locked_until = 0, None
-                stage = Stage.PASSWORD if user.totp_secret_enc else Stage.TOTP_SETUP
+                stage = Stage.AWAITING_TOTP if user.totp_secret_enc else Stage.TOTP_SETUP
                 token = await self.create_session(user, stage)
             else:
                 error = GENERIC_LOGIN_ERROR
@@ -271,7 +271,7 @@ class AuthService:
             user = await session.get(AppUser, user_id)
             if user is None:
                 raise AuthError("Usuário não encontrado.")
-            stage = Stage.PASSWORD if user.totp_secret_enc else Stage.TOTP_SETUP
+            stage = Stage.AWAITING_TOTP if user.totp_secret_enc else Stage.TOTP_SETUP
             new = await self.create_session(user, stage)
         return new, await self._require_session(new)
 

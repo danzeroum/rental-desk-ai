@@ -53,14 +53,14 @@ async def login(request: Request) -> Response:
         )
     except AuthError as exc:
         return render(request, "login.html", {"error": str(exc)}, status_code=400)
-    response = redirect("/login/totp" if data.stage == Stage.PASSWORD else "/totp/cadastro")
+    response = redirect("/login/totp" if data.stage == Stage.AWAITING_TOTP else "/totp/cadastro")
     set_cookie(response, SESSION_COOKIE, token)
     return response
 
 
 @router.get("/login/totp", response_class=HTMLResponse)
 async def totp_page(request: Request) -> Response:
-    if await _pending(request, Stage.PASSWORD) is None:
+    if await _pending(request, Stage.AWAITING_TOTP) is None:
         return redirect("/login")
     return render(request, "totp.html")
 
@@ -69,7 +69,7 @@ async def totp_page(request: Request) -> Response:
 async def totp_check(request: Request) -> Response:
     form = await verify_csrf(request)
     token = request.cookies.get(SESSION_COOKIE, "")
-    data = await _pending(request, Stage.PASSWORD)
+    data = await _pending(request, Stage.AWAITING_TOTP)
     if data is None:
         return redirect("/login")
     try:

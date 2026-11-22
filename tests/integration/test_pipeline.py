@@ -182,7 +182,7 @@ async def test_follow_up_uses_saved_state_without_new_intro(
     await world.say(pnid, "Quero uma casa para 6 pessoas de 10/12 a 15/12")
     await world.say(pnid, "A segunda tem churrasqueira?")
     second = world.gateway.sent[1].body
-    assert second == "A Sobrado Azul (CASA03): churrasqueira, sim."
+    assert second == "Sobrado Azul (CASA03): churrasqueira, sim."
 
 
 async def test_handoff_is_recorded_with_summary(

@@ -110,12 +110,12 @@ def test_numbered_cards() -> None:
 @pytest.mark.parametrize(
     ("asked", "expected"),
     [
-        ("piscina", "A Casa Azul (CASA12): piscina, sim."),
-        ("festa", "A Casa Azul (CASA12): permite festas, não."),
-        ("Wi-Fi", "A Casa Azul (CASA12): wi-fi, sim."),
-        ("suítes", "A Casa Azul (CASA12) tem 3 suítes."),
-        ("praia", "A Casa Azul (CASA12) fica a 150 metros da praia."),
-        ("capacidade", "A Casa Azul (CASA12) recebe até 12 pessoas."),
+        ("piscina", "Casa Azul (CASA12): piscina, sim."),
+        ("festa", "Casa Azul (CASA12): permite festas, não."),
+        ("Wi-Fi", "Casa Azul (CASA12): wi-fi, sim."),
+        ("suítes", "Casa Azul (CASA12) tem 3 suítes."),
+        ("praia", "Casa Azul (CASA12) fica a 150 metros da praia."),
+        ("capacidade", "Casa Azul (CASA12) recebe até 12 pessoas."),
     ],
 )
 def test_attribute_answers_come_from_data(asked: str, expected: str) -> None:

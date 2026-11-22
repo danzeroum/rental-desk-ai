@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlsplit
@@ -11,6 +12,7 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
+from app.core.config import TIMEZONE
 from app.core.security import new_token
 from app.web.auth import AuthService, PanelSession, Stage
 
@@ -21,6 +23,14 @@ CSRF_HEADER: Final = "x-csrf-token"
 WEB_DIR: Final = Path(__file__).parent
 
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
+
+
+def local_time(moment: datetime | None, fmt: str = "%d/%m/%Y %H:%M") -> str:
+    """Filtro `local` dos templates: datas do banco (UTC) no fuso de São Paulo."""
+    return moment.astimezone(TIMEZONE).strftime(fmt) if moment else "—"
+
+
+templates.env.filters["local"] = local_time
 
 SECURITY_HEADERS: Final = {
     "Content-Security-Policy": (

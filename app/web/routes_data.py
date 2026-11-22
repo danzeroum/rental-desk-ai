@@ -27,7 +27,7 @@ from app.importer.service import (
 from app.importer.workbook import build_workbook
 from app.models import Block, DataSnapshot, Property, Rate, Tenant
 from app.models.enums import BlockSource, SnapshotStatus
-from app.web.common import redirect, render, verify_csrf
+from app.web.common import local_time, redirect, render, verify_csrf
 from app.web.context import ManagerCtx, TenantContext, TenantCtx
 
 router = APIRouter(prefix="/painel")
@@ -202,7 +202,7 @@ async def blocks_page(request: Request, ctx: TenantCtx, error: str | None = None
         request, "panel/blocks.html",
         {
             "rows": rows, "codes": codes, "today": today.isoformat(), "error": error,
-            "updated": updated.astimezone(TIMEZONE).strftime("%d/%m/%Y %H:%M") if updated else None,
+            "updated": local_time(updated) if updated else None,
         },
     )  # fmt: skip
 

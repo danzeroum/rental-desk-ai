@@ -287,7 +287,11 @@ async def test_broker_replies_1_and_assistant_goes_silent(world: World) -> None:
     assert confirmation.to == ANA.removeprefix("+")
     assert f"+{GUEST}" in confirmation.body
     async with tenant_session(world.app, world.tenant) as session:
+        audited = await session.scalar(
+            select(AuditLog.payload).where(AuditLog.event_type == "broker_reply")
+        )
         conversation = await session.get(Conversation, handoff.conversation_id)
+    assert audited is not None and GUEST not in str(audited) and "[TELEFONE]" in audited["text"]
     assert conversation is not None and conversation.muted_until == MONDAY_10H + timedelta(hours=24)
     sent_before = len(world.gateway.sent)
     muted = await world.say("Oi, alguém aí?")

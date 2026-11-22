@@ -11,7 +11,6 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func, select
 
-from app.core.config import TIMEZONE
 from app.domain.notices import reason_label, summary_text
 from app.domain.search import FRESHNESS_LIMIT
 from app.models import AppUser, Contact, Conversation, DataSnapshot, Handoff, Tenant
@@ -20,6 +19,7 @@ from app.web.auth import AuthError
 from app.web.common import (
     SESSION_COOKIE,
     auth,
+    local_time,
     redirect,
     render,
     safe_next,
@@ -44,7 +44,7 @@ def handoffs(request: Request) -> HandoffService:
 
 
 def local(moment: datetime | None) -> str:
-    return moment.astimezone(TIMEZONE).strftime("%d/%m %H:%M") if moment else "—"
+    return local_time(moment, "%d/%m %H:%M")
 
 
 # --- Escolher imobiliária --------------------------------------------------------------

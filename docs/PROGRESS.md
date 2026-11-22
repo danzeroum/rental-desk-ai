@@ -11,11 +11,54 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.5.0 |
 | M5 · Extração, decisão, templates, validador, auditoria | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.6.0 |
 | M6 · Passagem, assumir, escalonamento, pausa, desfecho | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.7.0 |
-| M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | ⏳ próximo | | |
-| M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | — | | |
+| M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.8.0 |
+| M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | ⏳ próximo | | |
 | M9 · iCal e planilha Google | — | | |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M7 · Painel, lembrete 9h, relatório, demo, direitos do titular — concluído em 22/11/2026
+
+### Entregue
+- **Acesso (D035):** e-mail + senha (argon2id) + TOTP obrigatório para todos; convite (72 h) e nova
+  senha (1 h) de uso único; bloqueio por senha, IP e TOTP; sessões no Redis; CSRF por duplo envio +
+  Origin; CSP sem `unsafe-inline`; HTMX servido localmente. `make operator`, `make reset-totp`; o
+  `install.sh` cria o operador no fim.
+- **Painel do gestor (D036):** início (estado, pausa RF19, idade das datas, passagens, planilha);
+  planilha RF14/RF15 (enviar, conferir, aprovar/recusar, baixar modelo); datas RF13/RF16 (bloquear,
+  liberar, confirmar); passagens RF11/RF17 (assumir, desfecho); configurações RF24 (nome, tom,
+  telefone, horário) e equipe; "Meus avisos" com consentimento dado pela própria pessoa.
+- **Painel do operador RF23 (D037):** saúde por imobiliária sem BYPASSRLS no caminho de requisição
+  (migração 0005); qualidade do número a cada hora; entrada como suporte auditada; `make tenant`.
+- **Lembrete das 9h RF16 e relatório semanal RF18 (D038):** template `lembrete_datas`, respostas "OK" e
+  "CASA12 28/12-02/01" pelo WhatsApp; relatório por e-mail com link de um clique para desfechos.
+- **Titular RF21 e privacidade (D039):** PARAR/VOLTAR; exportar e apagar por telefone no painel;
+  aviso de privacidade público por slug, texto-base v1 em cada imobiliária.
+- **Demonstração RF25:** `make seed-demo` (cria ou renova a Demo Riviera; número de teste opcional).
+- **Correções:** telefone do hóspede fora do `audit_log`; escalonamento não cai com hóspede em PARAR;
+  resposta de atributo sem artigo errado; datas do painel no fuso de São Paulo.
+- Conjunto de ouro: 70 casos (40 fluxos + 30 adversários). Versão 0.8.0.
+
+### Verificado
+- `make lint test golden security` verdes: 670 testes de unidade e integração (2 pulados de propósito),
+  cobertura 91% (núcleo 96%); conjunto de ouro com 70 casos e 94 voltas; pip-audit, bandit e gitleaks
+  limpos.
+- **Aceite do M7 (RF14-RF25):** fluxos testados com banco e Redis reais: login com TOTP, reuso de código,
+  bloqueios, CSRF, convite e nova senha encerrando sessões; corretor sem acesso às telas de gestor;
+  imobiliária vizinha invisível; planilha com erro não grava nada; aprovação põe no ar; bloqueio e
+  confirmação de datas; lembrete só a quem consentiu, uma vez por dia; "OK"/bloqueio por WhatsApp;
+  relatório gravado uma vez e sem telefone; PARAR com pausa ativa; exportar/apagar sem sobrar telefone.
+- Navegador real (Chromium): telas do painel sem erro de CSP no console e sem rolagem horizontal em
+  390 px; nenhum e-mail ou telefone nos logs do servidor.
+- Migração 0005 com ida e volta limpa.
+
+### Depende de humano
+- Cadastrar o template `lembrete_datas` na Meta (além dos 3 do M6).
+- SMTP para convites, nova senha e relatório (sem ele, os links saem só no terminal do operador).
+- Revisão jurídica do texto-base do aviso de privacidade (`app/domain/privacy.py`).
+- Confirmar o esclarecimento "VOLTAR" reativa depois de "PARAR" (D039).
 
 ---
 

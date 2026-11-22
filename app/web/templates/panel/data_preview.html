@@ -3,7 +3,7 @@
 {% block content %}
 <h1>Versão {{ snapshot.version }} da planilha</h1>
 <p class="dica">Arquivo {{ snapshot.file_name or "—" }} · código de conferência <code>{{ snapshot.content_hash[:12] }}</code>
-{% if snapshot.approved_at %} · aprovada em {{ snapshot.approved_at.strftime("%d/%m/%Y %H:%M") }}{% endif %}</p>
+{% if snapshot.approved_at %} · aprovada em {{ snapshot.approved_at | local("%d/%m/%Y %H:%M") }}{% endif %}</p>
 {% if added or removed %}
 <section class="cartao">
   <h2>Mudanças em relação à versão no ar</h2>

@@ -17,13 +17,12 @@ from fastapi.responses import HTMLResponse, Response
 from redis.asyncio import Redis
 from sqlalchemy import func, select
 
-from app.core.config import TIMEZONE
 from app.core.rls import global_session, tenant_session
 from app.domain.health import STUCK_AFTER, Health, HealthInput, Level, assess
 from app.models import AuditLog, Handoff, Message, Tenant, WhatsAppAccount
 from app.models.enums import Direction, HandoffStatus, TenantStatus
 from app.web.auth import PanelSession
-from app.web.common import panel_session, render, require_operator
+from app.web.common import local_time, panel_session, render, require_operator
 from app.workers.queue import DEAD_LETTER
 
 router = APIRouter(prefix="/operador")
@@ -51,7 +50,7 @@ class TenantRow:
 
 
 def _fmt(moment: datetime | None) -> str:
-    return moment.astimezone(TIMEZONE).strftime("%d/%m %H:%M") if moment else "nunca"
+    return local_time(moment, "%d/%m %H:%M") if moment else "nunca"
 
 
 async def dead_jobs_by_tenant(redis: Redis) -> dict[str, int]:

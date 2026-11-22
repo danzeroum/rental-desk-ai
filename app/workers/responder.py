@@ -37,8 +37,13 @@ async def send_reply(
     audit_payload: dict[str, Any],
     snapshot_hash: str | None,
     now: datetime,
+    audit_text: str | None = None,
 ) -> str:
-    """Envia `text`, grava a mensagem de saída e o evento de auditoria. Devolve o wamid."""
+    """Envia `text`, grava a mensagem de saída e o evento de auditoria. Devolve o wamid.
+
+    `audit_text` substitui o texto no `audit_log` (imutável) quando a mensagem leva dado
+    pessoal que precisa poder ser apagado a pedido do titular (ex.: telefone do hóspede).
+    """
     async with tenant_session(sessions, tenant_id) as session:
         row = (
             await session.execute(
@@ -77,7 +82,11 @@ async def send_reply(
             conversation_id=conversation_id,
             event_type=event_type,
             snapshot_hash=snapshot_hash,
-            payload={**audit_payload, "text": text, "external_id": external_id},
+            payload={
+                **audit_payload,
+                "text": text if audit_text is None else audit_text,
+                "external_id": external_id,
+            },
         )
     log.info("resposta_enviada", event_type=event_type, conversation_id=str(conversation_id))
     return external_id

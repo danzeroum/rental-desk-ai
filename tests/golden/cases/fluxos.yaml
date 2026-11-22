@@ -263,3 +263,81 @@
       expect: {action: answer_attribute}
     - guest: Quero falar com um corretor
       expect: {action: handoff, handoff: human}
+
+- id: F31
+  kind: fluxo
+  description: Adultos e crianças somam no número de pessoas
+  turns:
+    - guest: 2 adultos e 3 crianças de 10/12 a 15/12
+      expect: {action: search, contains: ["(CASA05)"], offers_exclude: [CASA08]}
+
+- id: F32
+  kind: fluxo
+  description: Escolhe pelo código depois das opções
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: Quero a CASA03
+      expect: {action: handoff, handoff: choose, chosen: CASA03}
+
+- id: F33
+  kind: fluxo
+  description: Aumenta o grupo e a busca é refeita com a nova capacidade
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: Na verdade somos 9 pessoas
+      expect: {action: search, contains: ["(CASA02)"], offers_exclude: [CASA05, CASA03]}
+
+- id: F34
+  kind: fluxo
+  description: Troca as datas e a estimativa acompanha
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: "Mudou: de 05/01 a 09/01"
+      expect: {action: search, contains: ["4 noites, 05/01/2027 a 09/01/2027"]}
+
+- id: F35
+  kind: fluxo
+  description: Pergunta piscina da segunda opção (resposta sem artigo)
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: A segunda tem piscina?
+      expect: {action: answer_attribute, contains: ["Sobrado Azul (CASA03): piscina, não."], not_contains: ["A Sobrado"]}
+
+- id: F36
+  kind: fluxo
+  description: Reclamação vai ao corretor
+  turns:
+    - guest: A casa que aluguei estava suja, quero reclamar
+      expect: {action: handoff, handoff: complaint}
+
+- id: F37
+  kind: fluxo
+  description: Pagamento vai ao corretor
+  turns:
+    - guest: Como faço o pagamento? Aceitam pix?
+      expect: {action: handoff, handoff: payment}
+
+- id: F38
+  kind: fluxo
+  description: Cancelamento vai ao corretor
+  turns:
+    - guest: Quero cancelar minha reserva
+      expect: {action: handoff, handoff: cancel}
+
+- id: F39
+  kind: fluxo
+  description: Grupo maior que todas as casas
+  turns:
+    - guest: Casa para 60 pessoas de 10/12 a 15/12
+      expect: {contains: ["Não encontrei casas na nossa base para esse pedido."]}
+
+- id: F40
+  kind: fluxo
+  description: Data no passado pede novas datas
+  turns:
+    - guest: Casa para 4 de 10/01/2020 a 15/01/2020
+      expect: {action: ask, contains: ["Essa data já passou."]}

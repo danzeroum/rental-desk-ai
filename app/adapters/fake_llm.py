@@ -28,6 +28,8 @@ _GUESTS: Final = re.compile(
     r"(?:para|pra|somos|seremos|formos|grupo de|com)\s+(\d{1,3})\s*(?:pessoas|adultos|hospedes)?"
     r"|(\d{1,3})\s+(?:pessoas|adultos|hospedes)"
 )
+_PARTY: Final = re.compile(r"(\d{1,2})\s+adultos?\s+e\s+(\d{1,2})\s+crian")
+"""Como o prompt pede ao LLM real: guests = adultos + crianças."""
 _BUDGET: Final = re.compile(
     r"(?:ate|orcamento de|no maximo|max)\s*r?\$?\s*(\d+(?:[.,]\d{3})*)\s*(mil)?"
 )
@@ -176,7 +178,9 @@ class FakeLLM:
                     int(match.group(1)), int(match.group(2)), match.group(3), today
                 )
         guests = None
-        if match := _GUESTS.search(text):
+        if match := _PARTY.search(text):
+            guests = int(match.group(1)) + int(match.group(2))
+        elif match := _GUESTS.search(text):
             guests = int(match.group(1) or match.group(2))
         budget = None
         if match := _BUDGET.search(text):

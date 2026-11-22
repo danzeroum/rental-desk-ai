@@ -25,7 +25,7 @@
           {% elif s.status == "approved" %}<span class="selo ok">No ar</span>
           {% elif s.status == "rejected" %}<span class="selo">Recusada</span>
           {% else %}<span class="selo">Substituída</span>{% endif %}</td>
-      <td>{{ s.created_at.strftime("%d/%m/%Y") }}</td>
+      <td>{{ s.created_at | local("%d/%m/%Y") }}</td>
       <td><a href="/painel/dados/{{ s.id }}">{% if s.status == "draft" %}Conferir e aprovar{% else %}Ver{% endif %}</a></td>
     </tr>
     {% endfor %}

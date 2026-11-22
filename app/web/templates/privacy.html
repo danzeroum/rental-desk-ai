@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Aviso de privacidade{% endblock %}
+{% block content %}
+<article class="cartao">
+{% for p in paragraphs %}{% if loop.first %}<h1>{{ p }}</h1>{% else %}<p>{{ p }}</p>{% endif %}{% endfor %}
+<p class="dica">Versão {{ notice.version }} · publicada em {{ notice.published_at | local("%d/%m/%Y") }} · código <code>{{ notice.content_hash[:12] }}</code></p>
+</article>
+{% endblock %}

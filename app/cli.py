@@ -3,8 +3,9 @@
     python -m app.cli create-operator --email ana@exemplo.com --name "Ana"
     python -m app.cli reset-totp --email ana@exemplo.com
     python -m app.cli create-tenant --name "Imobiliária Sol" --gestor-email gestor@sol.com
+    python -m app.cli seed-demo [--phone-number-id 1234]   # token em DEMO_WHATSAPP_TOKEN
 
-`create-tenant` precisa de `DATABASE_OPS_URL` (só no contêiner do scheduler):
+`create-tenant` e `seed-demo` precisam de `DATABASE_OPS_URL` (só no contêiner do scheduler):
 inserir imobiliária é tarefa global do operador, fora do caminho de requisição.
 
 `create-operator` cria (ou promove) o usuário operador e imprime o link de convite,
@@ -17,9 +18,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -31,6 +34,7 @@ from app.core.db import async_url, create_engine
 from app.core.logging import configure_logging
 from app.core.redis import create_redis
 from app.core.rls import global_session, scoped_session_factory
+from app.demo import DemoError, seed_demo
 from app.models import AppUser
 from app.onboarding import OnboardingError, create_tenant
 from app.web.auth import AuthService
@@ -97,6 +101,8 @@ def _parser() -> argparse.ArgumentParser:
     tenant.add_argument("--name", required=True)
     tenant.add_argument("--gestor-email", required=True)
     tenant.add_argument("--gestor-name", default="Gestor")
+    demo = commands.add_parser("seed-demo", help="cria ou renova a Imobiliária Demo Riviera")
+    demo.add_argument("--phone-number-id", default=None, help="número de teste da Meta (opcional)")
     totp = commands.add_parser("reset-totp", help="apaga o autenticador de um usuário")
     totp.add_argument("--email", required=True)
     return parser
@@ -126,6 +132,28 @@ async def provision_tenant(
     return f"Imobiliária {name} criada ({created.slug}). Convite do gestor (vale 72 h):\n{link}"
 
 
+async def _seed_demo(service: AuthService, phone_number_id: str | None) -> str:
+    ops_url = get_settings().database_ops_url
+    if ops_url is None:
+        raise CliError("rode no contêiner do scheduler (precisa de DATABASE_OPS_URL)")
+    engine = create_async_engine(async_url(str(ops_url)), poolclass=NullPool)
+    try:
+        result = await seed_demo(
+            async_sessionmaker(engine, expire_on_commit=False), service.db, service.keyring,
+            now=datetime.now(UTC), phone_number_id=phone_number_id,
+            access_token=os.environ.get("DEMO_WHATSAPP_TOKEN") or None,
+        )  # fmt: skip
+    except DemoError as exc:
+        raise CliError(str(exc)) from exc
+    finally:
+        await engine.dispose()
+    verb = "criada" if result.created else "renovada"
+    phone = " com o número de teste" if result.phone_connected else " (sem número: só pelo painel)"
+    return (
+        f"Demo {verb}{phone}: planilha versão {result.snapshot_version} aprovada ({result.slug})."
+    )
+
+
 async def _run(args: argparse.Namespace) -> str:
     async with auth_service() as service:
         if args.command == "create-tenant":
@@ -135,6 +163,8 @@ async def _run(args: argparse.Namespace) -> str:
             return await provision_tenant(
                 service, str(ops_url), args.name, args.gestor_email, args.gestor_name
             )
+        if args.command == "seed-demo":
+            return await _seed_demo(service, args.phone_number_id)
         if args.command == "create-operator":
             link = await create_operator(service, args.email, args.name)
             return f"Operador pronto. Convite (vale 72 h):\n{link}"

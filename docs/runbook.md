@@ -31,12 +31,50 @@ No `.env` (depois `make up`):
 | `WHATSAPP_APP_SECRET` | segredo do app, para conferir a assinatura do webhook |
 | `WHATSAPP_VERIFY_TOKEN` | gerado pelo `gen-env.sh`; cadastrar o mesmo no parceiro/Meta |
 | `TRANSCRIBER_PROVIDER` / `TRANSCRIBER_API_KEY` | `openai_compatible` + chave (contrato sem uso para treino) |
-
 | `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` | `anthropic` + modelo escolhido pelo `make golden-live` + chave |
 | `LLM_EFFORT` | `low` (padrão); subir só se o conjunto de ouro mostrar ganho |
 
 URL do webhook para cadastrar: `https://<domínio>/webhooks/whatsapp`.
 O token de acesso de cada imobiliária fica cifrado no banco (assistente de implantação, M10).
+
+## Primeiro acesso, imobiliárias e equipe
+
+O painel exige e-mail + senha + autenticador (TOTP) para todos.
+
+| Comando | O que faz |
+|---|---|
+| `make operator EMAIL=voce@exemplo.com` | Cria o operador e imprime o convite (72 h; também por e-mail com SMTP). O `install.sh` já pergunta no fim. |
+| `make tenant NAME="Imobiliária Sol" EMAIL=gestor@sol.com` | Cria a imobiliária (em implantação), o aviso de privacidade v1 e convida o gestor. Roda no contêiner do scheduler, o único com o papel de operação. |
+| `make reset-totp EMAIL=pessoa@exemplo.com` | Perdeu o celular: apaga o autenticador e encerra as sessões; no próximo login a pessoa cadastra outro. |
+| `make seed-demo` | Cria ou renova a "Imobiliária Demo Riviera" (10 casas fictícias, temporada corrente). |
+
+O gestor convida a equipe em **Configurações**; cada pessoa aceita os avisos no WhatsApp na própria página
+**Meus avisos** (sem aceite, nenhuma mensagem ativa sai). O operador vê a saúde de todas as imobiliárias
+em `/operador` e entra em qualquer uma com "Entrar como suporte" (fica no `audit_log`).
+
+**Demonstração com o número de teste da Meta:** exporte o token só no shell e passe o `phone_number_id`:
+```bash
+export DEMO_WHATSAPP_TOKEN='...'   # não vai para o .env nem para o histórico do git
+make seed-demo PNID=123456789012345
+```
+
+## Lembrete das 9h e relatório semanal
+
+- O scheduler manda o template `lembrete_datas` uma vez por dia (9h-18h) ao gestor que aceitou em "Meus
+  avisos". Respostas: `OK` confirma as datas; `CASA12 28/12-02/01` bloqueia (a noite da saída fica livre).
+- Toda segunda (8h-18h) gera o relatório da semana anterior, guarda em `weekly_report` e envia por e-mail
+  aos gestores. Logs: `tarefa_agendada_concluida job=lembrete_9h` / `job=relatorio_semanal`.
+- A qualidade do número na Meta é consultada a cada hora (`job=qualidade_numero`) e aparece em `/operador`.
+
+## Direitos do titular (LGPD)
+
+- Hóspede que escreve **PARAR** recebe uma confirmação e deixa de receber qualquer mensagem automática
+  (inclusive o aviso de espera da passagem). **VOLTAR** reativa.
+- Pedido de acesso ou exclusão: gestor em **Painel → Titulares**, pelo telefone: exportar (JSON) ou
+  apagar (digitando APAGAR). Apagar remove conversas, mensagens, transcrições e passagens, e tira o
+  telefone das confirmações enviadas a corretores. O `audit_log` fica, sem telefone nem texto do hóspede.
+- Aviso de privacidade público: `https://<domínio>/privacidade/<slug>` (a versão vai na 1ª resposta).
+  **Texto-base em `app/domain/privacy.py` precisa de revisão jurídica** antes do lançamento.
 
 ## Comandos do dia a dia
 

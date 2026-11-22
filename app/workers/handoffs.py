@@ -39,7 +39,7 @@ from app.workers.brokers import (
     operator_emails,
 )
 from app.workers.channel import ChannelMissingError, channel_for
-from app.workers.responder import send_reply
+from app.workers.responder import RecipientUnavailableError, send_reply
 
 ROTATE_AFTER: Final = timedelta(minutes=10)
 ALERT_AFTER: Final = timedelta(minutes=15)
@@ -287,8 +287,8 @@ class HandoffService:
                 event_type="handoff_guest_waiting", audit_payload={"handoff_id": str(handoff_id)},
                 snapshot_hash=None, now=self.clock(),
             )  # fmt: skip
-        except (GatewayError, ChannelMissingError) as exc:
-            log.warning("aviso_hospede_falhou", error_type=type(exc).__name__)
+        except (GatewayError, ChannelMissingError, RecipientUnavailableError) as exc:
+            log.warning("aviso_hospede_falhou", error_type=type(exc).__name__)  # PARAR: não envia
         return 1
 
     # --- Assumir (RF11) ----------------------------------------------------------------
@@ -336,19 +336,21 @@ class HandoffService:
             user_id, pending_id = member.user_id, pending.id if pending else None
         wants_to_assume = text.strip().lower() in ASSUME_WORDS
         reply = notices.BROKER_NOTHING_PENDING if wants_to_assume else notices.MEMBER_HELP
+        audit_reply: str | None = None
         if wants_to_assume and pending_id is not None:
             try:
                 handoff = await self.assume(tenant_id, pending_id, user_id, via="whatsapp")
                 async with tenant_session(self.sessions, tenant_id) as session:
                     snap = await self._snapshot(session, tenant_id, handoff)
                 reply = notices.BROKER_ASSUMED.format(guest=snap.guest_phone)
+                audit_reply = notices.BROKER_ASSUMED.format(guest="[TELEFONE]")
             except HandoffStateError as exc:
                 reply = str(exc)
         await send_reply(
             self.sessions, self.gateway, self.keyring,
             tenant_id=tenant_id, conversation_id=conversation_id, text=reply,
             event_type="broker_reply", audit_payload={"user_id": str(user_id)},
-            snapshot_hash=None, now=self.clock(),
+            snapshot_hash=None, now=self.clock(), audit_text=audit_reply,
         )  # fmt: skip
         return True
 

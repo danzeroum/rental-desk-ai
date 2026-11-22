@@ -23,13 +23,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.adapters.transcriber import Transcriber, TranscriptionError
 from app.adapters.whatsapp import GatewayError, WhatsAppGateway
+from app.core.audit import append_audit
 from app.core.crypto import Keyring
 from app.core.logging import bind_context, get_logger
 from app.core.rls import tenant_session
+from app.domain.messages import OPT_OUT_CONFIRMED, is_resume, is_stop
 from app.models import Contact, Conversation, Message, Tenant
 from app.models.enums import Direction, MessageKind, TenantStatus
 from app.workers.channel import ChannelMissingError, channel_for
 from app.workers.queue import WorkQueue
+from app.workers.responder import RecipientUnavailableError, send_reply
 
 log = get_logger(__name__)
 
@@ -46,6 +49,7 @@ class SkipReason(StrEnum):
     TENANT_INACTIVE = "tenant_inactive"  # em implantação ou suspensa: não atende
     MEMBER_COMMAND = "member_command"  # mensagem de corretor/gestor, não de hóspede
     OPTED_OUT = "opted_out"
+    OPT_OUT_NOW = "opt_out_now"  # "PARAR": confirma uma vez e passa a não responder
     MUTED = "muted"
     SILENCED = "silenced"
 
@@ -136,6 +140,8 @@ class ConversationProcessor:
             return ProcessOutcome(handled=False, skipped=SkipReason.NOTHING_PENDING)
         if await self._member_command(tenant_id, conversation_id, pending):
             return ProcessOutcome(handled=True, skipped=SkipReason.MEMBER_COMMAND)
+        if await self._opt_out(tenant_id, conversation_id, pending):
+            return ProcessOutcome(handled=True, skipped=SkipReason.OPT_OUT_NOW)
         if pending.skip is None and await self.queue.is_silenced(tenant_id, pending.contact_id):
             pending.skip = SkipReason.SILENCED
         if pending.skip is not None:
@@ -199,6 +205,44 @@ class ConversationProcessor:
         if handled:
             await self._save(tenant_id, pending.messages, [], processed=True)
         return handled
+
+    async def _opt_out(
+        self, tenant_id: uuid.UUID, conversation_id: uuid.UUID, pending: _Pending
+    ) -> bool:
+        """RF21: "PARAR" desliga o atendimento automático; "VOLTAR" religa (vale mesmo pausado)."""
+        text = " ".join(m.body or "" for m in pending.messages)
+        opted_out = pending.skip == SkipReason.OPTED_OUT
+        if opted_out and is_resume(text):
+            await self._set_opt_out(tenant_id, pending.contact_id, None, "opt_in_again")
+            pending.skip = None
+            return False
+        if opted_out or not is_stop(text):
+            return False
+        try:
+            await send_reply(
+                self.sessions, self.gateway, self.keyring,
+                tenant_id=tenant_id, conversation_id=conversation_id, text=OPT_OUT_CONFIRMED,
+                event_type="opt_out_confirmed", audit_payload={}, snapshot_hash=None,
+                now=self.clock(),
+            )  # fmt: skip
+        except (GatewayError, ChannelMissingError, RecipientUnavailableError) as exc:
+            log.warning("confirmacao_parar_falhou", error_type=type(exc).__name__)
+        await self._set_opt_out(tenant_id, pending.contact_id, self.clock(), "opt_out")
+        await self._save(tenant_id, pending.messages, [], processed=True)
+        return True
+
+    async def _set_opt_out(
+        self, tenant_id: uuid.UUID, contact_id: uuid.UUID, at: datetime | None, event: str
+    ) -> None:
+        async with tenant_session(self.sessions, tenant_id) as session:
+            await session.execute(
+                update(Contact).where(Contact.id == contact_id).values(opted_out_at=at)
+            )
+            await append_audit(
+                session, tenant_id=tenant_id, event_type=event,
+                payload={"contact_id": str(contact_id)},
+            )  # fmt: skip
+        log.info(event)
 
     async def _transcribe(
         self, tenant_id: uuid.UUID, messages: list[Message]

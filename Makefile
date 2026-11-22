@@ -46,8 +46,8 @@ reset-totp: ## Apaga o autenticador de quem perdeu o celular (EMAIL=...)
 	@test -n "$(EMAIL)" || { echo "use: make reset-totp EMAIL=pessoa@exemplo.com" >&2; exit 2; }
 	$(COMPOSE) exec -T app python -m app.cli reset-totp --email "$(EMAIL)"
 
-seed-demo: ## Tenant de demonstração (RF25, M7)
-	@echo "make seed-demo: disponível a partir do M7" >&2; exit 2
+seed-demo: ## Cria/renova a Imobiliária Demo Riviera (RF25); PNID=<número de teste> e DEMO_WHATSAPP_TOKEN no shell
+	$(COMPOSE) exec -T -e DEMO_WHATSAPP_TOKEN scheduler python -m app.cli seed-demo $(if $(PNID),--phone-number-id "$(PNID)")
 
 template: ## Gera a planilha modelo (planilha-modelo.xlsx) e o exemplo Demo Riviera
 	$(UV) python -m app.importer template --out planilha-modelo.xlsx

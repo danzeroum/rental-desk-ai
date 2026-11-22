@@ -57,4 +57,4 @@ async def test_production_criteria() -> None:
     assert m.cards_with_notice == m.cards
     assert m.reservation_claims == 0
     assert m.handoff_accuracy >= 0.95
-    assert len(CASES) >= 55  # meta: 100 (65 fluxos + 35 adversários) antes da v1.0.0
+    assert len(CASES) >= 70  # meta: 100 (65 fluxos + 35 adversários) antes da v1.0.0

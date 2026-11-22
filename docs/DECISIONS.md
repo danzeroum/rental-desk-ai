@@ -373,7 +373,7 @@ A mais recente fica embaixo.
   integridade conferida com o `sha512` do npm). Alternativas descartadas: `passlib` (sem manutenção),
   `pyotp` (TOTP são 15 linhas; testado com os vetores da RFC 6238), `qrcode` + Pillow (pesado).
 - **Sessão:** token aleatório no cookie `rd_session` (`HttpOnly`, `Secure`, `SameSite=Lax`); no Redis só
-  o SHA-256, com expiração por inatividade de 8 h. Estágios `password` → `active` (ou `totp_setup` no
+  o SHA-256, com expiração por inatividade de 8 h. Estágios `awaiting_totp` → `active` (ou `totp_setup` no
   primeiro acesso). Trocar a senha encerra todas as sessões da pessoa.
 - **Força bruta:** 5 senhas erradas bloqueiam a conta por 15 min; 30 tentativas por IP em 10 min; 5
   códigos TOTP errados encerram a sessão. A mensagem de erro de login é a mesma exista ou não o e-mail,
@@ -450,3 +450,28 @@ no caminho de requisição.
   desfechos, taxa de fechamento = fechou / (fechou + perdeu), mediana até assumir (minutos de
   relógio) e soma dos totais das opções enviadas. Sem dado = "—", nunca zero inventado. O e-mail traz
   o link "um clique por desfecho" (RF17) quando há passagem sem desfecho.
+
+## D039 · Direitos do titular, aviso de privacidade e modo demonstração (M7)
+
+- **PARAR (RF21):** a mensagem inteira igual a "parar", "pare", "stop", "sair" ou "descadastrar" (não
+  "parar na praia") grava `contact.opted_out_at`, responde uma confirmação fixa e, dali em diante, nada
+  automático sai para o número — nem o aviso de espera dos 60 min (o escalonamento não falha por isso).
+  Vale com o assistente pausado. **VOLTAR** reativa: sem isso, um "PARAR" por engano deixaria o hóspede
+  sem atendimento para sempre (prática comum em SMS, "START"). *Esclarecimento a confirmar com o time.*
+- **Exportar e apagar por telefone:** só gestor (ou suporte), no painel; o telefone só trafega em
+  formulário POST. Exportar entrega JSON legível (mensagens, transcrições, passagens, extrações e a lista
+  de eventos de auditoria). Apagar remove o contato e, em cascata, conversas, mensagens (com referências
+  de anexo), extrações, buscas e passagens, e troca o telefone por "[apagado a pedido]" nas confirmações
+  enviadas a corretores. O `audit_log` **fica** (imutável, prazo legal): não guarda telefone, nome nem
+  texto do hóspede.
+- **Correção:** a confirmação ao corretor ("Você assumiu… hóspede +55…") ia inteira para o `audit_log`,
+  que não pode ser apagado; agora o `audit_log` grava a versão com `[TELEFONE]` (`send_reply(audit_text=)`).
+- **Aviso de privacidade público:** `/privacidade/<slug>[/v<n>]`. A imobiliária é achada pela rota de
+  canal `slug` em `tenant_route` (leitura global já existente), sem afrouxar o RLS de `tenant`.
+- **Modo demonstração (RF25):** `make seed-demo` cria ou renova a "Imobiliária Demo Riviera" (ativa,
+  `is_demo`, temporada corrente aprovada pelo gestor fictício `gestor-demo@rentaldesk.invalid`, domínio
+  reservado que não recebe e-mail). Com `PNID` e o token em `DEMO_WHATSAPP_TOKEN` no shell, liga o número
+  de teste da Meta (token cifrado no banco). Demonstração não recebe lembrete nem relatório.
+- **Painel:** datas sempre no fuso de São Paulo (filtro `local`); o estilo embutido do HTMX fica
+  desligado (`htmx-config`) para manter a CSP sem `unsafe-inline`. Resposta de atributo sem artigo
+  ("Sobrado Azul (CASA03): piscina, não."), porque o título da casa pode ser masculino.
