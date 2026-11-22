@@ -13,6 +13,7 @@ from app.core.config import TIMEZONE, Settings, get_settings
 from app.core.db import async_url, create_engine
 from app.core.redis import create_redis
 from app.core.rls import scoped_session_factory
+from app.scheduler.alerts import ALERT_EVERY_SECONDS, AlertService
 from app.scheduler.quality import QUALITY_EVERY_SECONDS, refresh_quality, tenants_with_number
 from app.scheduler.runner import Job, Scheduler, active_tenants, tenants_with_open_handoffs
 from app.workers.handoffs import HandoffService
@@ -88,6 +89,14 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
     async def report_all() -> int:
         return await send_weekly_reports(ops_engine, reports)
 
+    alerts = AlertService(
+        sessions=sessions,
+        ops_engine=ops_engine,
+        redis=redis,
+        mailer=mailer,
+        public_base_url=settings.public_base_url,
+    )
+
     async def remind_all() -> int:
         return await send_daily_reminders(redis, ops_engine, reminders)
 
@@ -96,6 +105,7 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
         Job("qualidade_numero", QUALITY_EVERY_SECONDS, quality_all),
         Job("lembrete_9h", REMINDER_CHECK_SECONDS, remind_all),
         Job("relatorio_semanal", REMINDER_CHECK_SECONDS, report_all),
+        Job("alertas", ALERT_EVERY_SECONDS, alerts.run),
     ]
     scheduler = Scheduler(redis, jobs)
     try:

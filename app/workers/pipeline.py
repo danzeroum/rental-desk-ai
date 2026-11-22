@@ -121,7 +121,10 @@ class ResponsePipeline:
                 snapshot_hash=catalog.snapshot_hash if catalog else None,
                 now=self.clock(),
             )  # fmt: skip
-        handoff_id = await self._persist(batch, loaded, result)
+        shadow = loaded.tenant_status == TenantStatus.SHADOW
+        # Em sombra o hóspede é atendido pela equipe: a passagem que o assistente faria fica
+        # só no registro (`payload.handoff`), sem passagem real nem aviso ao corretor.
+        handoff_id = await self._persist(batch, loaded, result, create_handoff=not shadow)
         if handoff_id is not None and self.handoffs is not None:
             await self.handoffs.dispatch_new(batch.tenant_id, handoff_id)
 
@@ -228,7 +231,7 @@ class ResponsePipeline:
         log.info("resposta_sombra_registrada")
 
     async def _persist(
-        self, batch: InboundBatch, loaded: _Loaded, result: TurnResult
+        self, batch: InboundBatch, loaded: _Loaded, result: TurnResult, *, create_handoff: bool
     ) -> uuid.UUID | None:
         """Grava estado, intenção, busca e passagem; devolve o id da passagem criada."""
         async with tenant_session(self.sessions, batch.tenant_id) as session:
@@ -259,7 +262,7 @@ class ResponsePipeline:
                         ],
                     )
                 )
-            if result.handoff is None:
+            if result.handoff is None or not create_handoff:
                 return None
             handoff = Handoff(
                 tenant_id=batch.tenant_id,

@@ -1,0 +1,38 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Modo sombra{% endblock %}
+{% block content %}
+<h1>Situação e modo sombra</h1>
+<section class="cartao">
+  <p><strong>{{ status_label }}</strong>{% if tenant.status == "shadow" and since %} · desde {{ since }}{% endif %}</p>
+  <p class="dica">No modo sombra o assistente lê as conversas reais e registra o que responderia, sem enviar nada.
+  A equipe continua atendendo pelo app. Confira as respostas abaixo por 2 dias: se algum preço, data ou casa estiver
+  errado, o problema está na planilha ou no calendário. Depois, ative.</p>
+  <ul class="dica">
+    <li>Planilha aprovada: {% if ready.has_approved_data %}sim{% else %}<strong>não</strong>{% endif %}</li>
+    <li>Número de WhatsApp conectado: {% if ready.has_number %}sim{% else %}<strong>não</strong>{% endif %}</li>
+    {% if tenant.status == "shadow" %}<li>Respostas registradas no modo sombra: {{ ready.shadow_responses }}</li>{% endif %}
+  </ul>
+  {% for target, label in actions %}
+  <form method="post" action="/painel/situacao" class="acoes">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="target" value="{{ target }}">
+    {% if target == "active" %}
+    <label><input type="checkbox" name="early" value="sim"> Ativar antes de completar 2 dias de modo sombra</label>
+    {% endif %}
+    <button {% if target == "active" %}{% else %}class="secundario"{% endif %}>{{ label | capitalize }}</button>
+  </form>
+  {% endfor %}
+</section>
+{% if samples %}
+<section class="cartao">
+  <h2>Últimas respostas que o assistente daria</h2>
+  {% for s in samples %}
+  <div class="cartao">
+    <p class="dica">{{ s.when }}{% if s.handoff %} · passaria ao corretor: {{ s.handoff }}{% endif %}{% if s.rejected %} · <span class="selo alerta">frase recusada pelo validador</span>{% endif %}</p>
+    <p><strong>Hóspede:</strong> {{ s.guest }}</p>
+    <pre class="resposta">{{ s.reply }}</pre>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

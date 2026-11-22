@@ -33,6 +33,7 @@ class HealthInput:
     dead_jobs: int
     quality: str | None
     has_approved_data: bool
+    llm_failures_1h: int = 0
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,10 @@ def assess(data: HealthInput, now: datetime) -> Health:
         alerts.append(
             f"{data.open_handoffs} passagem(ns) aguardando, a mais antiga há mais de 15 min"
         )
+    if data.llm_failures_1h:
+        alerts.append(
+            f"{data.llm_failures_1h} resposta(s) em contingência (IA fora) na última hora"
+        )
     if data.validator_rejections_24h:
         alerts.append(
             f"{data.validator_rejections_24h} frase(s) recusada(s) pelo validador em 24 h"
@@ -71,3 +76,43 @@ def assess(data: HealthInput, now: datetime) -> Health:
         alerts.append("nenhuma mensagem recebida em 48 h")
     level = Level.ERROR if errors else Level.ALERT if alerts else Level.OK
     return Health(level, errors + alerts)
+
+
+# --- Plataforma (alertas do operador, SPEC seção 10) -------------------------------------
+
+QUEUE_ALERT: Final = 100
+QUEUE_ERROR: Final = 500
+DISK_ALERT: Final = 0.80
+DISK_ERROR: Final = 0.90
+BACKUP_MAX_AGE: Final = timedelta(hours=26)
+
+
+@dataclass(frozen=True)
+class PlatformInput:
+    queue_backlog: int
+    disk_used_ratio: float
+    backup_at: datetime | None
+    backup_remote: bool
+
+
+@dataclass(frozen=True)
+class Alert:
+    key: str
+    """Identifica o alerta para não repetir o aviso (ex.: `disco`, `tenant:<id>`)."""
+    level: Level
+    text: str
+
+
+def assess_platform(data: PlatformInput, now: datetime) -> list[Alert]:
+    alerts: list[Alert] = []
+    if data.queue_backlog >= QUEUE_ALERT:
+        level = Level.ERROR if data.queue_backlog >= QUEUE_ERROR else Level.ALERT
+        alerts.append(Alert("fila", level, f"{data.queue_backlog} tarefas acumuladas na fila"))
+    if data.disk_used_ratio >= DISK_ALERT:
+        level = Level.ERROR if data.disk_used_ratio >= DISK_ERROR else Level.ALERT
+        alerts.append(Alert("disco", level, f"disco {round(data.disk_used_ratio * 100)}% ocupado"))
+    if data.backup_at is None or now - data.backup_at > BACKUP_MAX_AGE:
+        alerts.append(Alert("backup", Level.ERROR, "nenhum backup concluído nas últimas 26 h"))
+    elif not data.backup_remote:
+        alerts.append(Alert("backup_externo", Level.ALERT, "último backup sem cópia externa (S3)"))
+    return alerts

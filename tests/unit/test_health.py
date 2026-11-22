@@ -1,7 +1,7 @@
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from app.domain.health import HealthInput, Level, assess
+from app.domain.health import HealthInput, Level, PlatformInput, assess, assess_platform
 
 NOW = datetime(2026, 12, 20, 15, 0, tzinfo=UTC)
 HEALTHY = HealthInput(
@@ -47,3 +47,30 @@ def test_onboarding_tenant_is_not_blamed_for_silence() -> None:
     )
     assert assess(quiet, NOW).level is Level.OK
     assert "sem planilha" in assess(replace(quiet, active=True), NOW).reasons[0]
+
+
+def test_platform_alerts() -> None:
+
+    fine = PlatformInput(
+        queue_backlog=99,
+        disk_used_ratio=0.79,
+        backup_at=NOW - timedelta(hours=25),
+        backup_remote=True,
+    )
+    assert assess_platform(fine, NOW) == []
+    bad = PlatformInput(
+        queue_backlog=500, disk_used_ratio=0.91, backup_at=None, backup_remote=False
+    )
+    alerts = {a.key: a for a in assess_platform(bad, NOW)}
+    assert set(alerts) == {"fila", "disco", "backup"}
+    assert all(a.level is Level.ERROR for a in alerts.values())
+    local_only = PlatformInput(
+        queue_backlog=150, disk_used_ratio=0.85, backup_at=NOW, backup_remote=False
+    )
+    levels = {a.key: a.level for a in assess_platform(local_only, NOW)}
+    assert levels == {"fila": Level.ALERT, "disco": Level.ALERT, "backup_externo": Level.ALERT}
+
+
+def test_llm_failures_alert() -> None:
+    health = assess(replace(HEALTHY, llm_failures_1h=3), NOW)
+    assert health.level is Level.ALERT and "contingência" in health.reasons[0]

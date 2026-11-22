@@ -15,7 +15,7 @@ help: ## Lista os comandos
 	@deploy/gen-env.sh .env
 
 # --- Sistema -----------------------------------------------------------------
-.PHONY: up down logs ps migrate operator tenant reset-totp seed-demo template backup restore
+.PHONY: up down logs ps migrate operator tenant reset-totp seed-demo template backup restore restore-drill
 up: .env ## Sobe tudo (gera .env com segredos na primeira vez)
 	$(COMPOSE) up -d --build --wait
 
@@ -53,8 +53,15 @@ template: ## Gera a planilha modelo (planilha-modelo.xlsx) e o exemplo Demo Rivi
 	$(UV) python -m app.importer template --out planilha-modelo.xlsx
 	$(UV) python -m app.importer sample --out exemplo-demo-riviera.xlsx
 
-restore: ## Restaura um backup (M8)
-	@echo "make restore: disponível a partir do M8" >&2; exit 2
+restore: ## Restaura um backup e troca o banco (FILE=/backups/... | latest | remote); para app, worker e scheduler antes
+	@test "$(CONFIRM)" = "sim" || { echo 'confirme: make restore FILE=latest CONFIRM=sim (o banco atual fica guardado como rentaldesk_antes_<data>)' >&2; exit 2; }
+	$(COMPOSE) stop app worker scheduler
+	$(COMPOSE) exec -T backup restore-backup "$(or $(FILE),latest)" --swap
+	$(COMPOSE) run --rm migrate
+	$(COMPOSE) up -d --wait
+
+restore-drill: ## Exercício de restauração (RTO): restaura o último backup num banco à parte, confere e apaga
+	$(COMPOSE) exec -T backup restore-backup "$(or $(FILE),latest)"
 
 # --- Desenvolvimento ----------------------------------------------------------
 .PHONY: dev fmt lint test coverage-core test-unit test-deps-up test-deps-down golden golden-live shellcheck security
@@ -75,7 +82,7 @@ shellcheck:
 	uvx --from shellcheck-py==0.11.0.1 shellcheck $(SCRIPTS)
 
 test: ## Testes de unidade e integração, com cobertura (precisa de make test-deps-up)
-	$(UV) pytest tests/unit tests/integration --cov --cov-report=term-missing
+	$(UV) pytest tests/unit tests/integration tests/system --cov --cov-report=term-missing
 	@$(MAKE) --no-print-directory coverage-core
 
 # SPEC, seção 5: cobertura ≥ 80% nos módulos centrais (aqui exigimos 90%).

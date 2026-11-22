@@ -50,3 +50,4 @@ th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(-
 /* Indicadores do HTMX (o estilo embutido dele fica desligado por causa da CSP). */
 .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+pre.resposta { white-space: pre-wrap; font: inherit; background: var(--fundo); padding: .6rem; border-radius: 6px; margin: 0; }

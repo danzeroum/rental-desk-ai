@@ -31,6 +31,7 @@ PRIORITY_SET: Final = f"{PREFIX}:debounce:priority"
 STREAM_PRIORITY: Final = f"{PREFIX}:jobs:priority"
 STREAM_NORMAL: Final = f"{PREFIX}:jobs:normal"
 DEAD_LETTER: Final = f"{PREFIX}:jobs:dead"
+DEAD_LETTER_MAX: Final = 10_000
 GROUP: Final = "workers"
 RECLAIM_IDLE_MS: Final = 60_000
 MAX_DELIVERIES: Final = 3
@@ -215,8 +216,10 @@ class WorkQueue:
                     job = self._job(stream, job_id, fields, int(item["times_delivered"]) + 1)
                     if job.deliveries > MAX_DELIVERIES:
                         await self.redis.xadd(
-                            DEAD_LETTER, {"kind": job.kind, "key": job.key, "from": stream}
-                        )
+                            DEAD_LETTER,
+                            {"kind": job.kind, "key": job.key, "from": stream},
+                            maxlen=DEAD_LETTER_MAX, approximate=True,
+                        )  # fmt: skip
                         await self.ack(job)
                     else:
                         reclaimed.append(job)
