@@ -63,3 +63,17 @@ async def test_service_keeps_heartbeat_and_cleans_up(settings: Settings) -> None
     finally:
         stop.set()
         await redis.aclose()
+
+
+async def test_light_healthcheck(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core import healthcheck  # noqa: PLC0415
+
+    redis = create_redis(settings)
+    await redis.delete(heartbeat_key("worker"))
+    monkeypatch.setattr(healthcheck, "get_settings", lambda: settings)
+    assert await healthcheck.check("worker") == 1
+    await redis.set(heartbeat_key("worker"), "1", ex=30)
+    assert await healthcheck.check("worker") == 0
+    assert healthcheck.main(["banco"]) == 2
+    await redis.delete(heartbeat_key("worker"))
+    await redis.aclose()

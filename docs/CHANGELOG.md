@@ -16,6 +16,10 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 ### Alterado
 - Sessão do painel com limite de 12 h e token trocado ao concluir o autenticador.
 
+### Corrigido
+- Worker marcado como "unhealthy" no CI: o teste de saúde importava o processo inteiro (2,3 s) e,
+  com os 40 laços ativos, estourava o limite de 5 s. Agora é `python -m app.core.healthcheck`.
+
 ## [0.11.0] - 2026-11-22 · M10 Implantação guiada, plantão, resultados
 
 ### Adicionado
