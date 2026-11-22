@@ -1,6 +1,6 @@
 import io
 import zipfile
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from openpyxl import Workbook, load_workbook
@@ -119,6 +119,11 @@ def test_errors_point_to_sheet_row_and_column() -> None:
     ]
 
 
+def as_date(value: object) -> date:
+    assert isinstance(value, datetime)
+    return value.date()
+
+
 def test_generated_sheet_uses_last_night_and_checkout_columns() -> None:
     wb = load_workbook(io.BytesIO(build_workbook(build_sample(2026))))
     header = [c.value for c in wb["Tarifas"][1]]
@@ -126,7 +131,7 @@ def test_generated_sheet_uses_last_night_and_checkout_columns() -> None:
     reveillon = next(
         row for row in wb["Tarifas"].iter_rows(min_row=2, values_only=True) if row[5] == "Réveillon"
     )
-    assert (reveillon[1].date(), reveillon[2].date()) == (date(2026, 12, 28), date(2027, 1, 1))
+    assert (as_date(reveillon[1]), as_date(reveillon[2])) == (date(2026, 12, 28), date(2027, 1, 1))
     assert [c.value for c in wb["Bloqueios"][1]] == ["codigo", "entrada", "saida"]
     block = next(wb["Bloqueios"].iter_rows(min_row=2, values_only=True))
-    assert (block[1].date(), block[2].date()) == (date(2026, 12, 28), date(2027, 1, 2))
+    assert (as_date(block[1]), as_date(block[2])) == (date(2026, 12, 28), date(2027, 1, 2))
