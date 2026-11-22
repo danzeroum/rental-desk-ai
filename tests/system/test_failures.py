@@ -61,7 +61,7 @@ async def test_redis_down_on_webhook_then_retry_is_recovered(
             update(Message).values(created_at=datetime.now(UTC) - timedelta(minutes=2))
         )
     assert await redis.zcard("rd:debounce:due") == 0  # ninguém agendou
-    assert await reschedule_stuck(ops_engine, WorkQueue(redis)) >= 1
+    assert await reschedule_stuck(ops_engine, WorkQueue(redis), limit=1_000_000) >= 1
     conversation_id = stored[0].conversation_id
     key = conversation_key(tenant_id, conversation_id)
     assert await redis.zscore("rd:debounce:due", key) is not None  # reagendada pela varredura

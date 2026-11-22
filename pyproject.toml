@@ -1,6 +1,6 @@
 [project]
 name = "rental-desk-ai"
-version = "0.11.0"
+version = "1.0.0rc1"
 description = "Central de reservas com IA no WhatsApp para imobiliárias de aluguel por temporada"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

@@ -22,7 +22,9 @@ MAX_PER_ROUND: Final = 500
 log = get_logger(__name__)
 
 
-async def reschedule_stuck(ops_engine: AsyncEngine, queue: WorkQueue) -> int:
+async def reschedule_stuck(
+    ops_engine: AsyncEngine, queue: WorkQueue, *, limit: int = MAX_PER_ROUND
+) -> int:
     async with ops_engine.connect() as conn:
         rows = (
             await conn.execute(
@@ -31,7 +33,7 @@ async def reschedule_stuck(ops_engine: AsyncEngine, queue: WorkQueue) -> int:
                     " WHERE direction = 'in' AND processed_at IS NULL"
                     " AND created_at < now() - make_interval(secs => :stuck) LIMIT :limit"
                 ),
-                {"stuck": STUCK_SECONDS, "limit": MAX_PER_ROUND},
+                {"stuck": STUCK_SECONDS, "limit": limit},
             )
         ).all()
     for tenant_id, conversation_id in rows:

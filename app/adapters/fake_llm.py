@@ -25,7 +25,8 @@ _SINGLE_OUT: Final = re.compile(
     rf"(?:saio|saindo|saida|sair|ate|até o dia|até)\s*(?:dia\s*)?{_DATE}"
 )
 _GUESTS: Final = re.compile(
-    r"(?:para|pra|somos|seremos|formos|grupo de|com)\s+(\d{1,3})\s*(?:pessoas|adultos|hospedes)?"
+    # O número não pode ser começo de data ("para 10/12").
+    r"(?:para|pra|somos|seremos|formos|grupo de|com)\s+(\d{1,3})(?![/\d])\s*(?:pessoas|adultos|hospedes)?"
     r"|(\d{1,3})\s+(?:pessoas|adultos|hospedes)"
 )
 _PARTY: Final = re.compile(r"(\d{1,2})\s+adultos?\s+e\s+(\d{1,2})\s+crian")
@@ -58,6 +59,11 @@ _ATTRIBUTES: Final = {
     "churrasqueira": "churrasqueira", "wifi": "wifi", "wi-fi": "wifi", "internet": "wifi",
     "ar condicionado": "ar_quartos", "ar-condicionado": "ar_quartos", "festa": "festa",
 }  # fmt: skip
+_QUESTION_ATTRIBUTES: Final = {
+    "quartos": "quartos", "suite": "suites", "banheiro": "banheiros", "vaga": "vagas",
+    "garagem": "vagas", "praia": "praia", "cabem": "capacidade",
+}  # fmt: skip
+"""Só em pergunta sobre uma casa (não viram filtro de busca)."""
 _GREETINGS: Final = ("oi", "ola", "bom dia", "boa tarde", "boa noite", "obrigad", "valeu")
 
 
@@ -120,9 +126,8 @@ class FakeLLM:
         slots = self._slots(text, today)
         intent = self._intent(text, slots)
         refers_to = self._reference(text)
-        attribute = (
-            next((v for k, v in _ATTRIBUTES.items() if k in text), None) if "?" in text else None
-        )
+        known = {**_ATTRIBUTES, **_QUESTION_ATTRIBUTES}
+        attribute = next((v for k, v in known.items() if k in text), None) if "?" in text else None
         if intent == "search" and attribute and refers_to is not None:
             intent = "ask_attribute"
         if intent == "search" and "tem " in text and "?" in text and not any(slots.values()):

@@ -592,3 +592,19 @@ Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nad
   - Imobiliária já atendendo conta como implantação concluída, mesmo sem ter usado o simulador.
 - **O processo `app` passa a ter um cliente de IA** (só para o simulador); as chaves são as mesmas do
   worker.
+
+## D044 · Páginas de produto, segurança e candidata à Versão 1.0 (M11)
+
+- **Central de ajuda e páginas de produto (RF31):** textos em Markdown dentro do pacote do app
+  (`app/web/content`, vão na imagem); conversor próprio e mínimo (escapa todo HTML antes; links só
+  http(s) ou relativos) em vez de uma biblioteca de Markdown. Termos e política de privacidade são
+  textos-base marcados como pendentes de revisão jurídica.
+- **Página de status pública:** diz só "funcionando"/"instável" por parte do serviço (painel, banco,
+  fila, respostas, tarefas agendadas), sem nome de tecnologia nem detalhe interno; 503 quando algo falha,
+  para o monitor externo.
+- **Segurança:** sessão com limite absoluto de 12 h além das 8 h sem uso; token trocado ao concluir o
+  autenticador; testes que percorrem todas as rotas (login e CSRF). Relatório em `docs/seguranca.md`.
+- **Conjunto de ouro com 100 casos.** O FakeLLM passou a reconhecer perguntas de contagem e de distância
+  da praia e a não ler "para 10/12" como número de pessoas: limitações do dublê, não do motor.
+- **Versão 1.0.0rc1, sem tag:** os itens da definição de pronto que dependem de chave, VPS, pessoa de
+  fora e advogado estão em `docs/lancamento.md`; a tag `v1.0.0` fica para quando forem cumpridos.

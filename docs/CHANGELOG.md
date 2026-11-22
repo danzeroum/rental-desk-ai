@@ -5,6 +5,17 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [1.0.0rc1] - 2026-11-22 · M11 Candidata à Versão 1.0
+
+### Adicionado
+- Central de ajuda (`/ajuda`), termos de uso, política de privacidade e página de status pública.
+- Conjunto de ouro com 100 casos (65 fluxos e 35 adversários).
+- Revisão de segurança (`docs/seguranca.md`) com testes que percorrem todas as rotas.
+- Checklist do lançamento (`docs/lancamento.md`).
+
+### Alterado
+- Sessão do painel com limite de 12 h e token trocado ao concluir o autenticador.
+
 ## [0.11.0] - 2026-11-22 · M10 Implantação guiada, plantão, resultados
 
 ### Adicionado

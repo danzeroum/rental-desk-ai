@@ -15,7 +15,28 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.9.0 |
 | M9 · iCal e planilha Google | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.10.0 |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.11.0 |
-| M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | ⏳ próximo | | |
+| M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | ✅ concluído (tag pendente de itens humanos) | danzeroum/rental-desk-ai#1 | 1.0.0rc1 |
+
+---
+
+## M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 — concluído em 22/11/2026 (sem tag)
+
+### Entregue
+- **Páginas de produto (RF31):** central de ajuda com 5 páginas, termos de uso e política de privacidade
+  (textos-base), página de status pública; links no login e no painel.
+- **Revisão de segurança:** sessão com limite de 12 h e troca de token após o autenticador; testes que
+  percorrem todas as rotas privadas (login) e todos os POST (CSRF); `docs/seguranca.md`.
+- **Conjunto de ouro: 100 casos** (65 fluxos + 35 adversários), todos aprovados com o FakeLLM.
+- `docs/lancamento.md` com a definição de pronto item a item. Versão **1.0.0rc1** (D044).
+
+### Verificado
+- `make lint test golden security` verdes (detalhe no resumo do PR).
+- Definição de pronto: itens 1, 3 e 4 cumpridos no que depende do código; 2, 5, 6 e 7 dependem de
+  chave, VPS, pessoa de fora e advogado (ver `docs/lancamento.md`). Por isso a tag `v1.0.0` não foi
+  criada.
+
+### Depende de humano
+- Ver `docs/lancamento.md` (pendências consolidadas).
 
 ---
 
