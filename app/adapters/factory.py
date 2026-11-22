@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from app.adapters.fake_llm import FakeLLM
-from app.adapters.google_sheet import DisabledSheetSource, GoogleSheetSource, SheetSource
+from app.adapters.google_sheet import (
+    DisabledSheetSource,
+    GoogleSheetSource,
+    SheetError,
+    SheetSource,
+)
 from app.adapters.http_fetch import FakeFetcher, Fetcher, HttpFetcher
 from app.adapters.link_checker import FakeLinkChecker, HttpLinkChecker, LinkChecker
 from app.adapters.llm import AnthropicLLMClient, LLMClient
@@ -18,6 +23,9 @@ from app.core.config import (
     WhatsAppProvider,
 )
 from app.core.crypto import Keyring
+from app.core.logging import get_logger
+
+log = get_logger(__name__)
 
 
 def build_gateway(settings: Settings) -> WhatsAppGateway:
@@ -82,6 +90,13 @@ def build_fetcher(settings: Settings) -> Fetcher:
 
 
 def build_sheet_source(settings: Settings) -> SheetSource:
-    if settings.google_service_account_json is None:
+    """Sem conta de serviço (ou com JSON inválido) a ligação com o Google fica desligada: o
+    resto do sistema sobe normalmente e o erro aparece no log (RF27 é opcional)."""
+    raw = settings.google_service_account_json
+    if raw is None or not raw.get_secret_value().strip():
         return DisabledSheetSource()
-    return GoogleSheetSource(settings.google_service_account_json.get_secret_value())
+    try:
+        return GoogleSheetSource(raw.get_secret_value())
+    except SheetError:
+        log.error("conta_de_servico_google_invalida")
+        return DisabledSheetSource()

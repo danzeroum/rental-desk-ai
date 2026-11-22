@@ -14,6 +14,10 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 - Painel de resultados (hoje, 7 e 30 dias) com contatos por dia.
 - Resumo semanal por WhatsApp (template `resumo_semanal`), com consentimento.
 
+### Corrigido
+- O app não subia com `GOOGLE_SERVICE_ACCOUNT_JSON` vazio (padrão do compose); vazio ou inválido agora
+  só desliga a ligação com o Google, com erro no log.
+
 ## [0.10.0] - 2026-11-22 · M9 Calendários e planilha Google
 
 ### Adicionado

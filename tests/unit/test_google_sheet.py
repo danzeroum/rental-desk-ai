@@ -58,3 +58,17 @@ async def test_not_shared_and_invalid_account() -> None:
         await source.fetch_xlsx(SHEET)
     with pytest.raises(SheetError, match="inválido"):
         GoogleSheetSource("{}")
+
+
+def test_factory_disables_empty_or_invalid_account() -> None:
+    from app.adapters.factory import build_sheet_source  # noqa: PLC0415
+    from app.adapters.google_sheet import DisabledSheetSource  # noqa: PLC0415
+    from tests.conftest import make_settings  # noqa: PLC0415
+
+    for raw in ("", "   ", "{nao e json"):
+        assert isinstance(
+            build_sheet_source(make_settings(google_service_account_json=raw)), DisabledSheetSource
+        )
+    assert isinstance(
+        build_sheet_source(make_settings(google_service_account_json=account())), GoogleSheetSource
+    )
