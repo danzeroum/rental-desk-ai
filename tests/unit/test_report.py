@@ -1,7 +1,14 @@
 from datetime import UTC, date, datetime, timedelta
 
 from app.domain.hours import BusinessHours
-from app.domain.report import ConversationFacts, HandoffFacts, compute, email_text, week_before
+from app.domain.report import (
+    ConversationFacts,
+    HandoffFacts,
+    compute,
+    email_text,
+    week_before,
+    whatsapp_params,
+)
 
 HOURS = BusinessHours.from_json({str(d): [["09:00", "18:00"]] for d in range(7)})
 MON = datetime(2026, 11, 16, 15, 0, tzinfo=UTC)  # 12h em São Paulo
@@ -46,3 +53,22 @@ def test_email_asks_for_missing_outcomes() -> None:
     m = compute(PERIOD, [], [HandoffFacts(MON, None, None)], [], HOURS)
     _, body = email_text("Sol", m, "https://painel/p")
     assert "Marque os desfechos que faltam (um clique cada): https://painel/p" in body
+
+
+def test_whatsapp_params() -> None:
+    m = compute(
+        PERIOD,
+        [ConversationFacts("a", MON, None)],
+        [HandoffFacts(MON, None, "won")],
+        [100_00],
+        HOURS,
+    )
+    assert whatsapp_params("Sol", m, "https://p") == [
+        "Sol",
+        "16/11 a 22/11",
+        "1",
+        "1",
+        "1 fecharam, 0 perderam (taxa 100%)",
+        "R$ 100,00",
+        "https://p",
+    ]

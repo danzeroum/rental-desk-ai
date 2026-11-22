@@ -14,8 +14,36 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.8.0 |
 | M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.9.0 |
 | M9 · iCal e planilha Google | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.10.0 |
-| M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | ⏳ próximo | | |
-| M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+| M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.11.0 |
+| M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | ⏳ próximo | | |
+
+---
+
+## M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp — concluído em 22/11/2026
+
+### Entregue
+- **Implantação (RF28, D043):** 7 passos com progresso calculado do estado real; conexão do número com
+  teste antes de salvar; simulador de conversa com o mesmo motor do WhatsApp; progresso no painel do
+  operador.
+- **Plantão e rodízio (RF29):** escala por corretor; o rodízio só avisa quem está de plantão.
+- **Resultados (RF30):** hoje, 7 e 30 dias, números de destaque e contatos por dia (SVG no servidor,
+  com tabela equivalente).
+- **Resumo por WhatsApp (RF32):** template `resumo_semanal`, só com consentimento.
+- Migração 0008 (escala de plantão). Versão 0.11.0.
+
+### Verificado
+- `make lint test golden security` verdes (detalhe no resumo do PR).
+- **Aceite do M10:** teste de sistema percorre a implantação de uma imobiliária fictícia só pelo
+  painel, do zero até "atendendo": conecta o número, envia a planilha, conversa no simulador, aprova,
+  entra em sombra, recebe uma mensagem real registrada sem envio e ativa
+  (`tests/system/test_onboarding_walkthrough.py`). O teste com uma pessoa que não conhece o sistema
+  (meta de 2 h, definição de pronto) é pendência humana.
+- Telas conferidas no Chromium (desktop e 390 px): sem erro de CSP e sem rolagem horizontal.
+
+### Depende de humano
+- Conta no parceiro (BSP) para o cadastro do número em coexistência (passo 1).
+- Template `resumo_semanal` aprovado na Meta.
+- Teste da implantação com uma pessoa de fora, cronometrado.
 
 ---
 

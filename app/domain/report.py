@@ -137,3 +137,20 @@ def email_text(tenant_name: str, m: WeeklyMetrics, panel_url: str) -> tuple[str,
     else:
         lines.append(f"Painel: {panel_url}")
     return subject, "\n".join(lines) + "\n"
+
+
+def whatsapp_params(tenant_name: str, m: WeeklyMetrics, panel_url: str) -> list[str]:
+    """Parâmetros do template `resumo_semanal` (RF32): 5 linhas, sem dado pessoal."""
+    last_day = m.period_end - timedelta(days=1)
+    closing = f"{m.won} fecharam, {m.lost} perderam"
+    if m.close_rate_pct is not None:
+        closing += f" (taxa {m.close_rate_pct}%)"
+    return [
+        tenant_name,
+        f"{br_date(m.period_start)[:5]} a {br_date(last_day)[:5]}",
+        str(m.contacts),
+        str(m.handoffs),
+        closing,
+        brl(m.offered_value_cents),
+        panel_url,
+    ]

@@ -14,6 +14,7 @@ from app.adapters.factory import (
     build_gateway,
     build_keyring,
     build_link_checker,
+    build_llm,
     build_mailer,
     build_sheet_source,
 )
@@ -27,9 +28,11 @@ from app.core.rls import scoped_session_factory
 from app.web.auth import AuthService
 from app.web.panel import install_panel
 from app.workers.calendars import CalendarService
+from app.workers.engine import ConversationEngine
 from app.workers.handoffs import HandoffService
 from app.workers.queue import WorkQueue
 from app.workers.sheets import SheetSyncService
+from app.workers.simulator import Simulator
 
 log = get_logger(__name__)
 
@@ -54,9 +57,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             mailer=app.state.mailer,
             public_base_url=settings.public_base_url,
         )
+        app.state.gateway = build_gateway(settings)
+        app.state.simulator = Simulator(
+            sessions=app.state.sessions, engine=ConversationEngine(build_llm(settings)),
+            redis=app.state.redis, public_base_url=settings.public_base_url,
+        )  # fmt: skip
         app.state.handoffs = HandoffService(
             sessions=app.state.sessions,
-            gateway=build_gateway(settings),
+            gateway=app.state.gateway,
             keyring=app.state.keyring,
             mailer=app.state.mailer,
         )

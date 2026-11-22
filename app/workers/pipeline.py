@@ -26,7 +26,7 @@ from app.domain.catalog import BlockData, PropertyData, RateData
 from app.domain.extraction import SCHEMA_VERSION
 from app.domain.prompts import HistoryItem
 from app.domain.search import is_data_stale
-from app.domain.state import load_state
+from app.domain.state import ConversationState, load_state
 from app.models import (
     Block,
     Conversation,
@@ -58,6 +58,45 @@ def _utcnow() -> datetime:
 
 _PROPERTY_FIELDS: Final = tuple(PropertyData.__dataclass_fields__)
 _RATE_FIELDS: Final = tuple(RateData.__dataclass_fields__)
+
+
+def privacy_url(public_base_url: str, slug: str, version: int | None) -> str:
+    suffix = f"/v{version}" if version else ""
+    return f"{public_base_url}/privacidade/{slug}{suffix}"
+
+
+async def build_turn_context(
+    session: AsyncSession,
+    tenant: Tenant,
+    *,
+    now: datetime,
+    public_base_url: str,
+    state: ConversationState,
+    history: list[HistoryItem],
+    new_text: str | None,
+    first_response: bool,
+    audio_not_understood: bool = False,
+) -> TurnContext:
+    """Tudo o que o motor precisa para uma vez da conversa (WhatsApp e simulador do painel)."""
+    notice_version = await session.scalar(
+        select(PrivacyNotice.version).order_by(PrivacyNotice.version.desc()).limit(1)
+    )
+    hours = hours_of(tenant)
+    return TurnContext(
+        today=now.astimezone(TIMEZONE).date(),
+        tenant_name=tenant.name,
+        assistant_name=tenant.assistant_name,
+        tone=tenant.tone,
+        privacy_url=privacy_url(public_base_url, tenant.slug, notice_version),
+        first_response=first_response,
+        state=state,
+        history=history,
+        new_text=new_text,
+        catalog=await load_catalog(session, tenant),
+        data_fresh=not is_data_stale(tenant.availability_updated_at, now),
+        audio_not_understood=audio_not_understood,
+        brokers_back=None if hours.is_open(now) else hours.describe_next_opening(now),
+    )
 
 
 async def load_catalog(session: AsyncSession, tenant: Tenant) -> Catalog | None:
@@ -151,31 +190,14 @@ class ResponsePipeline:
                 for m in reversed(list(recent))
                 if m.id not in batch_ids and (m.body or m.transcript)
             ][-HISTORY_LIMIT:]
-            notice_version = await session.scalar(
-                select(PrivacyNotice.version).order_by(PrivacyNotice.version.desc()).limit(1)
-            )
-            catalog = await load_catalog(session, tenant)
-            hours = hours_of(tenant)
-            context = TurnContext(
-                today=now.astimezone(TIMEZONE).date(),
-                tenant_name=tenant.name,
-                assistant_name=tenant.assistant_name,
-                tone=tenant.tone,
-                privacy_url=self._privacy_url(tenant.slug, notice_version),
-                first_response=conversation.first_response_at is None,
-                state=load_state(conversation.state_json),
-                history=history,
+            context = await build_turn_context(
+                session, tenant, now=now, public_base_url=self.public_base_url,
+                state=load_state(conversation.state_json), history=history,
                 new_text=batch.combined_text or None,
-                catalog=catalog,
-                data_fresh=not is_data_stale(tenant.availability_updated_at, now),
+                first_response=conversation.first_response_at is None,
                 audio_not_understood=any(m.transcription_failed for m in batch.messages),
-                brokers_back=None if hours.is_open(now) else hours.describe_next_opening(now),
-            )
+            )  # fmt: skip
             return _Loaded(context, tenant.status, tenant.active_snapshot_id)
-
-    def _privacy_url(self, slug: str, version: int | None) -> str:
-        suffix = f"/v{version}" if version else ""
-        return f"{self.public_base_url}/privacidade/{slug}{suffix}"
 
     @staticmethod
     def _audit_payload(loaded: _Loaded, result: TurnResult) -> dict[str, Any]:

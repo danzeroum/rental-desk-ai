@@ -100,7 +100,11 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
     )
 
     reports = ReportService(
-        sessions=sessions, mailer=mailer, public_base_url=settings.public_base_url
+        sessions=sessions,
+        mailer=mailer,
+        public_base_url=settings.public_base_url,
+        gateway=gateway,
+        keyring=keyring,
     )
 
     async def report_all() -> int:

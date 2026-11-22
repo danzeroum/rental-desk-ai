@@ -57,7 +57,22 @@ DAILY_REMINDER: Final = Template(
     ),
     params=("nome da imobiliária", "bloqueios a partir de hoje", "link do painel"),
 )
-TEMPLATES: Final = (HANDOFF_TO_BROKER, HANDOFF_COPY_TO_MANAGER, HANDOFF_ALERT, DAILY_REMINDER)
+WEEKLY_SUMMARY: Final = Template(
+    name="resumo_semanal",
+    body=(
+        "Resumo da semana na {{1}} ({{2}}):\n"
+        "Contatos atendidos: {{3}}\n"
+        "Passagens ao corretor: {{4}}\n"
+        "Fechamentos: {{5}}\n"
+        "Valor das opções enviadas: {{6}}\n"
+        "Detalhes no painel: {{7}}"
+    ),
+    params=("nome da imobiliária", "período", "contatos", "passagens", "fechou/perdeu e taxa",
+            "soma dos valores estimados", "link do painel"),
+)  # fmt: skip
+TEMPLATES: Final = (
+    HANDOFF_TO_BROKER, HANDOFF_COPY_TO_MANAGER, HANDOFF_ALERT, DAILY_REMINDER, WEEKLY_SUMMARY,
+)  # fmt: skip
 
 REASON_LABELS: Final = {
     "choose": "escolheu uma casa",

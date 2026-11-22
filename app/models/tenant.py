@@ -127,5 +127,8 @@ class TenantMember(TenantScoped, Timestamped, Base):
     role: Mapped[str] = mapped_column(String(20))
     whatsapp_phone: Mapped[str | None] = mapped_column(String(20))
     """Corretor: WhatsApp pessoal para avisos de passagem (só com consentimento)."""
+    duty_hours: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    """RF29: escala de plantão do corretor (formato do horário da imobiliária); vazio = segue
+    o horário da imobiliária."""
     weekly_email_off_at: Mapped[datetime | None]
     """Gestor desligou o relatório semanal por e-mail em "Meus avisos" (sai sem pedir aceite)."""

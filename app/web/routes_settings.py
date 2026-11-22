@@ -323,3 +323,57 @@ async def _apply_consents(ctx: TenantContext, phone: str | None, wanted: set[str
             payload={"user_id": str(ctx.user_id), "purposes": sorted(wanted),
                      "text_version": CONSENT_TEXT_VERSION},
         )  # fmt: skip
+
+
+# --- Escala de plantão (RF29) ------------------------------------------------------------
+
+
+async def _duty_member(ctx: TenantContext, user_id: uuid.UUID) -> tuple[TenantMember, AppUser]:
+    async with ctx.db() as session:
+        row = (
+            await session.execute(
+                select(TenantMember, AppUser)
+                .join(AppUser, AppUser.id == TenantMember.user_id)
+                .where(TenantMember.user_id == user_id)
+            )
+        ).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    return row[0], row[1]
+
+
+@router.get("/membros/{user_id}/plantao", response_class=HTMLResponse)
+async def duty_page(
+    request: Request, user_id: uuid.UUID, ctx: ManagerCtx, error: str | None = None
+) -> Response:
+    member, user = await _duty_member(ctx, user_id)
+    hours = BusinessHours.from_json(member.duty_hours) if member.duty_hours else None
+    async with ctx.db() as session:
+        tenant = await session.get(Tenant, ctx.tenant_id)
+    rows = _hours_rows(hours or (hours_of(tenant) if tenant else BusinessHours.from_json(None)))
+    return render(
+        request, "panel/duty.html",
+        {"person": user, "rows": rows, "follows_tenant": hours is None, "error": error},
+        status_code=400 if error else 200,
+    )  # fmt: skip
+
+
+@router.post("/membros/{user_id}/plantao")
+async def save_duty(request: Request, user_id: uuid.UUID, ctx: ManagerCtx) -> Response:
+    form = await verify_csrf(request)
+    await _duty_member(ctx, user_id)
+    duty: dict[str, Any] | None = None
+    if form.get("follows_tenant") != "sim":
+        try:
+            duty = _parse_hours(form).to_json()
+        except FormError as exc:
+            return await duty_page(request, user_id, ctx, error=f"Não salvei: {exc}.")
+    async with ctx.db() as session:
+        await session.execute(
+            update(TenantMember).where(TenantMember.user_id == user_id).values(duty_hours=duty)
+        )
+        await append_audit(
+            session, tenant_id=ctx.tenant_id, event_type="duty_hours_changed",
+            payload={"user_id": str(user_id), "by": str(ctx.user_id), "duty_hours": duty},
+        )  # fmt: skip
+    return redirect("/painel/configuracoes")

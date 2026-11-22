@@ -5,6 +5,15 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.11.0] - 2026-11-22 · M10 Implantação guiada, plantão, resultados
+
+### Adicionado
+- Assistente de implantação com 7 passos e progresso salvo; conexão do número com teste antes de
+  salvar; simulador de conversa no painel; progresso visível ao operador.
+- Escala de plantão por corretor; o rodízio só avisa quem está de plantão.
+- Painel de resultados (hoje, 7 e 30 dias) com contatos por dia.
+- Resumo semanal por WhatsApp (template `resumo_semanal`), com consentimento.
+
 ## [0.10.0] - 2026-11-22 · M9 Calendários e planilha Google
 
 ### Adicionado

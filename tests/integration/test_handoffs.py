@@ -371,3 +371,24 @@ async def test_echo_from_business_app_mutes_only_when_enabled(world: World, enab
     else:
         assert handoff.status == HandoffStatus.OPEN
         assert conversation.muted_until is None
+
+
+async def test_rotation_respects_duty_schedule(world: World) -> None:
+    ids = await team(world)
+    async with tenant_session(
+        world.app, world.tenant
+    ) as session:  # segunda: Ana à tarde, Bia de manhã
+        await session.execute(
+            update(TenantMember)
+            .where(TenantMember.user_id == ids["ana"])
+            .values(duty_hours={"0": [["13:00", "18:00"]]})
+        )
+        await session.execute(
+            update(TenantMember).where(TenantMember.user_id == ids["bia"])
+            .values(duty_hours={"0": [["09:00", "13:00"]]})
+        )  # fmt: skip
+    await world.say("Quero falar com um corretor")  # segunda, 10h
+    assert world.templates_to(BIA) == ["passagem_corretor"] and world.templates_to(ANA) == []
+    world.advance(10)
+    await world.service.escalate(world.tenant)
+    assert (await world.handoff()).assigned_to == ids["bia"]  # Ana não está de plantão: Bia de novo

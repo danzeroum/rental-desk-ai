@@ -16,7 +16,8 @@
   <tbody>
   {% for r in rows %}
   <tr>
-    <td><strong>{{ r.tenant.name }}</strong><br><span class="dica">{{ r.tenant.status }}{% if r.tenant.is_demo %} · demonstração{% endif %}</span></td>
+    <td><strong>{{ r.tenant.name }}</strong><br><span class="dica">{{ r.tenant.status }}{% if r.tenant.is_demo %} · demonstração{% endif %}</span>
+      {% if r.onboarding %}<br><span class="selo">implantação: {{ r.onboarding }}</span>{% endif %}</td>
     <td><span class="selo {{ r.health.level }}">{{ r.health.level }}</span>
       {% if r.health.reasons %}<ul class="dica">{% for reason in r.health.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>{% endif %}</td>
     <td>{{ r.last_inbound }}</td>

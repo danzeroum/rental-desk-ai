@@ -15,11 +15,13 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 
-from app.core.rls import global_session
+from app.core.rls import global_session, tenant_session
 from app.domain.health import Health, Level, assess
+from app.domain.onboarding import current, steps
 from app.models import Tenant
 from app.web.auth import PanelSession
 from app.web.common import local_time, panel_session, render, require_operator
+from app.web.routes_onboarding import onboarding_facts
 from app.workers.health import collect, dead_jobs_by_tenant
 
 router = APIRouter(prefix="/operador")
@@ -42,6 +44,8 @@ class TenantRow:
     open_handoffs: int
     quality: str
     test_number: bool
+    onboarding: str | None = None
+    """"passo N de 7: <título>" enquanto a imobiliária não está atendendo (RF28)."""
 
 
 def _fmt(moment: datetime | None) -> str:
@@ -59,12 +63,21 @@ async def tenant_rows(request: Request, operator: PanelSession, now: datetime) -
             user_id=operator.user_uuid,
         )  # fmt: skip
         data, account = snap.data, snap.account
+        onboarding = None
+        if tenant.status != "active":
+            async with tenant_session(
+                request.app.state.sessions, tenant.id, user_id=operator.user_uuid
+            ) as session:
+                facts = await onboarding_facts(session, tenant)
+            step = current(steps(facts, now))
+            onboarding = f"passo {step.number} de 7: {step.title}" if step else None
         rows.append(
             TenantRow(
                 tenant=tenant, health=assess(data, now), last_inbound=_fmt(data.last_inbound_at),
                 updated=_fmt(data.availability_updated_at), open_handoffs=data.open_handoffs,
                 quality=(account.quality_rating or "—") if account else "sem número",
                 test_number=bool(account and account.is_test_number),
+                onboarding=onboarding,
             )
         )  # fmt: skip
     return sorted(rows, key=lambda r: (LEVEL_ORDER[r.health.level], r.tenant.name))

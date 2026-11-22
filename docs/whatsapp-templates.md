@@ -71,10 +71,32 @@ Respostas aceitas (chegam pela janela de 24 h aberta pelo próprio gestor):
 - `CASA12 28/12-02/01` — bloqueia a casa com entrada 28/12 e saída 02/01 (a noite da saída
   fica livre). Várias casas: uma por linha, ou separadas por `;`. O ano é opcional.
 
+## `resumo_semanal`
+
+Resumo de 5 linhas toda segunda (RF32), só para o gestor com consentimento `weekly_report` dado em
+"Meus avisos". O e-mail semanal (RF18) continua; este é o atalho no celular.
+
+> Resumo da semana na {{1}} ({{2}}):
+> Contatos atendidos: {{3}}
+> Passagens ao corretor: {{4}}
+> Fechamentos: {{5}}
+> Valor das opções enviadas: {{6}}
+> Detalhes no painel: {{7}}
+
+| Parâmetro | Conteúdo | Exemplo |
+|---|---|---|
+| {{1}} | nome da imobiliária | Imobiliária Demo Riviera |
+| {{2}} | período | 16/11 a 22/11 |
+| {{3}} | contatos | 42 |
+| {{4}} | passagens | 11 |
+| {{5}} | desfechos | 4 fecharam, 2 perderam (taxa 67%) |
+| {{6}} | soma dos valores estimados | R$ 186.400,00 |
+| {{7}} | link do painel | https://painel.exemplo.com.br/painel/resultados |
+
 ## Respostas dentro da janela (sem template)
 
 A confirmação ao corretor depois do "1" e as mensagens ao hóspede são respostas dentro
 da janela de 24 h aberta pela mensagem da própria pessoa; não precisam de template.
 
-O relatório semanal do M7 vai por e-mail; o resumo por WhatsApp (RF32) e o template
-dele entram no M10.
+O relatório semanal vai por e-mail (RF18) e, com consentimento, também pelo template
+`resumo_semanal` (RF32).

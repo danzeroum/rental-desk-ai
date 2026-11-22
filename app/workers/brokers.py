@@ -8,13 +8,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import and_, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
+from app.domain.hours import BusinessHours, InvalidHoursError
 from app.domain.rotation import Broker
 from app.models import AppUser, Consent, Contact, Handoff, TenantMember
 from app.models.enums import ConsentPurpose, MemberRole
+
+log = get_logger(__name__)
 
 
 def _with_consent(  # type: ignore[no-untyped-def]
@@ -48,10 +53,26 @@ def _with_consent(  # type: ignore[no-untyped-def]
     )
 
 
-async def brokers_on_duty(session: AsyncSession) -> list[Broker]:
-    """Corretores aptos a receber passagem (escala por dia/horário entra com o RF29, M10)."""
-    rows = (await session.execute(_with_consent(MemberRole.CORRETOR))).all()
-    return [Broker(r.user_id, r.display_name, r.whatsapp_phone) for r in rows]
+async def brokers_on_duty(session: AsyncSession, now: datetime) -> list[Broker]:
+    """RF29: corretores com aviso aceito e de plantão agora (escala própria ou, sem escala, o
+    horário da imobiliária, conferido por quem chama)."""
+    query = _with_consent(MemberRole.CORRETOR).add_columns(TenantMember.duty_hours)
+    rows = (await session.execute(query)).all()
+    return [
+        Broker(r.user_id, r.display_name, r.whatsapp_phone)
+        for r in rows
+        if on_duty(r.duty_hours, now)
+    ]
+
+
+def on_duty(duty_hours: dict[str, Any] | None, now: datetime) -> bool:
+    if not duty_hours:
+        return True
+    try:
+        return BusinessHours.from_json(duty_hours).is_open(now)
+    except InvalidHoursError:
+        log.warning("escala_de_plantao_invalida")
+        return True  # escala quebrada não pode deixar a imobiliária sem ninguém
 
 
 async def managers_to_copy(session: AsyncSession) -> list[Broker]:

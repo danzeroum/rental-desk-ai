@@ -566,3 +566,29 @@ Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nad
   a planilha aprovada é a fonte única deles.
 - **Falhas:** 3 seguidas (link fora, planilha com erro, não compartilhada) → e-mail ao gestor uma vez e
   alerta na saúde da imobiliária (operador); um sucesso zera.
+
+## D043 · Implantação guiada, plantão, resultados e resumo por WhatsApp (M10)
+
+- **Plantão (RF29):** `tenant_member.duty_hours` (mesmo formato do horário da imobiliária; vazio =
+  segue o horário da imobiliária). O rodízio só considera quem está de plantão na hora do aviso; fora
+  do horário da imobiliária nada dispara (RF12). Escala inválida não tira o corretor do rodízio (a
+  imobiliária não pode ficar sem ninguém por erro de cadastro).
+- **Resultados (RF30):** a mesma conta do relatório semanal (`collect_period`), em hoje, 7 e 30 dias.
+  Números em blocos de destaque; gráfico de barras de uma série (contatos por dia) desenhado no
+  servidor em SVG, cor `--serie` validada nos dois modos (o azul de destaque do modo escuro falhava na
+  faixa de luminosidade), dica nativa por barra e tabela equivalente. Sem biblioteca de gráficos e sem
+  JavaScript (CSP).
+- **Resumo por WhatsApp (RF32):** template `resumo_semanal` de 5 linhas, só para gestor com
+  consentimento `weekly_report` e que não pediu PARAR; o e-mail continua.
+- **Implantação (RF28):** os 7 passos são calculados do estado real (número, versões, simulador,
+  situação), então o progresso fica salvo sem tabela própria e o operador vê o mesmo passo.
+  - Passo 1: o cadastro do número no parceiro (embedded signup em coexistência) é feito no site do
+    parceiro (pendência humana: conta no BSP); no painel o gestor informa ID do número, telefone e
+    token, e o sistema **testa a conexão antes de salvar**. Número já ligado a outra imobiliária é
+    recusado.
+  - Passo 4: simulador com o mesmo motor e contexto do WhatsApp (`build_turn_context`), estado no
+    Redis por 2 h, nada enviado; cada mensagem gera `simulator_used` (sem texto) para o progresso.
+  - Passo 6 → 7: ativar exige ao menos uma resposta real registrada no modo sombra.
+  - Imobiliária já atendendo conta como implantação concluída, mesmo sem ter usado o simulador.
+- **O processo `app` passa a ter um cliente de IA** (só para o simulador); as chaves são as mesmas do
+  worker.

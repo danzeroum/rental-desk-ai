@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.adapters.mailer import FakeMailer
 from app.core.config import TIMEZONE
 from app.core.rls import global_session, tenant_session
-from app.models import AppUser, TenantMember, WeeklyReport
-from app.models.enums import MemberRole
+from app.models import AppUser, Consent, TenantMember, WeeklyReport
+from app.models.enums import ConsentPurpose, MemberRole
 from app.scheduler.app import send_weekly_reports
 from app.workers.reports import ReportService, offered_totals, report_due
 from tests.integration.test_handoffs import (  # noqa: F401 - fixtures
@@ -96,3 +96,25 @@ async def test_scheduler_waits_for_monday(ops_engine: AsyncEngine, app_sessions:
         clock=lambda: tuesday,
     )
     assert await send_weekly_reports(ops_engine, service) == 0
+
+
+async def test_weekly_whatsapp_only_with_consent(world: World) -> None:
+    phone = f"+5513{uuid.uuid4().int % 10**9:09d}"
+    with_consent = await add_member(world.app, world.tenant, "Gil", phone, MemberRole.GESTOR)
+    await add_member(world.app, world.tenant, "Ana", "+5513900000001", MemberRole.GESTOR)
+    async with tenant_session(world.app, world.tenant) as session:
+        session.add(
+            Consent(
+                tenant_id=world.tenant, user_id=with_consent, phone_e164=phone,
+                purpose=ConsentPurpose.WEEKLY_REPORT, granted_at=NEXT_MONDAY_9H, evidence="teste",
+            )
+        )  # fmt: skip
+    world.clock.now = NEXT_MONDAY_9H
+    service = ReportService(
+        sessions=world.app, mailer=world.mailer, public_base_url="https://painel",
+        gateway=world.gateway, keyring=world.processor.keyring, clock=world.clock,
+    )  # fmt: skip
+    assert await service.weekly(world.tenant) is not None
+    [sent] = [m for m in world.gateway.templates if m.template == "resumo_semanal"]
+    assert sent.to == phone.removeprefix("+") and sent.params[0] == "Imobiliária Demo Riviera"
+    assert sent.params[-1] == "https://painel/painel/resultados"

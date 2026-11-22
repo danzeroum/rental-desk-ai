@@ -178,7 +178,7 @@ class HandoffService:
             summary=notices.summary_text(handoff.summary),
             conversation_id=conversation.id,
             channel=channel,
-            brokers=await brokers_on_duty(session),
+            brokers=await brokers_on_duty(session, self.clock()),
             managers=await managers_to_copy(session),
         )
 

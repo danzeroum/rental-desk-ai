@@ -1,0 +1,43 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Resultados{% endblock %}
+{% macro tile(label, value, hint="") %}
+<div class="cartao"><p class="dica">{{ label }}</p><p class="numero">{{ value }}</p>{% if hint %}<p class="dica">{{ hint }}</p>{% endif %}</div>
+{% endmacro %}
+{% block content %}
+<h1>Resultados</h1>
+<p class="acoes">{% for key, (_, label) in periods.items() %}
+  {% if key == periodo %}<strong>{{ label }}</strong>{% else %}<a href="?periodo={{ key }}">{{ label }}</a>{% endif %}
+  {% if not loop.last %}·{% endif %}{% endfor %}
+  <span class="dica">({{ range }})</span></p>
+<div class="grade numeros">
+  {{ tile("Contatos atendidos", m.contacts) }}
+  {{ tile("Chegaram fora do horário", (m.out_of_hours_pct ~ "%") if m.out_of_hours_pct is not none else "—", "quando ninguém da equipe estava") }}
+  {{ tile("1ª resposta do assistente", (m.first_response_median_s ~ " s") if m.first_response_median_s is not none else "—", ("95% em até " ~ m.first_response_p95_s ~ " s") if m.first_response_p95_s is not none else "") }}
+  {{ tile("Passagens ao corretor", m.handoffs) }}
+  {{ tile("Tempo até assumir", (m.assume_median_min ~ " min") if m.assume_median_min is not none else "—", "mediana") }}
+  {{ tile("Taxa de fechamento", (m.close_rate_pct ~ "%") if m.close_rate_pct is not none else "—", m.won ~ " fecharam · " ~ m.lost ~ " perderam · " ~ m.without_outcome ~ " sem desfecho") }}
+  {{ tile("Valor das opções enviadas", value, "soma das estimativas") }}
+</div>
+{% if m.without_outcome %}<p class="aviso alerta">{{ m.without_outcome }} passagem(ns) sem desfecho. <a href="/painel/passagens?show=sem-desfecho">Marcar agora</a> deixa a taxa de fechamento certa.</p>{% endif %}
+{% if chart %}
+<section class="cartao">
+  <h2>Contatos por dia</h2>
+  <div class="grafico-rolagem">
+  <svg class="grafico" viewBox="0 0 {{ width }} {{ height }}" role="img" aria-label="Contatos por dia, {{ range }}">
+    <line class="grade-linha" x1="32" x2="{{ width }}" y1="{{ chart.gridline_y }}" y2="{{ chart.gridline_y }}"></line>
+    <text class="eixo" x="28" y="{{ chart.gridline_y + 4 }}" text-anchor="end">{{ chart.max_value }}</text>
+    <line class="eixo-linha" x1="32" x2="{{ width }}" y1="{{ chart.baseline_y }}" y2="{{ chart.baseline_y }}"></line>
+    <text class="eixo" x="28" y="{{ chart.baseline_y }}" text-anchor="end">0</text>
+    {% for b in chart.bars %}{% if b.path %}<path class="barra" d="{{ b.path }}"><title>{{ b.label }}</title></path>{% endif %}{% endfor %}
+    {% for x, label, anchor in chart.ticks %}<text class="eixo" x="{{ x }}" y="{{ height - 4 }}" text-anchor="{{ anchor }}">{{ label }}</text>{% endfor %}
+  </svg>
+  </div>
+  <details><summary>Ver em tabela</summary>
+    <div class="tabela"><table><thead><tr><th>Dia</th><th>Contatos</th></tr></thead><tbody>
+    {% for day, value in series %}<tr><td>{{ day.strftime("%d/%m") }}</td><td>{{ value }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  </details>
+</section>
+{% endif %}
+<p class="dica">Os mesmos números do relatório semanal. Contatos e tempos contam a partir da primeira mensagem de cada conversa.</p>
+{% endblock %}
