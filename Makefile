@@ -5,7 +5,7 @@ SHELL := /usr/bin/env bash
 COMPOSE      := docker compose --project-directory . -f deploy/docker-compose.yml --env-file .env
 TEST_COMPOSE := docker compose --project-directory . -f deploy/docker-compose.test.yml
 UV           := uv run
-SCRIPTS      := deploy/*.sh deploy/backup/*.sh deploy/postgres/*.sh
+SCRIPTS      := deploy/*.sh deploy/backup/*.sh deploy/postgres/*.sh scripts/*.sh
 
 .PHONY: help
 help: ## Lista os comandos
@@ -15,7 +15,7 @@ help: ## Lista os comandos
 	@deploy/gen-env.sh .env
 
 # --- Sistema -----------------------------------------------------------------
-.PHONY: up down logs ps migrate operator tenant reset-totp seed-demo template backup restore restore-drill
+.PHONY: up down logs ps migrate operator tenant reset-totp seed-demo demo-link template backup restore restore-drill
 up: .env ## Sobe tudo (gera .env com segredos na primeira vez)
 	$(COMPOSE) up -d --build --wait
 
@@ -48,6 +48,10 @@ reset-totp: ## Apaga o autenticador de quem perdeu o celular (EMAIL=...)
 
 seed-demo: ## Cria/renova a Imobiliária Demo Riviera (RF25); PNID=<número de teste> e DEMO_WHATSAPP_TOKEN no shell
 	$(COMPOSE) exec -T -e DEMO_WHATSAPP_TOKEN scheduler python -m app.cli seed-demo $(if $(PNID),--phone-number-id "$(PNID)")
+
+demo-link: ## Cria um link do kit de demonstração (LABEL="visita à Imobiliária X")
+	@test -n "$(LABEL)" || { echo 'use: make demo-link LABEL="visita à Imobiliária X"' >&2; exit 2; }
+	$(COMPOSE) exec -T app python -m app.cli create-demo-link --label "$(LABEL)"
 
 template: ## Gera a planilha modelo (planilha-modelo.xlsx) e o exemplo Demo Riviera
 	$(UV) python -m app.importer template --out planilha-modelo.xlsx

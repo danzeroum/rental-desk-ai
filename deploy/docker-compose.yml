@@ -16,7 +16,7 @@ x-app-env: &app-env
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-40}
   SECRET_KEY: ${SECRET_KEY:?defina SECRET_KEY no .env}
-  PUBLIC_BASE_URL: https://${DOMAIN:-localhost}
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://${DOMAIN:-localhost}}
   DATABASE_URL: postgresql://rentaldesk_app:${DB_APP_PASSWORD:?}@postgres:5432/rentaldesk
   REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
   DATA_ENCRYPTION_KEYS: ${DATA_ENCRYPTION_KEYS:?defina DATA_ENCRYPTION_KEYS no .env}
@@ -61,7 +61,8 @@ services:
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
-    ports: ["80:80", "443:443", "443:443/udp"]
+    # Portas do computador: 80/443 em servidor; HTTP_PORT/HTTPS_PORT para teste local (docs/teste-local.md).
+    ports: ["${HTTP_PORT:-80}:80", "${HTTPS_PORT:-443}:443", "${HTTPS_PORT:-443}:443/udp"]
     environment:
       DOMAIN: ${DOMAIN:-localhost}
     volumes:

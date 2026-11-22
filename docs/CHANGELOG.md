@@ -6,6 +6,11 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 ## [Não lançado]
 
 ### Adicionado
+- `scripts/teste-local.sh` e `docs/teste-local.md`: instalação local em um comando (portas
+  automáticas, operador, demonstração, link do kit, testes opcionais) e roteiro de teste de cada tela.
+- `make demo-link` / `python -m app.cli create-demo-link`: link do kit pela linha de comando.
+- Portas configuráveis (`HTTP_PORT`, `HTTPS_PORT`, `PUBLIC_BASE_URL`) para teste local.
+- `AGENTS.md` para agentes de código além do Claude Code.
 - Kit de demonstração para vendas: conversa com aparência de WhatsApp em `/demo` pelo pipeline real,
   celular do corretor com "Responder 1", imobiliárias fictícias Maré Alta (8 casas) e Pousada Recanto da
   Enseada (6 quartos), links com token revogáveis em `/operador/demo` e limpeza diária.
