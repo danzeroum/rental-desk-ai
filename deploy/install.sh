@@ -126,7 +126,20 @@ main() {
   configure_firewall
   start_services
   check_health
-  log "Próximo passo: criar o usuário operador (comando disponível a partir do M7, ver runbook)"
+  create_operator
+}
+
+create_operator() {
+  local email="${OPERATOR_EMAIL:-}"
+  if [[ -z "${email}" && -t 0 ]]; then
+    read -r -p "E-mail do operador (primeiro acesso ao painel): " email
+  fi
+  if [[ -z "${email}" ]]; then
+    log "Crie o operador depois: make operator EMAIL=voce@exemplo.com"
+    return
+  fi
+  log "Criando o operador ${email}"
+  compose exec -T app python -m app.cli create-operator --email "${email}"
 }
 
 main "$@"

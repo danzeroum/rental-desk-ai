@@ -69,10 +69,10 @@ class Settings(BaseSettings):
     whatsapp_app_secret: SecretStr | None = None
     """Segredo do app para conferir `X-Hub-Signature-256` do webhook (RF01)."""
     whatsapp_verify_token: SecretStr | None = None
+    """Token do desafio de verificação (GET) do webhook."""
     whatsapp_echo_mute: bool = False
     """RF11: silenciar a conversa quando o corretor responde pelo app (eco da coexistência).
     Ligar só depois da verificação de coexistência (docs/verificacao-coexistencia.md)."""
-    """Token do desafio de verificação (GET) do webhook."""
 
     # Transcrição de áudio (API sem uso para treino; SPEC, seção 0b)
     transcriber_provider: TranscriberProvider = TranscriberProvider.FAKE

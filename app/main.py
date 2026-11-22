@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from redis.asyncio import Redis
 
 from app import __version__
+from app.adapters.factory import build_keyring, build_mailer
 from app.api import health, webhook
 from app.api.middleware import TraceMiddleware
 from app.core.config import Settings, get_settings
@@ -16,6 +17,8 @@ from app.core.db import create_engine
 from app.core.logging import configure_logging, get_logger
 from app.core.redis import create_redis
 from app.core.rls import scoped_session_factory
+from app.web.auth import AuthService
+from app.web.panel import install_panel
 from app.workers.queue import WorkQueue
 
 log = get_logger(__name__)
@@ -32,6 +35,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.redis = create_redis(settings)
         app.state.sessions = scoped_session_factory(app.state.db_engine)
         app.state.queue = build_queue(app.state.redis, settings)
+        app.state.keyring = build_keyring(settings)
+        app.state.mailer = build_mailer(settings)
+        app.state.auth = AuthService(
+            sessions=app.state.sessions,
+            redis=app.state.redis,
+            keyring=app.state.keyring,
+            mailer=app.state.mailer,
+            public_base_url=settings.public_base_url,
+        )
         log.info("app_iniciado", version=__version__, env=settings.env.value)
         try:
             yield
@@ -51,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(TraceMiddleware)
     app.include_router(health.router)
     app.include_router(webhook.router)
+    install_panel(app)
     return app
 
 

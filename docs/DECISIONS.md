@@ -362,3 +362,27 @@ A mais recente fica embaixo.
 - `python -m app.scheduler` roda tarefas por intervalo, cada uma sob trava no Redis. A lista de
   imobiliárias com passagem aberta usa o papel `rentaldesk_ops` (BYPASSRLS); `DATABASE_OPS_URL` existe
   **só** no contêiner do scheduler. O trabalho em si roda por imobiliária, com o papel da aplicação e RLS.
+
+## D035 · Acesso ao painel (M7)
+
+**Contexto:** SPEC seção 5 — e-mail + senha + TOTP obrigatório para todos; sem link mágico.
+
+- **Dependências novas (leves, sem dependências nativas além do argon2):** `argon2-cffi` (hash de
+  senha argon2id, recomendação OWASP), `segno` (QR em SVG, puro Python), `python-multipart`
+  (formulários no FastAPI). **HTMX 2.0.4** copiado para `app/web/static/` (sem CDN: a CSP é `'self'`;
+  integridade conferida com o `sha512` do npm). Alternativas descartadas: `passlib` (sem manutenção),
+  `pyotp` (TOTP são 15 linhas; testado com os vetores da RFC 6238), `qrcode` + Pillow (pesado).
+- **Sessão:** token aleatório no cookie `rd_session` (`HttpOnly`, `Secure`, `SameSite=Lax`); no Redis só
+  o SHA-256, com expiração por inatividade de 8 h. Estágios `password` → `active` (ou `totp_setup` no
+  primeiro acesso). Trocar a senha encerra todas as sessões da pessoa.
+- **Força bruta:** 5 senhas erradas bloqueiam a conta por 15 min; 30 tentativas por IP em 10 min; 5
+  códigos TOTP errados encerram a sessão. A mensagem de erro de login é a mesma exista ou não o e-mail,
+  e a conta inexistente também paga um hash (tempo parecido). Código TOTP aceito ±1 passo e nunca duas
+  vezes.
+- **CSRF:** duplo envio (cookie `rd_csrf` + campo `csrf` ou cabeçalho `X-CSRF-Token` do HTMX, posto no
+  `<body hx-headers>`), mais conferência do `Origin`. CSP sem `unsafe-inline`; nada de estilo ou script
+  inline nos templates.
+- **Convite e nova senha:** links de uso único (72 h e 1 h). A senha nova é validada antes de consumir o
+  token, e o consumo é atômico (`GETDEL`). Pedido de nova senha responde igual exista ou não o e-mail.
+- **Operador:** `python -m app.cli create-operator` (o `install.sh` pergunta o e-mail no fim) imprime o
+  convite. Perdeu o celular: `make reset-totp EMAIL=...` apaga o autenticador e encerra as sessões.
