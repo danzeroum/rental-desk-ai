@@ -34,8 +34,15 @@ _BOLD: Final = re.compile(r"\*([^*\n]+)\*")
 
 
 def whatsapp_text(text: str) -> Markup:
-    """Negrito do WhatsApp (*texto*) com escape de HTML; as quebras ficam no CSS."""
-    return Markup(_BOLD.sub(r"<strong>\1</strong>", str(escape(text))))  # noqa: S704 - escapado
+    """Negrito do WhatsApp (*texto*) com escape de HTML; as quebras ficam no CSS.
+
+    Só literais viram HTML: cada trecho do texto passa por `escape` (dentro ou fora do negrito).
+    """
+    parts = _BOLD.split(text)  # pares = texto comum; ímpares = dentro de *...*
+    return Markup("").join(
+        Markup("<strong>{}</strong>").format(part) if index % 2 else escape(part)
+        for index, part in enumerate(parts)
+    )
 
 
 templates.env.filters["whatsapp"] = whatsapp_text
