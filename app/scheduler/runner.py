@@ -43,6 +43,15 @@ async def tenants_with_open_handoffs(ops_engine: AsyncEngine) -> list[uuid.UUID]
         return [row[0] for row in rows]
 
 
+async def active_tenants(ops_engine: AsyncEngine) -> list[uuid.UUID]:
+    """Imobiliárias atendendo de verdade (demonstração não recebe lembrete nem relatório)."""
+    async with ops_engine.connect() as conn:
+        rows = await conn.execute(
+            text("SELECT id FROM tenant WHERE status = 'active' AND NOT is_demo ORDER BY name")
+        )
+        return [row[0] for row in rows]
+
+
 class Scheduler:
     def __init__(
         self, redis: Redis, jobs: list[Job], *, clock: Callable[[], float] = time.monotonic

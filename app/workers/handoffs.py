@@ -334,8 +334,9 @@ class HandoffService:
                 query.order_by(Handoff.notified_at.desc().nulls_last(), Handoff.created_at.desc())
             )
             user_id, pending_id = member.user_id, pending.id if pending else None
-        reply = notices.BROKER_NOTHING_PENDING
-        if text.strip().lower() in ASSUME_WORDS and pending_id is not None:
+        wants_to_assume = text.strip().lower() in ASSUME_WORDS
+        reply = notices.BROKER_NOTHING_PENDING if wants_to_assume else notices.MEMBER_HELP
+        if wants_to_assume and pending_id is not None:
             try:
                 handoff = await self.assume(tenant_id, pending_id, user_id, via="whatsapp")
                 async with tenant_session(self.sessions, tenant_id) as session:

@@ -23,6 +23,7 @@ from app.workers.handoffs import HandoffService
 from app.workers.pipeline import ResponsePipeline
 from app.workers.processor import BatchHandler, ConversationProcessor
 from app.workers.queue import Job
+from app.workers.reminders import MemberCommands, ReminderService
 from app.workers.responder import send_reply
 from app.workers.runner import Worker
 
@@ -54,7 +55,15 @@ async def run_worker(
             public_base_url=settings.public_base_url,
             handoffs=handoffs,
         ),
-        members=handoffs,
+        members=MemberCommands(
+            ReminderService(
+                sessions=sessions,
+                gateway=gateway,
+                keyring=keyring,
+                public_base_url=settings.public_base_url,
+            ),
+            handoffs,
+        ),
     )
 
     async def send_notice(job: Job) -> None:

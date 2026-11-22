@@ -431,3 +431,22 @@ no caminho de requisição.
   (`app/domain/privacy.py`, **texto a validar com advogado**) e convida o gestor.
 - **Suporte:** o operador entra em qualquer imobiliária pelo botão "Entrar como suporte"; cada entrada
   grava `support_access` no `audit_log` da imobiliária.
+
+## D038 · Lembrete das 9h e relatório semanal (M7)
+
+- **Lembrete (RF16):** template `lembrete_datas` só a gestor com consentimento `daily_reminder` e
+  telefone igual ao do consentimento. Sai uma vez por dia e imobiliária (trava no Redis com a data
+  local), entre 9h e 18h: se o scheduler estava parado às 9h, sai quando voltar, mas nunca à noite.
+  Imobiliária de demonstração e as que não estão `active` não recebem.
+- **Resposta ao lembrete:** vale de qualquer membro da equipe com o WhatsApp cadastrado (o painel
+  também deixa o corretor confirmar). "OK" renova a validade das datas; "CASA12 28/12-02/01"
+  bloqueia com origem `reminder` (saída exclusiva, D016; ano opcional, saída antes da entrada = ano
+  seguinte; aceita "a", "até" e o travessão que o teclado do celular põe). Bloquear não confirma o
+  resto: a resposta pede o "OK". Mensagem de membro que não é comando recebe a lista de comandos.
+- **Relatório (RF18):** segunda, 8h-18h, semana anterior (segunda a segunda, fuso de São Paulo).
+  Gravado em `weekly_report` (único por semana) e enviado por **e-mail** aos gestores ativos — é
+  comunicação do serviço contratado, sem dado de hóspede. Métricas: contatos distintos, % que chegou
+  fora do horário dos corretores, primeira resposta (mediana e p95, inclui o debounce), passagens,
+  desfechos, taxa de fechamento = fechou / (fechou + perdeu), mediana até assumir (minutos de
+  relógio) e soma dos totais das opções enviadas. Sem dado = "—", nunca zero inventado. O e-mail traz
+  o link "um clique por desfecho" (RF17) quando há passagem sem desfecho.

@@ -17,12 +17,14 @@ from app.models import AppUser, Consent, Handoff, TenantMember
 from app.models.enums import ConsentPurpose, MemberRole
 
 
-def _with_consent(role: MemberRole):  # type: ignore[no-untyped-def]
+def _with_consent(  # type: ignore[no-untyped-def]
+    role: MemberRole, purpose: ConsentPurpose = ConsentPurpose.HANDOFF_ALERT
+):
     consented = exists().where(
         and_(
             Consent.user_id == TenantMember.user_id,
             Consent.phone_e164 == TenantMember.whatsapp_phone,
-            Consent.purpose == ConsentPurpose.HANDOFF_ALERT,
+            Consent.purpose == purpose,
             Consent.revoked_at.is_(None),
         )
     )
@@ -59,6 +61,12 @@ async def last_assignments(session: AsyncSession) -> dict[uuid.UUID, datetime | 
         )
     ).all()
     return {user: at for user, at in rows if user is not None}
+
+
+async def managers_with_consent(session: AsyncSession, purpose: ConsentPurpose) -> list[Broker]:
+    """Gestores que aceitaram a finalidade (lembrete diário, relatório) no próprio painel."""
+    rows = (await session.execute(_with_consent(MemberRole.GESTOR, purpose))).all()
+    return [Broker(r.user_id, r.display_name, r.whatsapp_phone) for r in rows]
 
 
 async def member_by_phone(session: AsyncSession, phone_e164: str) -> TenantMember | None:

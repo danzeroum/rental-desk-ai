@@ -51,9 +51,30 @@ mesmo alerta por e-mail.
 | {{3}} | telefone do hóspede |
 | {{4}} | minutos comerciais |
 
+## `lembrete_datas`
+
+Lembrete diário das 9h ao gestor (RF16), só com consentimento `daily_reminder` dado pelo
+próprio gestor em "Meus avisos". Sai uma vez por dia, entre 9h e 18h; imobiliária de
+demonstração não recebe.
+
+> Bom dia! Hora de conferir as datas das casas da {{1}} ({{2}}). Se está tudo certo, responda OK. Para bloquear, responda o código da casa com a entrada e a saída, por exemplo: CASA12 28/12-02/01. Painel: {{3}}
+
+| Parâmetro | Conteúdo | Exemplo |
+|---|---|---|
+| {{1}} | nome da imobiliária | Imobiliária Demo Riviera |
+| {{2}} | bloqueios a partir de hoje | 7 bloqueios a partir de hoje |
+| {{3}} | link do painel | https://painel.exemplo.com.br/painel/bloqueios |
+
+Respostas aceitas (chegam pela janela de 24 h aberta pelo próprio gestor):
+
+- `OK` — confirma as datas; o assistente volta a informar disponibilidade por 24 h.
+- `CASA12 28/12-02/01` — bloqueia a casa com entrada 28/12 e saída 02/01 (a noite da saída
+  fica livre). Várias casas: uma por linha, ou separadas por `;`. O ano é opcional.
+
 ## Respostas dentro da janela (sem template)
 
 A confirmação ao corretor depois do "1" e as mensagens ao hóspede são respostas dentro
 da janela de 24 h aberta pela mensagem da própria pessoa; não precisam de template.
 
-Os templates do lembrete das 9h e do relatório semanal entram no M7.
+O relatório semanal do M7 vai por e-mail; o resumo por WhatsApp (RF32) e o template
+dele entram no M10.

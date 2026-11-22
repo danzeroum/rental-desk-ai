@@ -301,6 +301,8 @@ async def test_broker_message_without_pending_handoff(world: World) -> None:
     await team(world)
     outcome = await world.say("oi, tudo bem?", sender=BIA.removeprefix("+"))
     assert outcome.skipped == SkipReason.MEMBER_COMMAND
+    assert world.gateway.texts[-1].body == notices.MEMBER_HELP
+    await world.say("1", sender=BIA.removeprefix("+"))
     assert world.gateway.texts[-1].body == notices.BROKER_NOTHING_PENDING
 
 

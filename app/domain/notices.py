@@ -48,7 +48,16 @@ HANDOFF_ALERT: Final = Template(
     ),
     params=("nome da imobiliária", "motivo", "telefone do hóspede", "minutos comerciais"),
 )
-TEMPLATES: Final = (HANDOFF_TO_BROKER, HANDOFF_COPY_TO_MANAGER, HANDOFF_ALERT)
+DAILY_REMINDER: Final = Template(
+    name="lembrete_datas",
+    body=(
+        "Bom dia! Hora de conferir as datas das casas da {{1}} ({{2}}). Se está tudo certo, "
+        "responda OK. Para bloquear, responda o código da casa com a entrada e a saída, por "
+        "exemplo: CASA12 28/12-02/01. Painel: {{3}}"
+    ),
+    params=("nome da imobiliária", "bloqueios a partir de hoje", "link do painel"),
+)
+TEMPLATES: Final = (HANDOFF_TO_BROKER, HANDOFF_COPY_TO_MANAGER, HANDOFF_ALERT, DAILY_REMINDER)
 
 REASON_LABELS: Final = {
     "choose": "escolheu uma casa",
@@ -80,6 +89,27 @@ BROKER_NOTHING_PENDING: Final = (
     "Não encontrei passagem aguardando você. Para assumir, responda 1 ao aviso de passagem."
 )
 BROKER_ALREADY_TAKEN: Final = "Essa passagem já foi assumida por outra pessoa."
+MEMBER_HELP: Final = (
+    "Comandos por aqui: 1 assume a passagem que avisamos; OK confirma as datas das casas; "
+    "CASA12 28/12-02/01 bloqueia a casa (a noite da saída fica livre)."
+)
+REMINDER_CONFIRMED: Final = (
+    "Obrigado! Datas confirmadas: o assistente volta a informar disponibilidade pelas "
+    "próximas 24 horas."
+)
+REMINDER_BLOCKED: Final = "Bloqueado: {blocks}. A noite da saída fica livre."
+REMINDER_ASK_OK: Final = " Se o resto está certo, responda OK."
+REMINDER_PROBLEMS: Final = "Não consegui registrar: {problems}. Exemplo: CASA12 28/12-02/01."
+
+
+def blocks_text(blocks: list[tuple[str, date, date]]) -> str:
+    return "; ".join(f"{code} de {br_date(start)} a {br_date(end)}" for code, start, end in blocks)
+
+
+def reminder_count_text(count: int) -> str:
+    if count == 0:
+        return "nenhum bloqueio a partir de hoje"
+    return "1 bloqueio a partir de hoje" if count == 1 else f"{count} bloqueios a partir de hoje"
 
 
 def reason_label(reason: str) -> str:
