@@ -8,7 +8,7 @@ instalado).
 from __future__ import annotations
 
 import zipfile
-from datetime import date
+from datetime import date, timedelta
 from io import BytesIO
 from typing import Any, Final
 
@@ -152,6 +152,11 @@ def _reais(cents: int | None) -> float | None:
 CellValue = str | int | float | date | None
 
 
+def _last_night(end_exclusive: date) -> date:
+    """Fim interno (exclusivo) → `ultima_noite` da planilha (incluída), D016."""
+    return end_exclusive - timedelta(days=1)
+
+
 def _write_rows(ws: Worksheet, rows: list[list[CellValue]]) -> None:
     """Grava a partir da linha 2 (o `append` iria para depois das linhas já formatadas)."""
     for row_index, values in enumerate(rows, start=2):
@@ -177,7 +182,8 @@ def _fill(wb: Workbook, data: WorkbookData | None) -> None:
     ])  # fmt: skip
     _write_rows(tarifas, [
             [
-                r.property_code, r.start_date, r.end_date, _reais(r.daily_cents), r.min_nights,
+                r.property_code, r.start_date, _last_night(r.end_date), _reais(r.daily_cents),
+                r.min_nights,
                 r.package_name, _reais(r.package_cents),
                 _yes_no(r.package_closed) if r.package_name else None,
                 _reais(r.cleaning_fee_cents),

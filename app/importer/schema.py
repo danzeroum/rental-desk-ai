@@ -94,17 +94,18 @@ TARIFAS: Final = Sheet(
     name="Tarifas",
     max_rows=20000,
     help=(
-        "Uma linha por período de preço. Os períodos da mesma casa não podem se sobrepor. "
-        "O 'fim' é o dia da saída: a noite do 'fim' não está incluída, como no check-out."
+        "Uma linha por período de preço, da primeira à última noite (as duas incluídas). "
+        "Os períodos da mesma casa não podem se sobrepor. Ex.: Réveillon com entrada em 28/12 "
+        "e saída em 02/01 = primeira_noite 28/12 e ultima_noite 01/01."
     ),
     columns=(
         Column("codigo", Kind.CODE, True, "Código da casa (aba Imoveis).", max_length=20),
-        Column("inicio", Kind.DATE, True, "Primeira noite do período (dd/mm/aaaa)."),
+        Column("primeira_noite", Kind.DATE, True, "Primeira noite do período (dd/mm/aaaa)."),
         Column(
-            "fim",
+            "ultima_noite",
             Kind.DATE,
             True,
-            "Dia da saída (dd/mm/aaaa). Ex.: 28/12 a 02/01 = noites de 28/12 a 01/01.",
+            "Última noite do período, incluída (dd/mm/aaaa). Ex.: 01/01 para saída em 02/01.",
         ),
         Column("diaria", Kind.MONEY, True, "Valor da diária em reais, ex.: 1500,00."),
         Column("minimo_noites", Kind.INT, False, "Mínimo de noites (vazio = 1).", min_value=1),
@@ -123,11 +124,19 @@ TARIFAS: Final = Sheet(
 BLOQUEIOS: Final = Sheet(
     name="Bloqueios",
     max_rows=20000,
-    help="Uma linha por período ocupado. O 'fim' é o dia da saída, como no check-out.",
+    help=(
+        "Uma linha por ocupação. Use as datas de entrada e saída do hóspede: no dia da saída a "
+        "casa já fica livre para uma nova entrada."
+    ),
     columns=(
         Column("codigo", Kind.CODE, True, "Código da casa (aba Imoveis).", max_length=20),
-        Column("inicio", Kind.DATE, True, "Dia da entrada (dd/mm/aaaa)."),
-        Column("fim", Kind.DATE, True, "Dia da saída (dd/mm/aaaa)."),
+        Column("entrada", Kind.DATE, True, "Dia da entrada do hóspede (dd/mm/aaaa)."),
+        Column(
+            "saida",
+            Kind.DATE,
+            True,
+            "Dia da saída do hóspede (dd/mm/aaaa); nesse dia a casa já fica livre.",
+        ),
     ),
 )
 

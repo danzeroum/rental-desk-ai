@@ -238,8 +238,10 @@ RLS: `SET LOCAL app.current_tenant_id` no início de cada transação; política
 ## 8. Planilha modelo (.xlsx, 4 abas, com validação de células)
 
 1. **Imoveis**: `codigo`, `titulo_curto`, `bairro_ou_modulo`, `link_fotos`, `capacidade_max`, `quartos`, `suites`, `banheiros`, `vagas`, `piscina`, `aceita_pet`, `permite_festa`, `ar_quartos`, `wifi`, `churrasqueira`, `distancia_praia_m`, `observacoes_publicas`. Atributos: Sim / Não / vazio (vazio = desconhecido).
-2. **Tarifas**: `codigo`, `inicio`, `fim`, `diaria`, `minimo_noites`, `pacote_nome`, `pacote_valor`, `pacote_fechado` (Sim/Não), `taxa_limpeza`.
-3. **Bloqueios**: `codigo`, `inicio`, `fim`.
+2. **Tarifas**: `codigo`, `primeira_noite`, `ultima_noite`, `diaria`, `minimo_noites`, `pacote_nome`, `pacote_valor`, `pacote_fechado` (Sim/Não), `taxa_limpeza`. As duas datas são noites **incluídas** (Réveillon com entrada em 28/12 e saída em 02/01: `primeira_noite` 28/12, `ultima_noite` 01/01).
+3. **Bloqueios**: `codigo`, `entrada`, `saida`. São as datas do hóspede; no dia da `saida` a casa já fica livre para nova entrada.
+
+Internamente todo período segue a regra da estadia (noite de entrada incluída, dia de saída excluído); o importador converte `ultima_noite` somando um dia (esclarecimento de 22/11/2026, DECISIONS D016).
 4. **Regras**: chave/valor curto (check-in, check-out, caução, pagamento, cancelamento).
 
 O sistema gera o arquivo modelo (`make template` e botão no painel).

@@ -117,3 +117,16 @@ def test_errors_point_to_sheet_row_and_column() -> None:
     assert [i.describe() for i in report.errors] == [
         "Tarifas, linha 3, coluna diaria: valor inválido: use só números, ex.: 1500,00"
     ]
+
+
+def test_generated_sheet_uses_last_night_and_checkout_columns() -> None:
+    wb = load_workbook(io.BytesIO(build_workbook(build_sample(2026))))
+    header = [c.value for c in wb["Tarifas"][1]]
+    assert header[1:3] == ["primeira_noite", "ultima_noite"]
+    reveillon = next(
+        row for row in wb["Tarifas"].iter_rows(min_row=2, values_only=True) if row[5] == "Réveillon"
+    )
+    assert (reveillon[1].date(), reveillon[2].date()) == (date(2026, 12, 28), date(2027, 1, 1))
+    assert [c.value for c in wb["Bloqueios"][1]] == ["codigo", "entrada", "saida"]
+    block = next(wb["Bloqueios"].iter_rows(min_row=2, values_only=True))
+    assert (block[1].date(), block[2].date()) == (date(2026, 12, 28), date(2027, 1, 2))

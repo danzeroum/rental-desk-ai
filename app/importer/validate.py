@@ -10,7 +10,7 @@ import itertools
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Final
 
 from app.importer.cells import (
@@ -187,35 +187,49 @@ def _warn_capacity(prop: PropertyData, row: int, issues: _Issues) -> None:
 # --- Períodos (Tarifas e Bloqueios) -------------------------------------------------
 
 
-def sheet_end_to_exclusive(end: date) -> date:
-    """Converte o `fim` da planilha para a convenção do banco (fim exclusivo).
-
-    Na planilha, `fim` é o dia da saída, como no check-out: já é exclusivo.
-    Ponto único de conversão (D016).
-    """
-    return end
-
-
-def _period(row: _Row, codes: set[str]) -> tuple[str, date, date] | None:
+def _code(row: _Row, codes: set[str]) -> str | None:
     code = _opt_str(row.get("codigo"))
-    start = row.get("inicio")
-    end = row.get("fim")
     if code is not None and code not in codes:
         row._fail("codigo", f"código {code} não existe na aba Imoveis")
-    if isinstance(start, date) and isinstance(end, date):
-        end = sheet_end_to_exclusive(end)
-        if end <= start:
-            row._fail("fim", "o fim (dia da saída) precisa ser depois do início")
-    if row.failed or code is None or not isinstance(start, date) or not isinstance(end, date):
+    return code
+
+
+def rate_period(first_night: date, last_night: date) -> tuple[date, date]:
+    """Tarifas: primeira e última noite, as duas incluídas → [início, fim) do banco (D016)."""
+    return first_night, last_night + timedelta(days=1)
+
+
+def _rate_period(row: _Row, codes: set[str]) -> tuple[str, date, date] | None:
+    code = _code(row, codes)
+    first, last = row.get("primeira_noite"), row.get("ultima_noite")
+    if isinstance(first, date) and isinstance(last, date) and last < first:
+        row._fail("ultima_noite", "a última noite não pode ser antes da primeira noite")
+    if row.failed or code is None or not isinstance(first, date) or not isinstance(last, date):
         return None
-    return code, start, end
+    return (code, *rate_period(first, last))
+
+
+def _block_period(row: _Row, codes: set[str]) -> tuple[str, date, date] | None:
+    """Bloqueios: entrada e saída do hóspede; no dia da saída a casa já fica livre (D016)."""
+    code = _code(row, codes)
+    check_in, check_out = row.get("entrada"), row.get("saida")
+    if isinstance(check_in, date) and isinstance(check_out, date) and check_out <= check_in:
+        row._fail("saida", "a saída precisa ser depois da entrada")
+    if (
+        row.failed
+        or code is None
+        or not isinstance(check_in, date)
+        or not isinstance(check_out, date)
+    ):
+        return None
+    return code, check_in, check_out
 
 
 def _rates(rows: list[RawRow], codes: set[str], issues: _Issues) -> list[tuple[RateData, int]]:
     found: list[tuple[RateData, int]] = []
     for raw in _data_rows(rows):
         row = _Row(TARIFAS, raw, issues)
-        period = _period(row, codes)
+        period = _rate_period(row, codes)
         daily = row.get("diaria")
         min_nights = row.get("minimo_noites")
         package_name = _opt_str(row.get("pacote_nome"))
@@ -250,6 +264,10 @@ def _rates(rows: list[RawRow], codes: set[str], issues: _Issues) -> list[tuple[R
     return found
 
 
+def _last_night(rate: RateData) -> date:
+    return rate.end_date - timedelta(days=1)
+
+
 def _check_rate_periods(rates: list[tuple[RateData, int]], issues: _Issues) -> None:
     """Sobreposição = erro (qual tarifa vale?); lacuna = aviso (casa não cotável)."""
     by_house: dict[str, list[tuple[RateData, int]]] = defaultdict(list)
@@ -262,25 +280,25 @@ def _check_rate_periods(rates: list[tuple[RateData, int]], issues: _Issues) -> N
                 issues.error(
                     TARIFAS.name,
                     f"{cur.property_code}: período sobrepõe o da linha {prev_row} "
-                    f"({_fmt(prev.start_date)} a {_fmt(prev.end_date)})",
+                    f"(noites de {_fmt(prev.start_date)} a {_fmt(_last_night(prev))})",
                     cur_row,
-                    "inicio",
+                    "primeira_noite",
                 )
             elif cur.start_date > prev.end_date:
                 issues.warning(
                     TARIFAS.name,
                     f"{cur.property_code}: noites de {_fmt(prev.end_date)} a "
-                    f"{_fmt(cur.start_date)} (saída) sem tarifa; a casa não será oferecida "
-                    "nessas datas",
+                    f"{_fmt(cur.start_date - timedelta(days=1))} sem tarifa; a casa não será "
+                    "oferecida nessas datas",
                     cur_row,
-                    "inicio",
+                    "primeira_noite",
                 )
 
 
 def _blocks(rows: list[RawRow], codes: set[str], issues: _Issues) -> list[BlockData]:
     found: list[BlockData] = []
     for raw in _data_rows(rows):
-        period = _period(_Row(BLOQUEIOS, raw, issues), codes)
+        period = _block_period(_Row(BLOQUEIOS, raw, issues), codes)
         if period is not None:
             found.append(BlockData(*period))
     return found

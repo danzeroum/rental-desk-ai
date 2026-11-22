@@ -1,8 +1,6 @@
 from datetime import date
 from typing import Any
 
-import pytest
-
 from app.importer.model import ImportReport, Issue, RawRow, Severity
 from app.importer.validate import validate_workbook
 
@@ -27,8 +25,8 @@ def house(**overrides: Any) -> dict[str, object]:
 def rate(**overrides: Any) -> dict[str, object]:
     row: dict[str, object] = {
         "codigo": "CASA01",
-        "inicio": date(2026, 12, 1),
-        "fim": date(2026, 12, 28),
+        "primeira_noite": date(2026, 12, 1),
+        "ultima_noite": date(2026, 12, 27),
         "diaria": 1500,
     }
     row.update(overrides)
@@ -65,8 +63,8 @@ class TestValidWorkbook:
             tarifas=[
                 rate(),
                 rate(
-                    inicio=date(2026, 12, 28),
-                    fim=date(2027, 1, 2),
+                    primeira_noite=date(2026, 12, 28),
+                    ultima_noite=date(2027, 1, 1),
                     diaria="2.000,00",
                     minimo_noites=5,
                     pacote_nome="Réveillon",
@@ -75,7 +73,7 @@ class TestValidWorkbook:
                     taxa_limpeza=350,
                 ),
             ],
-            bloqueios=[{"codigo": "casa01", "inicio": "10/12/2026", "fim": "15/12/2026"}],
+            bloqueios=[{"codigo": "casa01", "entrada": "10/12/2026", "saida": "15/12/2026"}],
             regras=[{"chave": "check-in", "valor": "a partir das 14h"}],
         )
         assert report.ok, [i.describe() for i in report.errors]
@@ -95,7 +93,9 @@ class TestValidWorkbook:
             0,
             False,
         )
-        assert reveillon.end_date == date(2027, 1, 2)  # fim = dia da saída (exclusivo)
+        # última noite 01/01 (incluída) → fim interno 02/01 (exclusivo)
+        assert (reveillon.start_date, reveillon.end_date) == (date(2026, 12, 28), date(2027, 1, 2))
+        assert report.data.blocks[0].end_date == date(2026, 12, 15)  # saída já é exclusiva
         assert (reveillon.package_cents, reveillon.package_closed) == (1_500_000, True)
         assert report.data.blocks[0].property_code == "CASA01"
         assert report.data.rules == {"check-in": "a partir das 14h"}
@@ -144,16 +144,26 @@ class TestImoveisErrors:
 
 class TestTarifasErrors:
     def test_unknown_code(self) -> None:
-        other = rate(codigo="CASA99", inicio=date(2027, 1, 5), fim=date(2027, 1, 9))
+        other = rate(
+            codigo="CASA99", primeira_noite=date(2027, 1, 5), ultima_noite=date(2027, 1, 8)
+        )
         issue = only(run(tarifas=[rate(), other]).errors)
         assert (issue.sheet, issue.row, issue.column) == ("Tarifas", 3, "codigo")
         assert "não existe na aba Imoveis" in issue.message
 
-    @pytest.mark.parametrize("fim", [date(2026, 12, 1), date(2026, 11, 30)])
-    def test_end_not_after_start(self, fim: date) -> None:
-        issue = only(run(tarifas=[rate(fim=fim)]).errors)
-        assert issue.column == "fim"
-        assert "depois do início" in issue.message
+    def test_last_night_before_first_night(self) -> None:
+        issue = only(run(tarifas=[rate(ultima_noite=date(2026, 11, 30))]).errors)
+        assert issue.column == "ultima_noite"
+        assert "antes da primeira noite" in issue.message
+
+    def test_single_night_period_is_valid(self) -> None:
+        one = rate(primeira_noite=date(2026, 12, 31), ultima_noite=date(2026, 12, 31))
+        report = run(tarifas=[rate(), one])
+        assert report.ok
+        assert (report.data.rates[1].start_date, report.data.rates[1].end_date) == (
+            date(2026, 12, 31),
+            date(2027, 1, 1),
+        )
 
     def test_non_numeric_rate(self) -> None:
         issue = only(run(tarifas=[rate(diaria="a combinar")]).errors)
@@ -161,14 +171,18 @@ class TestTarifasErrors:
         assert "valor" in issue.message
 
     def test_overlapping_periods(self) -> None:
-        report = run(tarifas=[rate(), rate(inicio=date(2026, 12, 27), fim=date(2027, 1, 2))])
+        report = run(
+            tarifas=[rate(), rate(primeira_noite=date(2026, 12, 27), ultima_noite=date(2027, 1, 1))]
+        )
         issue = only(report.errors)
-        assert (issue.row, issue.column) == (3, "inicio")
+        assert (issue.row, issue.column) == (3, "primeira_noite")
         assert "sobrepõe" in issue.message
         assert "linha 2" in issue.message
 
     def test_adjacent_periods_are_fine(self) -> None:
-        report = run(tarifas=[rate(), rate(inicio=date(2026, 12, 28), fim=date(2027, 1, 2))])
+        report = run(
+            tarifas=[rate(), rate(primeira_noite=date(2026, 12, 28), ultima_noite=date(2027, 1, 1))]
+        )
         assert report.ok
 
     def test_package_value_without_name(self) -> None:
@@ -190,14 +204,14 @@ class TestTarifasErrors:
 
 class TestBloqueiosErrors:
     def test_unknown_code(self) -> None:
-        bloq = {"codigo": "CASA99", "inicio": date(2026, 12, 1), "fim": date(2026, 12, 3)}
+        bloq = {"codigo": "CASA99", "entrada": date(2026, 12, 1), "saida": date(2026, 12, 3)}
         issue = only(run(bloqueios=[bloq]).errors)
         assert (issue.sheet, issue.column) == ("Bloqueios", "codigo")
 
     def test_same_day_in_and_out(self) -> None:
-        bloq = {"codigo": "CASA01", "inicio": date(2026, 12, 1), "fim": date(2026, 12, 1)}
+        bloq = {"codigo": "CASA01", "entrada": date(2026, 12, 1), "saida": date(2026, 12, 1)}
         issue = only(run(bloqueios=[bloq]).errors)
-        assert issue.column == "fim"
+        assert issue.column == "saida"
 
 
 class TestRegras:
@@ -221,13 +235,13 @@ class TestRegras:
 
 class TestWarnings:
     def test_house_without_future_rate(self) -> None:
-        past = rate(inicio=date(2026, 1, 1), fim=date(2026, 2, 1))
+        past = rate(primeira_noite=date(2026, 1, 1), ultima_noite=date(2026, 1, 31))
         warning = only(run(tarifas=[past]).warnings)
         assert warning.severity is Severity.WARNING
         assert "sem tarifa a partir de hoje" in warning.message
 
     def test_rate_gap(self) -> None:
-        tarifas = [rate(), rate(inicio=date(2026, 12, 29), fim=date(2027, 1, 2))]
+        tarifas = [rate(), rate(primeira_noite=date(2026, 12, 29), ultima_noite=date(2027, 1, 1))]
         warning = only(run(tarifas=tarifas).warnings)
         assert (warning.sheet, warning.row) == ("Tarifas", 3)
         assert "28/12/2026" in warning.message

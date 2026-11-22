@@ -95,8 +95,8 @@ async def save_draft(
         blocks=[
             {
                 "codigo": b.property_code,
-                "inicio": b.start_date.isoformat(),
-                "fim": b.end_date.isoformat(),
+                "start_date": b.start_date.isoformat(),
+                "end_date": b.end_date.isoformat(),
             }
             for b in data.blocks
         ],
@@ -189,8 +189,8 @@ async def _replace_spreadsheet_blocks(
         Block(
             tenant_id=tenant_id,
             property_code=b["codigo"],
-            start_date=date.fromisoformat(b["inicio"]),
-            end_date=date.fromisoformat(b["fim"]),
+            start_date=date.fromisoformat(b["start_date"]),
+            end_date=date.fromisoformat(b["end_date"]),
             source=BlockSource.SPREADSHEET,
             created_by=user_id,
         )

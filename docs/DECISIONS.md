@@ -142,19 +142,20 @@ A mais recente fica embaixo.
   modelos `TenantScoped` (`with_loader_criteria`). Mesmo um `where` explícito para outro tenant volta
   vazio. Sem tenant, a política devolve zero linhas (falha fechada).
 
-## D016 · `fim` de Tarifas e Bloqueios = dia da saída (M2) — **aguardando confirmação**
+## D016 · Períodos na planilha: colunas sem ambiguidade (M2, revisado em 22/11/2026)
 
-- **Contexto:** o SPEC define check-out exclusivo para a estadia, mas não diz como ler o `fim` das
-  abas Tarifas e Bloqueios. Muda o que o hóspede vê (qual tarifa vale na última noite; se a casa está
-  livre no dia da saída do bloqueio). Pergunta feita ao time no fim do M1.
-- **Escolha provisória:** `fim` = dia da saída, exclusivo, igual ao check-out. É a leitura que faz o
-  caso de aceite do prompt de partida dar certo ("pacote fechado 28/12–02/01" + busca 28/12–02/01 →
-  valor do pacote) e permite períodos encostados (01/12–28/12 e 28/12–02/01) sem lacuna.
-- O cabeçalho e o comentário das colunas explicam a regra ("Ex.: 28/12 a 02/01 = noites de 28/12 a
-  01/01"). Se o gestor usar a outra leitura, o importador mostra um aviso de "noites sem tarifa" em
-  cada emenda, o que torna o engano visível.
-- A conversão está num único ponto (`sheet_end_to_exclusive` em `app/importer/validate.py`). Se a
-  resposta for "última noite", a troca é somar um dia ali e ajustar o texto do cabeçalho.
+- **Contexto:** a v1 da planilha usava `inicio`/`fim` em Tarifas e Bloqueios, e não ficava claro se
+  `fim` era a última noite ou o dia da saída; a diferença muda o preço e a disponibilidade.
+- **Decisão do time:** manter a regra interna (noite de entrada incluída, dia de saída excluído) e
+  trocar os nomes das colunas:
+  - Tarifas: `primeira_noite` e `ultima_noite`, as duas **incluídas**. O importador converte para o
+    banco com `fim = ultima_noite + 1 dia` (`rate_period` em `app/importer/validate.py`).
+  - Bloqueios: `entrada` e `saida` do hóspede; `saida` já é o dia em que a casa fica livre, sem
+    conversão.
+- Um período de tarifa de uma noite só é válido (`primeira_noite = ultima_noite`). Bloqueio com
+  `saida` igual ou antes da `entrada` é erro.
+- Mensagens de sobreposição e lacuna falam em noites ("noites de 28/12/2026 a 28/12/2026 sem tarifa").
+- SPEC, seção 8, e a central de ajuda (`docs/ajuda/planilha.md`) atualizados.
 
 ## D017 · Avisos não bloqueantes da importação (M2)
 
