@@ -5,7 +5,13 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-from app.adapters.factory import build_gateway, build_keyring, build_llm, build_transcriber
+from app.adapters.factory import (
+    build_gateway,
+    build_keyring,
+    build_llm,
+    build_mailer,
+    build_transcriber,
+)
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine
 from app.core.redis import create_redis
@@ -13,6 +19,7 @@ from app.core.rls import scoped_session_factory
 from app.domain.messages import RATE_LIMIT_NOTICE
 from app.main import build_queue
 from app.workers.engine import ConversationEngine
+from app.workers.handoffs import HandoffService
 from app.workers.pipeline import ResponsePipeline
 from app.workers.processor import BatchHandler, ConversationProcessor
 from app.workers.queue import Job
@@ -29,6 +36,9 @@ async def run_worker(
     sessions = scoped_session_factory(engine)
     queue = build_queue(redis, settings)
     gateway, keyring = build_gateway(settings), build_keyring(settings)
+    handoffs = HandoffService(
+        sessions=sessions, gateway=gateway, keyring=keyring, mailer=build_mailer(settings)
+    )
     processor = ConversationProcessor(
         sessions=sessions,
         queue=queue,
@@ -42,7 +52,9 @@ async def run_worker(
             gateway=gateway,
             keyring=keyring,
             public_base_url=settings.public_base_url,
+            handoffs=handoffs,
         ),
+        members=handoffs,
     )
 
     async def send_notice(job: Job) -> None:

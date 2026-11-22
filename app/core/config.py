@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     database_url: PostgresDsn
     """Papel da aplicação: sem BYPASSRLS. Usado no caminho de requisição."""
     redis_url: RedisDsn
+    database_ops_url: PostgresDsn | None = None
+    """Papel `rentaldesk_ops` (BYPASSRLS): só no scheduler, para listar trabalho global."""
 
     db_pool_size: int = Field(default=10, ge=1, le=100)
     health_timeout_seconds: float = Field(default=2.0, gt=0, le=30)

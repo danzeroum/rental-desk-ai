@@ -86,6 +86,9 @@ services:
   scheduler:
     <<: *app-common
     command: ["python", "-m", "app.scheduler"]
+    environment:
+      <<: *app-env
+      DATABASE_OPS_URL: postgresql://rentaldesk_ops:${DB_OPS_PASSWORD:?}@postgres:5432/rentaldesk
     healthcheck:
       test: ["CMD", "python", "-m", "app.scheduler", "healthcheck"]
       interval: 30s
