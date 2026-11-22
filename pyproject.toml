@@ -48,7 +48,8 @@ ignore = ["PLR0913"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "PLR2004", "S105", "S106", "PLR0917"]  # fixtures do pytest
 "scripts/**" = ["T201"]
-"app/**/__main__.py" = ["T201"]  # comandos de terminal  # ferramentas de linha de comando escrevem no terminal
+"app/**/__main__.py" = ["T201"]  # comandos de terminal
+"app/domain/render.py" = ["E501"]  # linhas de template Jinja  # ferramentas de linha de comando escrevem no terminal
 
 [tool.mypy]
 python_version = "3.12"
