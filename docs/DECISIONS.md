@@ -259,3 +259,56 @@ A mais recente fica embaixo.
 - Encontrado no teste da stack: o padrão de chave Pix aleatória (UUID) mascarava `tenant_id` e
   `conversation_id`. Chaves de contexto e chaves terminadas em `_id` (geradas pelo sistema) não passam
   pelo mascaramento; texto livre continua mascarado, inclusive UUIDs dentro dele.
+
+## D028 · Provedor de LLM: SDK oficial da Anthropic, modelo por ambiente (M5)
+
+- **Escolha:** `LLMClient` com um único método, `complete_json(system, user, schema)`, usado na extração
+  e na redação. Implementação `AnthropicLLMClient` com o SDK oficial `anthropic` (2.12, já sobre
+  `httpx2`), `output_config.format` (JSON com esquema) e `output_config.effort` (padrão `low`, pela meta
+  de p95 ≤ 15 s). `LLM_MODEL` vem do ambiente; o `.env` gerado sugere `claude-opus-5-5`, e a escolha
+  final é feita pelo conjunto de ouro com o LLM real (SPEC, 0b).
+- **Recusa de segurança:** para os modelos que aceitam, o pedido vai com o fallback de recusa no
+  servidor (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`), que repete o pedido em outro
+  modelo se o primeiro recusar. Desligável com `LLM_REFUSAL_FALLBACK=false`. Se ainda assim vier
+  recusa, ou a saída for cortada (`max_tokens`), ou houver erro de rede/API, vale a contingência do SPEC
+  (frase fixa + passagem).
+- `FakeLLM` por regras, determinístico, para `make golden` e desenvolvimento. Outros provedores entram
+  como novas implementações da mesma interface, se o conjunto de ouro indicar.
+- Pendência humana: chave do provedor com contrato sem uso dos dados para treino.
+
+## D029 · Motor de conversa separado do pipeline (M5)
+
+- `app/workers/engine.py` faz uma volta da conversa sem banco (extração → decisão → busca → texto); o
+  conjunto de ouro roda direto nele. `app/workers/pipeline.py` carrega o contexto do banco, chama o
+  motor, envia e grava (estado, `intent`, `search_result`, `handoff`, `audit_log`).
+- O LLM escreve **só** a abertura e o fechamento das respostas com casas (uma chamada, JSON com as duas
+  frases). Perguntas, respostas de atributo, passagem, contingência e avisos são textos fixos do código.
+- O `audit_log` de cada resposta guarda hash do snapshot, JSON da extração, decisão, consulta e
+  resultado da busca, resultado do validador e texto final (SPEC, seção 7, item 9).
+- Modo sombra: imobiliária com status `shadow` tem a resposta registrada (`shadow_response`) e não
+  enviada. Imobiliária em implantação ou suspensa não é atendida.
+- As mensagens do lote só são marcadas como tratadas depois do envio; falha no envio deixa o lote para
+  nova tentativa (e, depois de 3, para a fila morta).
+
+## D030 · Regras do validador e da decisão não fixadas no SPEC (M5)
+
+- Validador: além do SPEC (dígitos, números por extenso, mês com dia, códigos, palavras proibidas), recusa
+  "R$"/"reais", links e frases com mais de 220 caracteres; "um"/"uma" são permitidos (artigos); palavras
+  proibidas incluem flexões (confirmo, garanto, descontos).
+- Decisão: cumprimento no começo pergunta o que falta sem contar como tentativa; agradecimento depois das
+  opções responde "fico à disposição" em vez de repetir a busca; pergunta sobre casa não identificada
+  pede a referência e conta como tentativa; datas passadas são perguntadas de novo; JSON fora do esquema
+  conta como tentativa (RF03). Duas tentativas → passagem (SPEC, seção 7, item 6).
+- Sem resultado: texto fixo sugerindo mudar datas, pessoas ou itens, ou falar com um corretor (sem
+  passagem automática).
+- O aviso de dados vencidos foi escrito sem a palavra "confirmadas" (o detector de afirmação de reserva
+  do conjunto de ouro acusou o texto antigo).
+
+## D031 · Conjunto de ouro (M5)
+
+- `tests/golden/cases/*.yaml`: cada caso é uma conversa contra a imobiliária de exemplo; expectativas por
+  volta (ação, passagem, casas, trechos) e critérios automáticos em toda resposta: nenhum valor, data,
+  código ou mínimo de noites fora do resultado da busca; aviso em todos os cards; nenhuma afirmação de
+  reserva; dado pessoal da mensagem nunca vai sem máscara ao LLM.
+- `make golden` (FakeLLM, na CI) exige todos os casos; `make golden-live` (LLM real) exige os critérios
+  de produção do SPEC (seção 11). 41 casos no M5 (21 fluxos, 20 adversários); 100 até o M11.

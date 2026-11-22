@@ -67,7 +67,7 @@ test: ## Testes de unidade e integração, com cobertura (precisa de make test-d
 	@$(MAKE) --no-print-directory coverage-core
 
 # SPEC, seção 5: cobertura ≥ 80% nos módulos centrais (aqui exigimos 90%).
-CORE_MODULES := app/domain/*,app/importer/*
+CORE_MODULES := app/domain/*,app/importer/*,app/workers/engine.py
 coverage-core:
 	$(UV) coverage report --include='$(CORE_MODULES)' --fail-under=90 --skip-covered
 
@@ -80,11 +80,11 @@ test-deps-up: ## Postgres e Redis de teste (portas 55432 e 56379)
 test-deps-down:
 	$(TEST_COMPOSE) down -v
 
-golden: ## Conjunto de ouro com FakeLLM (M5)
-	@echo "make golden: disponível a partir do M5" >&2; exit 2
+golden: ## Conjunto de ouro com o FakeLLM determinístico
+	$(UV) pytest tests/golden -q -s
 
-golden-live: ## Conjunto de ouro com o LLM real (M5)
-	@echo "make golden-live: disponível a partir do M5" >&2; exit 2
+golden-live: ## Conjunto de ouro com o LLM real (precisa de LLM_MODEL e LLM_API_KEY no ambiente)
+	GOLDEN_LIVE=1 $(UV) pytest tests/golden -q -s
 
 security: ## Auditoria de dependências e SAST local
 	uv export --frozen --no-dev --no-hashes --format requirements-txt -o /tmp/rental-desk-requirements.txt

@@ -39,6 +39,7 @@ from app.models.enums import (
     MessageKind,
     SnapshotSource,
     SnapshotStatus,
+    TenantStatus,
 )
 
 
@@ -47,12 +48,14 @@ def _sha(text: str) -> str:
 
 
 async def create_tenant(
-    ops: async_sessionmaker[AsyncSession], name: str = "Imobiliária"
+    ops: async_sessionmaker[AsyncSession],
+    name: str = "Imobiliária",
+    status: TenantStatus = TenantStatus.ACTIVE,
 ) -> uuid.UUID:
     """Cria a imobiliária com o papel do operador (o app não insere tenants)."""
     tenant_id = uuid.uuid4()
     async with ops() as session, session.begin():
-        session.add(Tenant(id=tenant_id, name=name, slug=f"t-{tenant_id.hex[:12]}"))
+        session.add(Tenant(id=tenant_id, name=name, slug=f"t-{tenant_id.hex[:12]}", status=status))
     return tenant_id
 
 

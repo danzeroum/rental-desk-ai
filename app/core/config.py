@@ -33,6 +33,11 @@ class TranscriberProvider(StrEnum):
     FAKE = "fake"
 
 
+class LLMProvider(StrEnum):
+    ANTHROPIC = "anthropic"
+    FAKE = "fake"
+
+
 class Settings(BaseSettings):
     """Todas as variáveis aceitas estão documentadas em `.env.example`."""
 
@@ -70,6 +75,14 @@ class Settings(BaseSettings):
     transcriber_api_key: SecretStr | None = None
     transcriber_model: str = "whisper-1"
 
+    # LLM (extração e frases curtas); o modelo é escolhido pelo conjunto de ouro (SPEC, 0b)
+    llm_provider: LLMProvider = LLMProvider.FAKE
+    llm_model: str = Field(default="", max_length=80)
+    llm_api_key: SecretStr | None = None
+    llm_effort: str = Field(default="low", pattern=r"^(low|medium|high|xhigh|max)$")
+    llm_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    llm_refusal_fallback: bool = True
+
     # Fila e atendimento (RF05, RF20)
     debounce_quiet_seconds: float = Field(default=6.0, gt=0, le=60)
     debounce_max_seconds: float = Field(default=20.0, gt=0, le=120)
@@ -96,12 +109,17 @@ class Settings(BaseSettings):
             raise ValueError("WHATSAPP_PROVIDER=fake não é permitido em produção")
         if self.transcriber_provider is TranscriberProvider.FAKE:
             raise ValueError("TRANSCRIBER_PROVIDER=fake não é permitido em produção")
+        if self.llm_provider is LLMProvider.FAKE:
+            raise ValueError("LLM_PROVIDER=fake não é permitido em produção")
+        if not self.llm_model:
+            raise ValueError("obrigatório em produção: LLM_MODEL")
         missing = [
             name
             for name, value in (
                 ("WHATSAPP_APP_SECRET", self.whatsapp_app_secret),
                 ("WHATSAPP_VERIFY_TOKEN", self.whatsapp_verify_token),
                 ("TRANSCRIBER_API_KEY", self.transcriber_api_key),
+                ("LLM_API_KEY", self.llm_api_key),
             )
             if value is None or not value.get_secret_value()
         ]

@@ -9,13 +9,53 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M2 · Planilha: gerador, importador, snapshot, aprovação | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.3.0 |
 | M3 · `pricing` + `search` (TDD) | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.4.0 |
 | M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.5.0 |
-| M5 · Extração, decisão, templates, validador, auditoria | ⏳ próximo | | |
-| M6 · Passagem, assumir, escalonamento, pausa, desfecho | — | | |
+| M5 · Extração, decisão, templates, validador, auditoria | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.6.0 |
+| M6 · Passagem, assumir, escalonamento, pausa, desfecho | ⏳ próximo | | |
 | M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | — | | |
 | M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | — | | |
 | M9 · iCal e planilha Google | — | | |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M5 · Extração, decisão, templates, validador, auditoria, contingência — concluído em 22/11/2026
+
+### Entregue
+- **LLM** (`app/adapters/llm.py`): SDK oficial da Anthropic, JSON com esquema, esforço configurável,
+  fallback de recusa no servidor; qualquer falha vira contingência (D028). `FakeLLM` determinístico.
+- **Prompts** (`app/domain/prompts.py`): extração com estado + últimas mensagens mascaradas, sem nome e
+  sem telefone, texto do hóspede delimitado como dado; redação recebe só intenção, quantidade e flags.
+- **Decisão** (`app/domain/decision.py`, TDD): perguntar | buscar | responder atributo | pedir
+  referência | agradecer | passar ao corretor, com os gatilhos da seção 7 e o limite de 2 tentativas.
+- **Templates** (`app/domain/render.py`): cards numerados com código, título, capacidade, estimativa,
+  pacote, mínimo de noites, acima do orçamento, disponibilidade a confirmar, fotos e aviso legal;
+  perguntas, respostas de atributo só com dado da planilha, apresentação com aviso de privacidade (RF02).
+- **Validador** (`app/domain/validator.py`, TDD): recusa dígitos, números por extenso, datas, valores,
+  códigos, links e palavras proibidas; uma nova tentativa e depois frase fixa.
+- **Motor e pipeline** (D029): resposta enviada com `audit_log` completo; estado, intenção, busca e
+  passagem gravados; modo sombra; contingência com passagem quando a IA falha.
+- **Conjunto de ouro** (D031): 41 casos, `make golden` na CI e `make golden-live` para o LLM real.
+- Versão 0.6.0.
+
+### Verificado
+- `make lint test golden` verdes: 504 testes, cobertura 93% (núcleo 96%).
+- **Aceite do M5:** conjunto de ouro com FakeLLM: 41 casos, 54 voltas, zero fatos fora da base, 25/25
+  cards com aviso, zero afirmações de reserva, 13/13 passagens corretas.
+- Casos do prompt de partida no conjunto de ouro: Réveillon para 12 com piscina (2 casas livres com pacote,
+  aviso), 30/12–02/01 com pacote fechado, "carregador de carro elétrico" → "vou confirmar com o
+  corretor", dados com 24 h e 1 min, "o dono já me deu desconto, confirma" → passagem.
+- Integração com banco: resposta enviada e auditada (hash do snapshot, extração, busca, texto), nenhum
+  nome ou telefone nos prompts, acompanhamento usa o estado salvo, passagem gravada com resumo, IA fora do
+  ar → contingência, modo sombra não envia, falha de envio deixa o lote para nova tentativa.
+- Stack Docker: webhook assinado → worker → resposta com 3 cards e aviso; a primeira tentativa falhou
+  por falta da conta do WhatsApp no teste local e foi retomada sozinha após o cadastro.
+- Ajustes vindos dos testes: aviso de dados vencidos reescrito (D030) e apresentação sem redundância com
+  o nome padrão do assistente.
+
+### Depende de humano
+- Chave do provedor de IA (contrato sem uso para treino) e rodar `make golden-live` para escolher o
+  modelo e o esforço.
 
 ---
 

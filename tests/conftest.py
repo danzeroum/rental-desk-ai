@@ -50,6 +50,9 @@ def production_settings(**overrides: object) -> Settings:
         "whatsapp_provider": "cloud_api",
         "transcriber_provider": "openai_compatible",
         "transcriber_api_key": "chave-de-teste",
+        "llm_provider": "anthropic",
+        "llm_model": "claude-opus-5-5",
+        "llm_api_key": "chave-de-teste",
     }
     values.update(overrides)
     return make_settings(**values)

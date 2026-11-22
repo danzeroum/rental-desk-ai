@@ -97,7 +97,7 @@ def render_offers(outcome: SearchOutcome, check_in: date, check_out: date) -> st
     if outcome.over_budget:
         header.append("Não encontrei casas dentro do orçamento; estas são as mais próximas:")
     if outcome.data_stale:
-        header.append("As datas ainda não foram confirmadas hoje pela imobiliária.")
+        header.append("O calendário das casas ainda não foi atualizado hoje pela imobiliária.")
     return "\n\n".join([*header, *blocks, LEGAL_NOTICE])
 
 
@@ -133,7 +133,10 @@ CONTINGENCY: Final = "Recebemos sua mensagem; um corretor responde em breve."
 AUDIO_NOT_UNDERSTOOD: Final = "Não consegui ouvir o seu áudio. Pode escrever, por favor?"
 FALLBACK_OPENING: Final = "Separei estas opções para você:"
 FALLBACK_CLOSING: Final = "Se alguma interessar, me diga qual que eu chamo um corretor."
-FALLBACK_GREETING: Final = "Posso ajudar a encontrar uma casa para a sua viagem."
+ACKNOWLEDGE: Final = (
+    "Fico à disposição! Se alguma casa interessar, me diga qual. Se quiser outras opções, "
+    "é só mudar as datas, o número de pessoas ou o que precisa."
+)
 
 
 def question_for(missing: Sequence[str]) -> str:
@@ -148,10 +151,13 @@ def question_for(missing: Sequence[str]) -> str:
 
 def intro(assistant_name: str, tenant_name: str, privacy_url: str) -> str:
     """RF02: toda primeira resposta se identifica como assistente virtual e traz o aviso."""
-    return (
-        f"Olá! Sou {assistant_name}, assistente virtual da {tenant_name}. "
-        f"Aviso de privacidade: {privacy_url}"
+    name = assistant_name.strip()
+    who = (
+        f"o assistente virtual da {tenant_name}"
+        if not name or _fold(name).startswith("assistente")
+        else f"{name}, assistente virtual da {tenant_name}"
     )
+    return f"Olá! Sou {who}. Aviso de privacidade: {privacy_url}"
 
 
 # --- Atributos da casa -------------------------------------------------------------

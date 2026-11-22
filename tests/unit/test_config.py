@@ -41,11 +41,13 @@ def test_production_refuses_fake_adapters() -> None:
 
 
 def test_production_requires_secrets() -> None:
-    with pytest.raises(ValidationError, match="TRANSCRIBER_API_KEY"):
+    with pytest.raises(ValidationError, match="TRANSCRIBER_API_KEY, LLM_API_KEY"):
         make_settings(
             env=Environment.PRODUCTION,
             whatsapp_provider="cloud_api",
             transcriber_provider="openai_compatible",
+            llm_provider="anthropic",
+            llm_model="claude-opus-5-5",
         )
 
 
@@ -56,3 +58,8 @@ def test_production_with_everything_configured() -> None:
 def test_debounce_window_must_be_consistent() -> None:
     with pytest.raises(ValidationError, match="DEBOUNCE_MAX_SECONDS"):
         make_settings(debounce_quiet_seconds=10, debounce_max_seconds=5)
+
+
+def test_production_refuses_fake_llm() -> None:
+    with pytest.raises(ValidationError, match="LLM_PROVIDER=fake"):
+        production_settings(llm_provider="fake")

@@ -27,6 +27,7 @@ class Action(StrEnum):
     SEARCH = "search"
     ANSWER_ATTRIBUTE = "answer_attribute"
     ASK_REFERENCE = "ask_reference"
+    ACKNOWLEDGE = "acknowledge"  # cumprimento/agradecimento com o pedido já completo
     HANDOFF = "handoff"
 
 
@@ -108,6 +109,8 @@ def _decide_search(
     extraction: Extraction, merged: ConversationState, previous: ConversationState
 ) -> Decision:
     missing = tuple(missing_for_search(merged))
+    if not missing and extraction.intent is IntentKind.SMALLTALK and merged.last_offered:
+        return Decision(Action.ACKNOWLEDGE, _with_attempts(merged, 0))
     if not missing:
         return Decision(Action.SEARCH, _with_attempts(merged, 0))
     progressed = merged.slots != previous.slots

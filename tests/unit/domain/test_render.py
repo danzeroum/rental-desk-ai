@@ -89,7 +89,7 @@ def test_below_min_nights() -> None:
 def test_stale_data_never_claims_availability() -> None:
     text = render_offers(outcome(offer(confirmed=False), stale=True), IN, OUT)
     assert "Disponibilidade a confirmar com o corretor." in text
-    assert "ainda não foram confirmadas" in text
+    assert "ainda não foi atualizado hoje" in text
     for claim in ("disponível", "livre", "está vaga"):
         assert claim not in text.lower()
 
@@ -149,3 +149,8 @@ def test_intro_identifies_as_virtual_assistant_with_privacy_link() -> None:
     text = intro("Lia", "Imobiliária Riviera", "https://app/privacidade/riviera/v1")
     assert "assistente virtual da Imobiliária Riviera" in text
     assert "https://app/privacidade/riviera/v1" in text
+
+
+def test_intro_with_default_name_is_not_redundant() -> None:
+    text = intro("Assistente virtual", "Imobiliária Riviera", "https://x/p")
+    assert text.startswith("Olá! Sou o assistente virtual da Imobiliária Riviera.")

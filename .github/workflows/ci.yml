@@ -88,6 +88,8 @@ jobs:
       - run: uv run pytest tests/unit tests/integration --cov --cov-report=term-missing --cov-report=xml
       - name: Cobertura dos módulos centrais (SPEC, seção 5)
         run: make coverage-core
+      - name: Conjunto de ouro (FakeLLM)
+        run: make golden
       - uses: actions/upload-artifact@v4
         with:
           name: coverage

@@ -32,6 +32,9 @@ No `.env` (depois `make up`):
 | `WHATSAPP_VERIFY_TOKEN` | gerado pelo `gen-env.sh`; cadastrar o mesmo no parceiro/Meta |
 | `TRANSCRIBER_PROVIDER` / `TRANSCRIBER_API_KEY` | `openai_compatible` + chave (contrato sem uso para treino) |
 
+| `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` | `anthropic` + modelo escolhido pelo `make golden-live` + chave |
+| `LLM_EFFORT` | `low` (padrão); subir só se o conjunto de ouro mostrar ganho |
+
 URL do webhook para cadastrar: `https://<domínio>/webhooks/whatsapp`.
 O token de acesso de cada imobiliária fica cifrado no banco (assistente de implantação, M10).
 

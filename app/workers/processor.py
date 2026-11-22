@@ -27,7 +27,7 @@ from app.core.crypto import Keyring
 from app.core.logging import bind_context, get_logger
 from app.core.rls import tenant_session
 from app.models import Contact, Conversation, Message, Tenant
-from app.models.enums import Direction, MessageKind
+from app.models.enums import Direction, MessageKind, TenantStatus
 from app.workers.channel import ChannelMissingError, channel_for
 from app.workers.queue import WorkQueue
 
@@ -43,6 +43,7 @@ def utcnow() -> datetime:
 class SkipReason(StrEnum):
     NOTHING_PENDING = "nothing_pending"
     TENANT_PAUSED = "tenant_paused"
+    TENANT_INACTIVE = "tenant_inactive"  # em implantação ou suspensa: não atende
     OPTED_OUT = "opted_out"
     MUTED = "muted"
     SILENCED = "silenced"
@@ -123,17 +124,18 @@ class ConversationProcessor:
             return ProcessOutcome(handled=False, skipped=SkipReason.NOTHING_PENDING)
         if pending.skip is None and await self.queue.is_silenced(tenant_id, pending.contact_id):
             pending.skip = SkipReason.SILENCED
-        batch_messages: list[BatchMessage] = []
-        if pending.skip is None:
-            batch_messages = await self._transcribe(tenant_id, pending.messages)
-        await self._mark_processed(tenant_id, pending.messages, batch_messages)
         if pending.skip is not None:
+            await self._save(tenant_id, pending.messages, [], processed=True)
             log.info("lote_sem_resposta", reason=str(pending.skip), messages=len(pending.messages))
             return ProcessOutcome(
                 handled=False, skipped=pending.skip, messages=len(pending.messages)
             )
+        batch_messages = await self._transcribe(tenant_id, pending.messages)
+        await self._save(tenant_id, pending.messages, batch_messages, processed=False)
         batch = InboundBatch(tenant_id, conversation_id, pending.contact_id, tuple(batch_messages))
         await self.handler.handle(batch)
+        # Só depois da resposta: se o handler falhar, o lote é retomado por outro worker.
+        await self._save(tenant_id, pending.messages, [], processed=True)
         log.info("lote_processado", messages=len(batch_messages))
         return ProcessOutcome(handled=True, messages=len(batch_messages))
 
@@ -161,6 +163,8 @@ class ConversationProcessor:
         skip: SkipReason | None = None
         if tenant.paused_at is not None:
             skip = SkipReason.TENANT_PAUSED
+        elif tenant.status not in {TenantStatus.ACTIVE, TenantStatus.SHADOW}:
+            skip = SkipReason.TENANT_INACTIVE
         elif contact is None or contact.opted_out_at is not None:
             skip = SkipReason.OPTED_OUT
         elif conversation.muted_until is not None and conversation.muted_until > now:
@@ -197,16 +201,24 @@ class ConversationProcessor:
             log.warning("transcricao_falhou", error_type=type(exc).__name__)
             return None
 
-    async def _mark_processed(
-        self, tenant_id: uuid.UUID, messages: list[Message], batch: list[BatchMessage]
+    async def _save(
+        self,
+        tenant_id: uuid.UUID,
+        messages: list[Message],
+        batch: list[BatchMessage],
+        *,
+        processed: bool,
     ) -> None:
+        """Grava transcrições (e apaga a referência da mídia) e, se pedido, marca como tratadas."""
         now = self.clock()
         transcripts = {m.id: m.text for m in batch if m.kind == MessageKind.AUDIO and m.text}
         async with tenant_session(self.sessions, tenant_id) as session:
             for message in messages:
-                values: dict[str, object] = {"processed_at": now}
+                values: dict[str, object] = {"processed_at": now} if processed else {}
                 if message.id in transcripts:
                     values.update(transcript=transcripts[message.id], media_ref=None)
+                if not values:
+                    continue
                 await session.execute(
                     update(Message).where(Message.id == message.id).values(**values)
                 )

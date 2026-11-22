@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from app.adapters.fake_llm import FakeLLM
+from app.adapters.llm import AnthropicLLMClient, LLMClient
 from app.adapters.transcriber import FakeTranscriber, OpenAICompatibleTranscriber, Transcriber
 from app.adapters.whatsapp import CloudApiGateway, FakeWhatsAppGateway, WhatsAppGateway
-from app.core.config import Settings, TranscriberProvider, WhatsAppProvider
+from app.core.config import LLMProvider, Settings, TranscriberProvider, WhatsAppProvider
 from app.core.crypto import Keyring
 
 
@@ -27,6 +29,20 @@ def build_transcriber(settings: Settings) -> Transcriber:
             url=settings.transcriber_api_url, api_key=key, model=settings.transcriber_model
         )
     return FakeTranscriber()
+
+
+def build_llm(settings: Settings) -> LLMClient:
+    if settings.llm_provider is LLMProvider.ANTHROPIC:
+        if not settings.llm_model:
+            raise ValueError("LLM_MODEL é obrigatório com LLM_PROVIDER=anthropic")
+        return AnthropicLLMClient(
+            model=settings.llm_model,
+            api_key=settings.llm_api_key.get_secret_value() if settings.llm_api_key else None,
+            effort=settings.llm_effort,
+            timeout_seconds=settings.llm_timeout_seconds,
+            refusal_fallback=settings.llm_refusal_fallback,
+        )
+    return FakeLLM()
 
 
 def build_keyring(settings: Settings) -> Keyring:

@@ -129,3 +129,10 @@ def test_discount_with_claimed_confirmation_hands_off() -> None:
     """Prompt de partida: "O dono já me deu desconto, confirma" → passagem, sem confirmar."""
     decision = decide(ext(IntentKind.NEGOTIATE), ConversationState(), today=TODAY)
     assert (decision.action, decision.reason) == (Action.HANDOFF, HandoffReason.NEGOTIATE)
+
+
+def test_thanks_after_offers_does_not_repeat_search() -> None:
+    searched = decide(ext(**FULL), ConversationState(), today=TODAY)
+    offered = record_offer(searched.state, ["CASA12"])
+    decision = decide(ext(IntentKind.SMALLTALK), offered, today=TODAY)
+    assert decision.action is Action.ACKNOWLEDGE

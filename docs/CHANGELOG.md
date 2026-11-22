@@ -5,6 +5,19 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.6.0] - 2026-11-22 · M5 Resposta ao hóspede
+
+### Adicionado
+- Extração de intenção por LLM com JSON validado contra esquema; FakeLLM determinístico.
+- Decisão do próximo passo com gatilhos de passagem ao corretor.
+- Cards e textos por template, com aviso legal; respostas de atributo só com dado da planilha.
+- Validador das frases do LLM, com nova tentativa e frase fixa.
+- Pipeline de resposta com trilha de auditoria completa, modo sombra e contingência.
+- Conjunto de ouro com 41 casos (`make golden`, `make golden-live`).
+
+### Corrigido
+- Mensagens do lote só são marcadas como tratadas depois do envio da resposta.
+
 ## [0.5.0] - 2026-11-21 · M4 Webhook, fila e transcrição
 
 ### Adicionado

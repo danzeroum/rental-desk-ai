@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-from app.adapters.factory import build_gateway, build_keyring, build_transcriber
+from app.adapters.factory import build_gateway, build_keyring, build_llm, build_transcriber
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine
 from app.core.redis import create_redis
 from app.core.rls import scoped_session_factory
 from app.domain.messages import RATE_LIMIT_NOTICE
 from app.main import build_queue
-from app.workers.processor import BatchHandler, ConversationProcessor, RecordingHandler
+from app.workers.engine import ConversationEngine
+from app.workers.pipeline import ResponsePipeline
+from app.workers.processor import BatchHandler, ConversationProcessor
 from app.workers.queue import Job
 from app.workers.responder import send_reply
 from app.workers.runner import Worker
@@ -33,7 +35,14 @@ async def run_worker(
         gateway=gateway,
         transcriber=build_transcriber(settings),
         keyring=keyring,
-        handler=handler or RecordingHandler(),  # o pipeline de resposta entra no M5
+        handler=handler
+        or ResponsePipeline(
+            sessions=sessions,
+            engine=ConversationEngine(build_llm(settings)),
+            gateway=gateway,
+            keyring=keyring,
+            public_base_url=settings.public_base_url,
+        ),
     )
 
     async def send_notice(job: Job) -> None:
