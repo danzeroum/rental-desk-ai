@@ -71,7 +71,9 @@ Caddy pega um certificado válido sozinho.
 
 ## 3. Primeiro acesso
 
-1. Abra o **convite** que está em `ACESSO-LOCAL.md` (vale 72 h e funciona uma vez só).
+1. Abra o **convite** que está em `ACESSO-LOCAL.md` (vale 72 h e funciona uma vez só). **Não comece
+   pela tela de login:** antes do convite, você ainda não tem senha. O e-mail de login é o do
+   operador (padrão `operador@rentaldesk.local`, também anotado em `ACESSO-LOCAL.md`).
 2. Crie a senha: no mínimo 12 caracteres. Uma frase funciona bem.
 3. **Cadastre o autenticador**: escaneie o QR com o Google Authenticator, o Authy ou o 1Password e
    digite o código de 6 dígitos. O login com senha + código é obrigatório para todos (SPEC, seção 5).

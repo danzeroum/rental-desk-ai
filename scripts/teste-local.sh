@@ -160,6 +160,7 @@ Arquivo só seu (fora do git). Guia completo: docs/teste-local.md.
 | O quê | Endereço |
 |---|---|
 | Painel | ${BASE_URL} |
+| E-mail do operador (login) | ${OPERATOR_EMAIL} |
 | Convite do operador (vale 72 h, uso único) | ${INVITE} |
 | Kit de demonstração (abra no celular ou no navegador) | ${DEMO_LINK} |
 | Saúde do sistema | ${BASE_URL}/status |
@@ -168,7 +169,10 @@ Arquivo só seu (fora do git). Guia completo: docs/teste-local.md.
 O navegador vai avisar que o certificado não é confiável: é o certificado local do Caddy. Aceite
 ("Avançado" → "Continuar"). No celular na mesma rede, troque "localhost" pelo IP do computador.
 
-1. Abra o convite, crie a senha e cadastre o autenticador (Google Authenticator, Authy, 1Password).
+1. **Comece pelo convite, não pela tela de login:** abra o link do convite, crie a senha (12+
+   caracteres) e cadastre o autenticador (Google Authenticator, Authy, 1Password). Nos próximos
+   acessos, entre em ${BASE_URL}/login com ${OPERATOR_EMAIL}, a senha e o código do app.
+   Convite vencido ou já usado: make operator EMAIL=${OPERATOR_EMAIL}
 2. Você cai na área do operador: saúde das imobiliárias e "Demonstração" (links do kit).
 3. "Minhas imobiliárias" → "Entrar como suporte" na Demo Riviera para ver o painel do gestor.
 
@@ -181,6 +185,8 @@ chmod 600 ACESSO-LOCAL.md
 
 printf '\n\033[1;32mPronto!\033[0m\n'
 info "Painel:          ${BASE_URL}"
+info "Primeiro acesso: abra o convite (não a tela de login) e crie a senha:"
 info "Convite:         ${INVITE}"
+info "Login depois:    ${OPERATOR_EMAIL} + a senha criada + código do autenticador"
 info "Demonstração:    ${DEMO_LINK}"
 info "Tudo anotado em ACESSO-LOCAL.md; o roteiro de teste está em docs/teste-local.md."
