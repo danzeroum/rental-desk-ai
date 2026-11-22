@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Final
 
-from jinja2 import Environment, StrictUndefined
+from jinja2 import Environment, StrictUndefined, select_autoescape
 
 from app.domain.catalog import PropertyData
 from app.domain.pricing import Flag
@@ -21,7 +21,8 @@ from app.domain.search import Offer, SearchOutcome
 LEGAL_NOTICE: Final = "Valores estimados e disponibilidade sujeitos à confirmação do corretor."
 
 _env = Environment(
-    autoescape=False,  # noqa: S701 - saída é texto de WhatsApp, não HTML
+    # Templates em texto puro de WhatsApp: escape de HTML só para arquivos .html/.xml.
+    autoescape=select_autoescape(enabled_extensions=("html", "xml"), default_for_string=False),
     undefined=StrictUndefined,
     trim_blocks=True,
     lstrip_blocks=True,
