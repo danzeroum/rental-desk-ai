@@ -16,6 +16,40 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M9 · iCal e planilha Google | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.10.0 |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.11.0 |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | ✅ concluído (tag pendente de itens humanos) | danzeroum/rental-desk-ai#1 | 1.0.0rc1 |
+| Kit de demonstração para vendas (entre a rc e a v1.0.0) | ✅ concluído | PR próprio, após o merge do #1 | entra na próxima versão |
+| M12 · Tenant próprio e demos por segmento | ⏸ só depois da `v1.0.0` | — | — |
+
+---
+
+## Kit de demonstração para vendas — concluído em 22/11/2026
+
+### Entregue
+- **Simulador com aparência de WhatsApp** em `/demo`, usando o pipeline real (webhook interno →
+  debounce → worker → motor → cartões → passagem). Funciona no celular, com as telas empilhadas e
+  sem rolagem lateral. Mostra "digitando…", sugestões de pedido e o botão "Recomeçar".
+- **Celular do corretor** ao lado: aviso de passagem (template preenchido) e botão "Responder 1", que
+  assume a conversa pelo mesmo caminho do WhatsApp.
+- **`DemoGateway` + `RoutingGateway`:** números `demo-` gravam no Redis; os outros números não mudam.
+- **Duas imobiliárias fictícias** em `make seed-demo`: Maré Alta (8 casas) e Pousada Recanto da Enseada
+  (6 quartos). Plantão 24 h, corretor fictício com consentimento.
+- **Links com token** criados e revogados em `/operador/demo` (migração 0009, tabela global
+  `demo_link` com o hash). O token vira um cookie de visita de 4 h e sai do endereço.
+- **Limpeza diária** (job `limpeza_demo`, às 3h de Brasília) das conversas de todas as imobiliárias demo.
+- **Tokens fora dos logs de requisição** (`/convite/`, `/senha/nova/`, `/demo/entrar/`).
+- Decisões D045 e D046; `docs/lancamento.md` com o kit, o roteiro de venda e a ordem das pendências.
+
+### Verificado
+- `tests/integration/test_sales_demo.py` (7 testes): seed idempotente; link → visita → cartões com
+  aviso legal → passagem → "Responder 1" → passagem assumida e `audit_log`; recomeçar; revogação na hora;
+  operador cria e revoga; limpeza 1x por dia; números reais continuam pelo gateway real.
+- Conferência visual no Chromium (iPhone 13 e 1280 px) com app e worker reais: sem erro no console e
+  sem rolagem lateral.
+
+### Depende de humano
+- [ ] Chave da IA para demos livres (com o FakeLLM, só os pedidos das sugestões e parecidos são
+      entendidos).
+- [ ] Homologação no ar para enviar os links (ordem em `docs/lancamento.md`).
+- [ ] Decidir se o texto "casa" nos avisos atrapalha a venda para pousadas antes do M12 (D046).
 
 ---
 

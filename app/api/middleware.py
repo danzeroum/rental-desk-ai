@@ -17,6 +17,13 @@ TRACE_HEADER: Final = "X-Request-ID"
 QUIET_PATHS: Final = frozenset({"/health", "/health/live"})
 """Chamados a cada poucos segundos por Docker, Caddy e monitor: registrados em DEBUG."""
 _VALID_TRACE = re.compile(r"^[A-Za-z0-9\-_.]{8,64}$")
+_TOKEN_PATH = re.compile(r"^(/(?:convite|senha/nova|demo/entrar)/)[^/]+")
+"""Rotas com token no endereço: o token não vai para o log."""
+
+
+def loggable_path(path: str) -> str:
+    return _TOKEN_PATH.sub(r"\1[TOKEN]", path)
+
 
 log = get_logger(__name__)
 
@@ -35,7 +42,9 @@ class TraceMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:
-            log.exception("requisicao_falhou", method=request.method, path=request.url.path)
+            log.exception(
+                "requisicao_falhou", method=request.method, path=loggable_path(request.url.path)
+            )
             raise
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 1)
@@ -44,7 +53,7 @@ class TraceMiddleware(BaseHTTPMiddleware):
         emit(
             "requisicao",
             method=request.method,
-            path=request.url.path,
+            path=loggable_path(request.url.path),
             status=response.status_code,
             duration_ms=elapsed_ms,
         )

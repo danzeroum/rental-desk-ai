@@ -491,6 +491,50 @@ no caminho de requisição.
   `audit_log` quem (`user_id`), por onde (`via`: `panel` ou `reminder`) e quando (`at`). O lembrete das
   9h continua só para o gestor.
 
+## D045 · Kit de demonstração para vendas, sem o WhatsApp oficial
+
+Contexto: o parceiro (BSP) ainda não foi aprovado, e as vendas precisam mostrar o produto funcionando,
+inclusive no celular do cliente, sem dados reais.
+
+- **Mesmo pipeline do produto.** A mensagem do visitante entra por `ingest_batch`, como as do webhook
+  (debounce, limite anti-abuso, worker, extração, motor, cartões Jinja, validador, passagem,
+  escalonamento, `audit_log`). Nada é simulado fora do envio.
+- **Envio:** números com `phone_number_id` começando por `demo-` (só existem nas imobiliárias
+  `is_demo` do kit) passam pelo `DemoGateway`, que grava as mensagens no Redis por telefone de destino
+  (26 h no máximo). Os templates aparecem com o texto aprovado já preenchido. `RoutingGateway` envia os
+  demais números pelo gateway real; o comportamento de produção não muda. Alternativa descartada:
+  simulador próprio fora do pipeline (como o do painel), que não mostraria debounce, passagem nem
+  "responda 1".
+- **Acesso:** link `/demo/entrar/<token>` criado pelo operador em `/operador/demo`. No banco fica só o
+  SHA-256 do token (tabela global `demo_link`, como `app_user`: dá acesso apenas às imobiliárias demo).
+  O token vira um cookie de visita (`rd_demo`, 4 h, `path=/demo`) e sai do endereço. Toda requisição
+  confere o link, então revogar encerra as visitas abertas na hora. O caminho com token não vai para o
+  log (vale também para `/convite/` e `/senha/nova/`, que antes iam). Páginas com `noindex`.
+- **Visitante:** telefone fictício `+55 009…` (DDD 00 não existe) gerado por visita; "Recomeçar"
+  gera outro. Limite de 80 mensagens e 500 caracteres por mensagem, além do limite por minuto do
+  produto.
+- **Corretor fictício:** um por imobiliária, telefone `+55 0011…`, com consentimento registrado e
+  plantão 24 h. A tela do corretor mostra só os avisos que citam o telefone do visitante. O botão
+  "Responder 1" entra como mensagem do corretor (mesmo caminho do WhatsApp). **Limitação:** com dois
+  visitantes ao mesmo tempo na mesma imobiliária, o "1" assume a passagem mais recente do corretor,
+  que pode ser a do outro. Aceito para demonstração. Se incomodar, a correção é um corretor fictício
+  por visita.
+- **Limpeza diária:** às 3h de Brasília o scheduler apaga contatos, conversas, mensagens e passagens
+  de todas as imobiliárias `is_demo` (inclusive a Demo Riviera), além das telas no Redis. O
+  `audit_log` é imutável e fica, mas guarda só o telefone fictício mascarado.
+- **IA:** a demo usa o cliente do worker, ou seja, o FakeLLM sem chave e a IA real com
+  `LLM_PROVIDER=anthropic`. Com o FakeLLM, as frases de abertura e fechamento são fixas e só os pedidos
+  das sugestões e parecidos são entendidos. **Depende de você:** configurar a chave antes de demos
+  livres.
+
+## D046 · Pousada no kit de vendas usa o domínio de casas
+
+"Pousada Recanto da Enseada" tem 6 quartos cadastrados como unidades (mesma planilha e mesmo motor),
+como pedido. Os textos fixos do produto ainda dizem "casa" em alguns pontos (ex.: "escolheu uma casa"
+no aviso ao corretor, "Não encontrei casas"). Só a tela da demo diz "quartos". O rótulo configurável por
+imobiliária segue anotado em "Pontos de extensão" e fica para o M12. **Depende de você:** decidir se
+isso atrapalha a venda para pousadas antes do M12.
+
 ## Pontos de extensão para outros segmentos
 
 Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nada disto foi refatorado).

@@ -66,14 +66,18 @@ _RULES = {
 }
 
 
-def _property(row: tuple[object, ...]) -> PropertyData:
+def _property(
+    row: tuple[object, ...],
+    photos_base: str = PHOTOS_BASE,
+    notes: str = "Roupa de cama e banho não incluídas.",
+) -> PropertyData:
     (code, title, module, guests, bedrooms, suites, baths, parking,
      pool, pets, parties, ac, wifi, bbq, distance, _) = row  # fmt: skip
     return PropertyData(
         code=str(code),
         title=str(title),
         neighborhood=str(module),
-        photos_url=f"{PHOTOS_BASE}/{str(code).lower()}",
+        photos_url=f"{photos_base}/{str(code).lower()}",
         max_guests=int(str(guests)),
         bedrooms=int(str(bedrooms)),
         suites=int(str(suites)),
@@ -86,7 +90,7 @@ def _property(row: tuple[object, ...]) -> PropertyData:
         has_wifi=wifi if isinstance(wifi, bool) else None,
         has_barbecue=bbq if isinstance(bbq, bool) else None,
         beach_distance_m=int(str(distance)),
-        public_notes="Roupa de cama e banho não incluídas.",
+        public_notes=notes,
     )
 
 
@@ -118,17 +122,36 @@ def _rates(code: str, base_reais: int, index: int, season_year: int) -> list[Rat
     ]
 
 
+def build_catalog(
+    rows: tuple[tuple[object, ...], ...],
+    season_year: int,
+    *,
+    photos_base: str,
+    rules: dict[str, str],
+    notes: str,
+    blocks: list[BlockData],
+) -> WorkbookData:
+    """Catálogo fictício completo (planilha aprovável) a partir das linhas de unidades."""
+    return WorkbookData(
+        properties=[_property(row, photos_base, notes) for row in rows],
+        rates=[
+            rate
+            for index, row in enumerate(rows)
+            for rate in _rates(str(row[0]), int(str(row[-1])), index, season_year)
+        ],
+        blocks=blocks,
+        rules=dict(rules),
+    )
+
+
 def build_sample(season_year: int) -> WorkbookData:
-    properties = [_property(row) for row in _HOUSES]
-    rates = [
-        rate
-        for index, row in enumerate(_HOUSES)
-        for rate in _rates(str(row[0]), int(str(row[-1])), index, season_year)
-    ]
     n = season_year + 1
     blocks = [
         BlockData("CASA03", date(season_year, 12, 28), date(n, 1, 2)),
         BlockData("CASA05", date(n, 1, 10), date(n, 1, 17)),
         BlockData("CASA09", date(season_year, 12, 20), date(season_year, 12, 27)),
     ]
-    return WorkbookData(properties=properties, rates=rates, blocks=blocks, rules=dict(_RULES))
+    return build_catalog(
+        _HOUSES, season_year, photos_base=PHOTOS_BASE, rules=_RULES,
+        notes="Roupa de cama e banho não incluídas.", blocks=blocks,
+    )  # fmt: skip

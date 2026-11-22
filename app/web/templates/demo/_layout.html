@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Demonstração{% endblock %} · Rental Desk</title>
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+  <link rel="stylesheet" href="/static/demo.css">
+  <script src="/static/htmx-2.0.4.min.js" defer></script>
+  <script src="/static/demo.js" defer></script>
+</head>
+<body class="demo" hx-headers='{"x-csrf-token": "{{ csrf }}"}'>
+  <header class="demo-topo">
+    <strong>Rental Desk</strong>
+    <span class="selo-demo">Demonstração · dados fictícios · nada vai para o WhatsApp</span>
+  </header>
+  {% block content %}{% endblock %}
+</body>
+</html>

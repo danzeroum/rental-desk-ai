@@ -1,0 +1,50 @@
+{% extends "demo/_layout.html" %}
+{% block title %}{{ agency.name }}{% endblock %}
+{% block content %}
+{% import "demo/_parts.html" as parts with context %}
+<div hx-get="/demo/{{ agency.pnid }}/telas" hx-trigger="every 1500ms" hx-swap="none" class="oculto"></div>
+<nav class="demo-nav"><a href="/demo">← Outras demonstrações</a>
+  <a href="#celular-corretor" class="so-celular">Ver o celular do corretor ↓</a></nav>
+{{ parts.error_box(error, false) }}
+<div class="telas">
+  <section class="celular" aria-label="Conversa do hóspede">
+    <header class="celular-topo">
+      <span class="avatar" aria-hidden="true">{{ agency.name[0] }}</span>
+      <span><strong>{{ agency.name }}</strong><small>conta comercial · assistente virtual</small></span>
+    </header>
+    <div class="fundo-conversa">
+      {{ parts.guest(view, false) }}
+    </div>
+    <div class="sugestoes">
+      {% for s in agency.suggestions %}
+      <form method="post" action="/demo/{{ agency.pnid }}/enviar" hx-post="/demo/{{ agency.pnid }}/enviar" hx-swap="none">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button name="text" value="{{ s }}" class="chip">{{ s }}</button>
+      </form>
+      {% endfor %}
+    </div>
+    <form method="post" action="/demo/{{ agency.pnid }}/enviar" hx-post="/demo/{{ agency.pnid }}/enviar" hx-swap="none" class="escrever" data-limpar>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label class="oculto" for="texto">Mensagem</label>
+      <input id="texto" name="text" maxlength="500" placeholder="Mensagem" autocomplete="off" required>
+      <button aria-label="Enviar">➤</button>
+    </form>
+    <form method="post" action="/demo/{{ agency.pnid }}/recomecar" hx-post="/demo/{{ agency.pnid }}/recomecar" hx-swap="none" class="recomecar">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="link">Recomeçar como um hóspede novo</button>
+    </form>
+  </section>
+  <section class="celular corretor" id="celular-corretor" aria-label="WhatsApp pessoal do corretor">
+    <header class="celular-topo">
+      <span class="avatar corretor" aria-hidden="true">{{ agency.broker_name[0] }}</span>
+      <span><strong>Rental Desk · avisos</strong><small>no WhatsApp de {{ agency.broker_name }}</small></span>
+    </header>
+    <div class="fundo-conversa">
+      {{ parts.broker(view, false) }}
+    </div>
+    {{ parts.action(agency, view, csrf, false) }}
+    <p class="demo-dica">O aviso só vai para quem aceitou receber e está de plantão. Responder 1 assume a conversa:
+      o assistente para de responder esse hóspede.</p>
+  </section>
+</div>
+{% endblock %}

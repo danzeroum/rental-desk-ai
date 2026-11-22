@@ -15,6 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from app.web import (
     routes_auth,
     routes_data,
+    routes_demo,
     routes_onboarding,
     routes_operator,
     routes_panel,
@@ -98,5 +99,6 @@ def install_panel(app: FastAPI) -> None:
         routes_results,
         routes_onboarding,
         routes_public,
+        routes_demo,
     ):
         app.include_router(module.router)
