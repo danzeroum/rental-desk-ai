@@ -44,6 +44,7 @@ class SkipReason(StrEnum):
     NOTHING_PENDING = "nothing_pending"
     TENANT_PAUSED = "tenant_paused"
     TENANT_INACTIVE = "tenant_inactive"  # em implantação ou suspensa: não atende
+    MEMBER_COMMAND = "member_command"  # mensagem de corretor/gestor, não de hóspede
     OPTED_OUT = "opted_out"
     MUTED = "muted"
     SILENCED = "silenced"
@@ -67,6 +68,14 @@ class InboundBatch:
     @property
     def combined_text(self) -> str:
         return "\n".join(m.text for m in self.messages if m.text)
+
+
+class MemberMessageHandler(Protocol):
+    async def handle_member_message(
+        self, tenant_id: uuid.UUID, conversation_id: uuid.UUID, phone_e164: str, text: str
+    ) -> bool:
+        """`True` se o remetente é corretor/gestor e a mensagem foi tratada como comando."""
+        ...
 
 
 class BatchHandler(Protocol):
@@ -95,6 +104,7 @@ class _Pending:
     contact_id: uuid.UUID
     skip: SkipReason | None
     messages: list[Message]
+    contact_phone: str | None = None
 
 
 class ConversationProcessor:
@@ -107,8 +117,10 @@ class ConversationProcessor:
         transcriber: Transcriber,
         keyring: Keyring,
         handler: BatchHandler,
+        members: MemberMessageHandler | None = None,
         clock: Clock = utcnow,
     ) -> None:
+        self.members = members
         self.sessions, self.queue, self.gateway = sessions, queue, gateway
         self.transcriber, self.keyring, self.handler, self.clock = (
             transcriber,
@@ -122,6 +134,8 @@ class ConversationProcessor:
         pending = await self._load(tenant_id, conversation_id)
         if not pending.messages:
             return ProcessOutcome(handled=False, skipped=SkipReason.NOTHING_PENDING)
+        if await self._member_command(tenant_id, conversation_id, pending):
+            return ProcessOutcome(handled=True, skipped=SkipReason.MEMBER_COMMAND)
         if pending.skip is None and await self.queue.is_silenced(tenant_id, pending.contact_id):
             pending.skip = SkipReason.SILENCED
         if pending.skip is not None:
@@ -169,7 +183,22 @@ class ConversationProcessor:
             skip = SkipReason.OPTED_OUT
         elif conversation.muted_until is not None and conversation.muted_until > now:
             skip = SkipReason.MUTED
-        return _Pending(conversation.contact_id, skip, messages)
+        phone = contact.phone_e164 if contact else None
+        return _Pending(conversation.contact_id, skip, messages, phone)
+
+    async def _member_command(
+        self, tenant_id: uuid.UUID, conversation_id: uuid.UUID, pending: _Pending
+    ) -> bool:
+        """Corretor/gestor escrevendo ao número da imobiliária (ex.: "1" para assumir)."""
+        if self.members is None or pending.contact_phone is None:
+            return False
+        text = " ".join(m.body or "" for m in pending.messages).strip()
+        handled = await self.members.handle_member_message(
+            tenant_id, conversation_id, pending.contact_phone, text
+        )
+        if handled:
+            await self._save(tenant_id, pending.messages, [], processed=True)
+        return handled
 
     async def _transcribe(
         self, tenant_id: uuid.UUID, messages: list[Message]

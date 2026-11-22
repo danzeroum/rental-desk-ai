@@ -64,8 +64,8 @@ REASON_LABELS: Final = {
 }
 
 HANDOFF_OUT_OF_HOURS: Final = (
-    "Nossos corretores atendem {when}. Deixei anotado o que você pediu e um corretor continua "
-    "a conversa por aqui assim que o plantão começar."
+    "Nossos corretores voltam a atender {when}. Deixei anotado o que você pediu, e um corretor "
+    "continua a conversa por aqui assim que o plantão começar."
 )
 GUEST_WAITING: Final = (
     "Nossos corretores estão com muitos atendimentos agora, mas um deles vai falar com você "

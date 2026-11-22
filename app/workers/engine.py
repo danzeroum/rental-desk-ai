@@ -15,7 +15,7 @@ from typing import Any, Final
 
 from app.adapters.llm import LLMClient, LLMUnavailableError, loads_object
 from app.core.logging import get_logger
-from app.domain import render
+from app.domain import notices, render
 from app.domain.catalog import BlockData, PropertyData, RateData
 from app.domain.decision import Action, Decision, HandoffReason, decide
 from app.domain.extraction import Extraction, parse_extraction
@@ -65,6 +65,8 @@ class TurnContext:
     catalog: Catalog | None
     data_fresh: bool
     audio_not_understood: bool = False
+    brokers_back: str | None = None
+    """Fora do horário dos corretores: quando voltam (ex.: "amanhã a partir das 9h")."""
 
 
 @dataclass(frozen=True)
@@ -140,11 +142,12 @@ class ConversationEngine:
         match decision.action:
             case Action.HANDOFF:
                 reason = decision.reason or HandoffReason.HUMAN
-                text = (
-                    render.OTHER_LANGUAGE
-                    if reason is HandoffReason.OTHER_LANGUAGE
-                    else render.HANDOFF
-                )
+                if reason is HandoffReason.OTHER_LANGUAGE:
+                    text = render.OTHER_LANGUAGE
+                elif ctx.brokers_back:
+                    text = notices.HANDOFF_OUT_OF_HOURS.format(when=ctx.brokers_back)
+                else:
+                    text = render.HANDOFF
                 plan = self._handoff_plan(state, reason, decision.property_code)
                 return TurnResult(text, state, handoff=plan)
             case Action.ASK:

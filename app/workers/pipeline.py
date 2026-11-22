@@ -42,6 +42,7 @@ from app.models import (
 )
 from app.models.enums import Direction, TenantStatus
 from app.workers.engine import Catalog, ConversationEngine, TurnContext, TurnResult
+from app.workers.handoffs import HandoffService, hours_of
 from app.workers.processor import InboundBatch
 from app.workers.responder import send_reply
 
@@ -97,10 +98,12 @@ class ResponsePipeline:
         gateway: WhatsAppGateway,
         keyring: Keyring,
         public_base_url: str,
+        handoffs: HandoffService | None = None,
         clock: Clock = _utcnow,
     ) -> None:
         self.sessions, self.engine, self.gateway, self.keyring = sessions, engine, gateway, keyring
         self.public_base_url = public_base_url.rstrip("/")
+        self.handoffs = handoffs
         self.clock = clock
 
     async def handle(self, batch: InboundBatch) -> None:
@@ -118,7 +121,9 @@ class ResponsePipeline:
                 snapshot_hash=catalog.snapshot_hash if catalog else None,
                 now=self.clock(),
             )  # fmt: skip
-        await self._persist(batch, loaded, result)
+        handoff_id = await self._persist(batch, loaded, result)
+        if handoff_id is not None and self.handoffs is not None:
+            await self.handoffs.dispatch_new(batch.tenant_id, handoff_id)
 
     async def _load(self, batch: InboundBatch) -> _Loaded:
         now = self.clock()
@@ -145,6 +150,7 @@ class ResponsePipeline:
                 select(PrivacyNotice.version).order_by(PrivacyNotice.version.desc()).limit(1)
             )
             catalog = await load_catalog(session, tenant)
+            hours = hours_of(tenant)
             context = TurnContext(
                 today=now.astimezone(TIMEZONE).date(),
                 tenant_name=tenant.name,
@@ -158,6 +164,7 @@ class ResponsePipeline:
                 catalog=catalog,
                 data_fresh=not is_data_stale(tenant.availability_updated_at, now),
                 audio_not_understood=any(m.transcription_failed for m in batch.messages),
+                brokers_back=None if hours.is_open(now) else hours.describe_next_opening(now),
             )
             return _Loaded(context, tenant.status, tenant.active_snapshot_id)
 
@@ -220,7 +227,10 @@ class ResponsePipeline:
             )
         log.info("resposta_sombra_registrada")
 
-    async def _persist(self, batch: InboundBatch, loaded: _Loaded, result: TurnResult) -> None:
+    async def _persist(
+        self, batch: InboundBatch, loaded: _Loaded, result: TurnResult
+    ) -> uuid.UUID | None:
+        """Grava estado, intenção, busca e passagem; devolve o id da passagem criada."""
         async with tenant_session(self.sessions, batch.tenant_id) as session:
             await session.execute(
                 update(Conversation)
@@ -249,12 +259,14 @@ class ResponsePipeline:
                         ],
                     )
                 )
-            if result.handoff is not None:
-                session.add(
-                    Handoff(
-                        tenant_id=batch.tenant_id,
-                        conversation_id=batch.conversation_id,
-                        reason=result.handoff.reason,
-                        summary=result.handoff.summary,
-                    )
-                )
+            if result.handoff is None:
+                return None
+            handoff = Handoff(
+                tenant_id=batch.tenant_id,
+                conversation_id=batch.conversation_id,
+                reason=result.handoff.reason,
+                summary=result.handoff.summary,
+            )
+            session.add(handoff)
+            await session.flush()
+            return handoff.id
