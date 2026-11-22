@@ -111,8 +111,7 @@ async def _after_login(request: Request, token: str, data: PanelSession) -> str:
     """Escolhe a imobiliária: única → direto; várias → lista; operador → área do operador."""
     memberships = await auth(request).memberships(data.user_uuid)
     if len(memberships) == 1 and not data.is_operator:
-        data.tenant_id = str(memberships[0].tenant_id)
-        await auth(request).update_session(token, data)
+        await auth(request).choose_tenant(token, data, memberships[0].tenant_id)
         return "/painel"
     return "/operador" if data.is_operator else "/painel/escolher"
 

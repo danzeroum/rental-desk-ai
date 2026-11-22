@@ -1,0 +1,14 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Planilha com erros{% endblock %}
+{% block content %}
+<h1>A planilha tem erros</h1>
+<p>Nada foi gravado. Corrija os pontos abaixo em <strong>{{ file_name }}</strong> e envie de novo.</p>
+<ul class="cartao">
+  {% for issue in report.errors %}<li>{{ issue.describe() }}</li>{% endfor %}
+</ul>
+{% if report.warnings %}
+<h2>Avisos (não impedem a importação)</h2>
+<ul class="cartao">{% for issue in report.warnings %}<li>{{ issue.describe() }}</li>{% endfor %}</ul>
+{% endif %}
+<p><a href="/painel/dados">Voltar</a></p>
+{% endblock %}

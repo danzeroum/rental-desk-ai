@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Final
 
 from fastapi import FastAPI, Request, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
-from app.web import routes_auth
+from app.web import routes_auth, routes_data, routes_panel, routes_settings
 from app.web.common import SECURITY_HEADERS, WEB_DIR, LoginRequired, redirect, render
 
 API_PREFIXES: Final = ("/webhook", "/health")
@@ -44,6 +46,8 @@ async def _login_required(request: Request, exc: Exception) -> Response:
 async def _http_error(request: Request, exc: Exception) -> Response:
     if not isinstance(exc, HTTPException):  # pragma: no cover - registrado só para HTTPException
         raise exc
+    if status.HTTP_300_MULTIPLE_CHOICES <= exc.status_code < status.HTTP_400_BAD_REQUEST:
+        return redirect((exc.headers or {}).get("Location", "/"))
     if _is_api(request):
         return JSONResponse(
             {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
@@ -54,9 +58,21 @@ async def _http_error(request: Request, exc: Exception) -> Response:
     return render(request, "error.html", {"heading": heading, "message": message}, exc.status_code)
 
 
+async def _invalid_request(request: Request, exc: Exception) -> Response:
+    """Endereço malformado no painel (ex.: id inválido) vira 404; a API mantém o 422."""
+    if _is_api(request) or not isinstance(exc, RequestValidationError):
+        return await request_validation_exception_handler(request, exc)  # type: ignore[arg-type]
+    heading = ERROR_HEADINGS[status.HTTP_404_NOT_FOUND]
+    return render(
+        request, "error.html", {"heading": heading, "message": ""}, status.HTTP_404_NOT_FOUND
+    )
+
+
 def install_panel(app: FastAPI) -> None:
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_exception_handler(LoginRequired, _login_required)
     app.add_exception_handler(HTTPException, _http_error)
-    app.include_router(routes_auth.router)
+    app.add_exception_handler(RequestValidationError, _invalid_request)
+    for module in (routes_auth, routes_panel, routes_data, routes_settings):
+        app.include_router(module.router)

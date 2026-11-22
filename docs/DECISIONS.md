@@ -386,3 +386,25 @@ A mais recente fica embaixo.
   token, e o consumo é atômico (`GETDEL`). Pedido de nova senha responde igual exista ou não o e-mail.
 - **Operador:** `python -m app.cli create-operator` (o `install.sh` pergunta o e-mail no fim) imprime o
   convite. Perdeu o celular: `make reset-totp EMAIL=...` apaga o autenticador e encerra as sessões.
+
+## D036 · Painel do gestor (M7)
+
+- **Papéis no painel:** gestor administra tudo da imobiliária; corretor vê o início, as passagens (pode
+  assumir), as datas (pode bloquear e confirmar) e "Meus avisos"; não envia planilha, não muda
+  configuração, não marca desfecho. Operador entra em qualquer imobiliária como **suporte**, com o
+  evento `support_access` no `audit_log`. O papel fica na sessão; remover alguém da equipe encerra as
+  sessões dessa pessoa.
+- **Consentimento para avisos ativos:** dado pela própria pessoa em "Meus avisos" (telefone +
+  finalidades + concordância explícita), com evidência "aceite no painel pelo próprio usuário, texto
+  v1". O gestor só vê a situação. Trocar o telefone ou desmarcar revoga (`revoked_at`); remover da
+  equipe revoga tudo. Alternativa descartada: gestor marcar o consentimento pelo corretor (não prova
+  vontade do titular).
+- **Horário dos corretores no formulário:** um turno por dia (início/fim; vazio = sem atendimento). O
+  domínio aceita vários turnos; a tela com mais de um turno fica para o RF29 (escala, M10).
+- **Bloqueios pelo painel:** colunas "entrada" e "saída" como na planilha (D016: a noite da saída fica
+  livre). Só bloqueios do painel e do lembrete podem ser liberados no painel; os da planilha e do
+  calendário se alteram na origem. Bloquear não renova a validade das datas: o botão "As datas abaixo
+  estão certas" faz isso (RF16), como o "OK" do lembrete.
+- **Planilha:** até 5 MB; com erro nada é gravado; sem erro vira rascunho e abre a conferência (casas,
+  faixa de diária, avisos, casas novas e que saem); só "Aprovar" põe no ar (RF15).
+- Endereço malformado no painel (id inválido) responde 404 em HTML; a API mantém o 422 em JSON.

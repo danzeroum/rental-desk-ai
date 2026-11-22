@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 from app.adapters.fake_llm import FakeLLM
+from app.adapters.link_checker import FakeLinkChecker, HttpLinkChecker, LinkChecker
 from app.adapters.llm import AnthropicLLMClient, LLMClient
 from app.adapters.mailer import FakeMailer, Mailer, SmtpMailer
 from app.adapters.transcriber import FakeTranscriber, OpenAICompatibleTranscriber, Transcriber
 from app.adapters.whatsapp import CloudApiGateway, FakeWhatsAppGateway, WhatsAppGateway
-from app.core.config import LLMProvider, Settings, TranscriberProvider, WhatsAppProvider
+from app.core.config import (
+    Environment,
+    LLMProvider,
+    Settings,
+    TranscriberProvider,
+    WhatsAppProvider,
+)
 from app.core.crypto import Keyring
 
 
@@ -60,3 +67,8 @@ def build_mailer(settings: Settings) -> Mailer:
 
 def build_keyring(settings: Settings) -> Keyring:
     return Keyring.parse(settings.data_encryption_keys.get_secret_value())
+
+
+def build_link_checker(settings: Settings) -> LinkChecker:
+    """Testes não saem para a internet; os demais ambientes conferem os links de fotos."""
+    return FakeLinkChecker() if settings.env == Environment.TEST else HttpLinkChecker()

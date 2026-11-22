@@ -20,9 +20,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.adapters.mailer import Mailer, MailError
+from app.core.audit import append_audit
 from app.core.crypto import Keyring
 from app.core.logging import get_logger
-from app.core.rls import global_session
+from app.core.rls import global_session, tenant_session
 from app.core.security import (
     hash_password,
     hash_token,
@@ -32,7 +33,7 @@ from app.core.security import (
     verify_password,
     verify_totp,
 )
-from app.models import AppUser, TenantMember
+from app.models import AppUser, Tenant, TenantMember
 
 MAX_FAILED_LOGINS: Final = 5
 MAX_TOTP_ATTEMPTS: Final = 5
@@ -67,6 +68,9 @@ class PanelSession:
     tenant_id: str | None = None
     pending_totp_secret: str | None = None
     is_operator: bool = False
+    role: str | None = None
+    """Papel na imobiliária escolhida: gestor, corretor ou operador (suporte)."""
+    tenant_name: str | None = None
 
     @property
     def user_uuid(self) -> uuid.UUID:
@@ -249,6 +253,18 @@ class AuthService:
             log.warning("convite_nao_enviado")
         return link
 
+    async def notify_added(self, user: AppUser, tenant_name: str) -> None:
+        """Quem já tem conta só recebe o aviso; entra com a senha e o autenticador de sempre."""
+        try:
+            await self.mailer.send(
+                user.email,
+                "Novo acesso no painel",
+                f"Olá, {user.display_name}!\n\nVocê agora tem acesso à {tenant_name}. "
+                f"Entre em {self.base_url}/login\n",
+            )
+        except MailError:
+            log.warning("aviso_de_acesso_nao_enviado")
+
     async def accept_invite(self, token: str, password: str) -> tuple[str, PanelSession]:
         user_id = await self._redeem("invite", token, password, "Convite inválido ou vencido.")
         async with global_session(self.db) as session:
@@ -326,3 +342,35 @@ class AuthService:
                 select(TenantMember).where(TenantMember.user_id == user_id)
             )
             return list(rows.scalars())
+
+    async def choose_tenant(self, token: str, data: PanelSession, tenant_id: uuid.UUID) -> None:
+        """Entra na imobiliária: membro com o papel dele; operador como suporte (auditado)."""
+        member = next(
+            (m for m in await self.memberships(data.user_uuid) if m.tenant_id == tenant_id), None
+        )
+        if member is None and not data.is_operator:
+            raise AuthError("Você não tem acesso a essa imobiliária.")
+        async with tenant_session(self.db, tenant_id, user_id=data.user_uuid) as session:
+            tenant = await session.get(Tenant, tenant_id)
+            if tenant is None:
+                raise AuthError("Imobiliária não encontrada.")
+            if member is None:
+                await append_audit(
+                    session, tenant_id=tenant_id, event_type="support_access",
+                    payload={"user_id": data.user_id},
+                )  # fmt: skip
+            data.tenant_name = tenant.name
+        data.tenant_id = str(tenant_id)
+        data.role = member.role if member else "operador"
+        await self.update_session(token, data)
+
+    async def tenant_names(
+        self, tenant_ids: list[uuid.UUID], user_id: uuid.UUID
+    ) -> dict[uuid.UUID, str]:
+        names = {}
+        for tenant_id in tenant_ids:
+            async with tenant_session(self.db, tenant_id, user_id=user_id) as session:
+                tenant = await session.get(Tenant, tenant_id)
+                if tenant is not None:
+                    names[tenant_id] = tenant.name
+        return names

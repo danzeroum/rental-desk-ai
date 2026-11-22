@@ -1,0 +1,48 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Versão {{ snapshot.version }}{% endblock %}
+{% block content %}
+<h1>Versão {{ snapshot.version }} da planilha</h1>
+<p class="dica">Arquivo {{ snapshot.file_name or "—" }} · código de conferência <code>{{ snapshot.content_hash[:12] }}</code>
+{% if snapshot.approved_at %} · aprovada em {{ snapshot.approved_at.strftime("%d/%m/%Y %H:%M") }}{% endif %}</p>
+{% if added or removed %}
+<section class="cartao">
+  <h2>Mudanças em relação à versão no ar</h2>
+  {% if added %}<p>Casas novas: {{ added | join(", ") }}</p>{% endif %}
+  {% if removed %}<p class="aviso alerta">Casas que saem: {{ removed | join(", ") }}</p>{% endif %}
+</section>
+{% endif %}
+{% if snapshot.warnings %}
+<section class="cartao">
+  <h2>Avisos</h2>
+  <ul>{% for w in snapshot.warnings %}<li>{{ w.sheet }}{% if w.row %}, linha {{ w.row }}{% endif %}: {{ w.message }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+<section class="cartao">
+  <h2>{{ properties | length }} casas · {{ snapshot.blocks | length }} bloqueios na planilha</h2>
+  <div class="tabela"><table>
+    <thead><tr><th>Código</th><th>Casa</th><th>Bairro</th><th>Pessoas</th><th>Diária</th></tr></thead>
+    <tbody>
+    {% for p in properties %}
+    <tr><td>{{ p.code }}</td><td>{{ p.title }}</td><td>{{ p.neighborhood or "—" }}</td><td>{{ p.max_guests }}</td>
+        <td>{{ ranges.get(p.code, "sem tarifa") }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% if snapshot.rules %}
+<section class="cartao"><h2>Regras</h2>
+  <ul>{% for k, v in snapshot.rules.items() %}<li><strong>{{ k }}</strong>: {{ v }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% if is_draft %}
+<div class="acoes">
+  <form method="post" action="/painel/dados/{{ snapshot.id }}/aprovar">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><button>Aprovar e pôr no ar</button>
+  </form>
+  <form method="post" action="/painel/dados/{{ snapshot.id }}/recusar">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><button class="secundario">Recusar</button>
+  </form>
+</div>
+{% endif %}
+<p><a href="/painel/dados">Voltar</a></p>
+{% endblock %}

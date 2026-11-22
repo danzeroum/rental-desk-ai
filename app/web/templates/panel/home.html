@@ -1,0 +1,46 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Início{% endblock %}
+{% block content %}
+<h1>{{ o.tenant.name }}</h1>
+{% if o.tenant.is_demo %}<p class="aviso alerta">Imobiliária de demonstração: dados fictícios.</p>{% endif %}
+<div class="grade">
+  <section class="cartao">
+    <h2>Assistente</h2>
+    {% if o.tenant.paused_at %}
+    <p><span class="selo erro">Pausado</span> Os hóspedes não recebem resposta automática.</p>
+    {% else %}
+    <p><span class="selo ok">Atendendo</span></p>
+    {% endif %}
+    {% if ctx.is_manager %}
+    <form method="post" action="/painel/pausa">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {% if o.tenant.paused_at %}
+      <button name="action" value="retomar">Retomar o assistente</button>
+      {% else %}
+      <button name="action" value="pausar" class="perigo">Pausar o assistente</button>
+      {% endif %}
+    </form>
+    {% endif %}
+  </section>
+  <section class="cartao">
+    <h2>Datas das casas</h2>
+    {% if o.stale %}
+    <p><span class="selo alerta">Vencidas</span> Atualizadas em {{ updated }}. Enquanto isso, o assistente diz "disponibilidade a confirmar".</p>
+    {% else %}
+    <p><span class="selo ok">Em dia</span> Atualizadas em {{ updated }}.</p>
+    {% endif %}
+    <p><a href="/painel/bloqueios">Conferir e confirmar as datas</a></p>
+  </section>
+  <section class="cartao">
+    <h2>Passagens aguardando</h2>
+    <p class="numero">{{ o.open_handoffs }}</p>
+    <p><a href="/painel/passagens">Ver passagens</a></p>
+  </section>
+  <section class="cartao">
+    <h2>Planilha</h2>
+    {% if o.active_version %}<p>Versão {{ o.active_version }} no ar.</p>{% else %}<p><span class="selo alerta">Nenhuma versão aprovada</span></p>{% endif %}
+    {% if o.drafts %}<p><span class="selo alerta">{{ o.drafts }} aguardando aprovação</span></p>{% endif %}
+    {% if ctx.is_manager %}<p><a href="/painel/dados">Enviar ou aprovar planilha</a></p>{% endif %}
+  </section>
+</div>
+{% endblock %}

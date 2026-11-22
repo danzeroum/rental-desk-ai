@@ -1,0 +1,17 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Meus avisos{% endblock %}
+{% block content %}
+<h1>Meus avisos no WhatsApp</h1>
+<form method="post" action="/painel/avisos" class="cartao">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Seu WhatsApp <input name="phone" value="{{ member.whatsapp_phone if member and member.whatsapp_phone else '' }}" placeholder="(11) 98888-7777"></label>
+  <p>Quero receber, neste número, mensagens do número da imobiliária com:</p>
+  {% for value, label in purposes %}
+  <label><input type="checkbox" name="{{ value }}" value="1" {% if value in granted %}checked{% endif %}> {{ label }}</label>
+  {% endfor %}
+  <label><input type="checkbox" name="aceite" value="sim" {% if granted %}checked{% endif %}>
+    Concordo em receber essas mensagens. Posso desmarcar a qualquer momento nesta página.</label>
+  <p class="dica">Os avisos de passagem trazem o telefone e o pedido do hóspede, para você atender. Não use esse dado para outra finalidade.</p>
+  <button>Salvar</button>
+</form>
+{% endblock %}

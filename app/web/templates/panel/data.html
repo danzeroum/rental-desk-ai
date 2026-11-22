@@ -1,0 +1,35 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Planilha{% endblock %}
+{% block content %}
+<h1>Planilha das casas</h1>
+<section class="cartao">
+  <h2>Enviar nova versão</h2>
+  <p class="dica">Nada vai ao ar sem a sua aprovação. <a href="/painel/dados/modelo">Baixar a planilha modelo</a>.</p>
+  <form method="post" action="/painel/dados" enctype="multipart/form-data" class="acoes">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="file" name="arquivo" accept=".xlsx" required>
+    <button>Enviar e conferir</button>
+  </form>
+</section>
+<section class="cartao">
+  <h2>Versões</h2>
+  {% if not snapshots %}<p class="dica">Nenhuma planilha enviada ainda.</p>{% endif %}
+  <div class="tabela"><table>
+    <thead><tr><th>Versão</th><th>Arquivo</th><th>Situação</th><th>Enviada</th><th></th></tr></thead>
+    <tbody>
+    {% for s in snapshots %}
+    <tr>
+      <td>{{ s.version }}</td>
+      <td>{{ s.file_name or "—" }}</td>
+      <td>{% if s.status == "draft" %}<span class="selo alerta">Aguardando aprovação</span>
+          {% elif s.status == "approved" %}<span class="selo ok">No ar</span>
+          {% elif s.status == "rejected" %}<span class="selo">Recusada</span>
+          {% else %}<span class="selo">Substituída</span>{% endif %}</td>
+      <td>{{ s.created_at.strftime("%d/%m/%Y") }}</td>
+      <td><a href="/painel/dados/{{ s.id }}">{% if s.status == "draft" %}Conferir e aprovar{% else %}Ver{% endif %}</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

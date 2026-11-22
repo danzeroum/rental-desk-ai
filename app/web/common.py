@@ -104,3 +104,9 @@ def require_operator(data: PanelSession) -> PanelSession:
     if not data.is_operator:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "área do operador")
     return data
+
+
+def safe_next(value: object, default: str) -> str:
+    """Só caminhos internos do painel (evita redirecionamento aberto)."""
+    text = str(value or "")
+    return text if text.startswith("/painel") and "//" not in text and "\\" not in text else default

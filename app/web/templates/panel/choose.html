@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Escolher imobiliária{% endblock %}
+{% block content %}
+<h1>Escolha a imobiliária</h1>
+{% if not options %}
+<p>Você ainda não está vinculado a nenhuma imobiliária. Peça um convite ao gestor.</p>
+{% endif %}
+{% for o in options %}
+<form method="post" action="/painel/escolher" class="cartao acoes">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="tenant_id" value="{{ o.id }}">
+  <strong>{{ o.name }}</strong> <span class="selo">{{ o.role }}</span>
+  <button>Entrar</button>
+</form>
+{% endfor %}
+{% endblock %}
