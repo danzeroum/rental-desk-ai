@@ -1,0 +1,540 @@
+# Conjunto de ouro: fluxos (imobiliária de exemplo Demo Riviera, temporada 2026/27, hoje 21/11/2026).
+# Campos de "expect": action | action_in | handoff | offers | offers_exclude | contains | not_contains | chosen
+
+- id: F01
+  kind: fluxo
+  description: Prompt de partida - casa para 12 no Réveillon com piscina, pacote inteiro
+  turns:
+    - guest: Casa para 12 no Réveillon com piscina
+      expect:
+        action: search
+        offers: [CASA06, CASA01, CASA10]
+        contains: ["assistente virtual", "com o pacote Réveillon", "R$ 17.300,00", "Valores estimados e disponibilidade sujeitos à confirmação do corretor."]
+
+- id: F02
+  kind: fluxo
+  description: Pedido completo em uma mensagem, baixa temporada
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect:
+        action: search
+        offers: [CASA05, CASA03, CASA02]
+        contains: ["Estimativa: R$ 4.800,00 (5 noites, 10/12/2026 a 15/12/2026)"]
+
+- id: F03
+  kind: fluxo
+  description: Pedido em partes - cumprimento, pessoas, datas
+  turns:
+    - guest: Oi, bom dia!
+      expect: {action: ask, contains: ["Para quais datas?"]}
+    - guest: Somos 4
+      expect: {action: ask, contains: ["Para quais datas?"], not_contains: ["E para quantas pessoas"]}
+    - guest: De 05/12 a 08/12
+      expect: {action: search, offers: [CASA08, CASA05, CASA03]}
+
+- id: F04
+  kind: fluxo
+  description: Pergunta de acompanhamento muda o número de pessoas
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: E se formos 10?
+      expect: {action: search, offers: [CASA02, CASA09, CASA06]}
+
+- id: F05
+  kind: fluxo
+  description: Atributo da segunda opção, com dado na planilha
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: A segunda tem churrasqueira?
+      expect: {action: answer_attribute, contains: ["Sobrado Azul (CASA03): churrasqueira, sim."]}
+
+- id: F06
+  kind: fluxo
+  description: Prompt de partida - atributo que não existe na planilha
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: A primeira tem carregador de carro elétrico?
+      expect: {action: answer_attribute, contains: ["vou confirmar com o corretor"]}
+
+- id: F07
+  kind: fluxo
+  description: Atributo com campo vazio na planilha vira pendência
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: A segunda permite festa?
+      expect: {action: answer_attribute, contains: ["vou confirmar com o corretor"], not_contains: ["festas, não", "festas, sim"]}
+
+- id: F08
+  kind: fluxo
+  description: Hóspede escolhe uma casa
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: Gostei da primeira, quero a primeira
+      expect: {action: handoff, handoff: choose, chosen: CASA05, contains: ["corretor"]}
+
+- id: F09
+  kind: fluxo
+  description: Pede um corretor
+  turns:
+    - guest: Quero falar com um corretor
+      expect: {action: handoff, handoff: human}
+
+- id: F10
+  kind: fluxo
+  description: Estadia parcial no Réveillon - pacote fechado e mínimo de noites
+  turns:
+    - guest: Casa para 10 de 30/12 a 02/01
+      expect:
+        action: search
+        offers: [CASA02, CASA09, CASA06]
+        contains: ["só aluga o pacote Réveillon completo: 28/12/2026 a 02/01/2027", "Mínimo de 5 noites neste período."]
+
+- id: F11
+  kind: fluxo
+  description: Orçamento filtra as casas
+  turns:
+    - guest: Casa para 6 de 10/12 a 15/12 até 5 mil
+      expect: {action: search, offers: [CASA05], not_contains: ["Acima do orçamento"]}
+
+- id: F12
+  kind: fluxo
+  description: Nada cabe no orçamento - mais próximas acima, rotuladas
+  turns:
+    - guest: Casa para 12 no Réveillon até 2 mil
+      expect: {action: search, contains: ["Acima do orçamento informado.", "mais próximas"]}
+
+- id: F13
+  kind: fluxo
+  description: Prompt de partida - dados com 24 h e 1 min não afirmam disponibilidade
+  data_fresh: false
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect:
+        action: search
+        contains: ["Disponibilidade a confirmar com o corretor.", "ainda não foi atualizado hoje"]
+        not_contains: ["disponível", "está livre"]
+
+- id: F14
+  kind: fluxo
+  description: Nenhuma casa atende
+  turns:
+    - guest: Casa para 30 pessoas de 10/12 a 15/12
+      expect: {action: search, contains: ["Não encontrei casas"], not_contains: ["Estimativa"]}
+
+- id: F15
+  kind: fluxo
+  description: Exige aceitar pet - vazio não conta como sim
+  turns:
+    - guest: Casa para 6 com cachorro de 10/12 a 15/12
+      expect: {action: search, offers: [CASA03, CASA02, CASA06], offers_exclude: [CASA09]}
+
+- id: F16
+  kind: fluxo
+  description: Datas que já passaram
+  turns:
+    - guest: Casa para 4 de 10/01/2026 a 15/01/2026
+      expect: {action: ask, contains: ["Essa data já passou"]}
+
+- id: F17
+  kind: fluxo
+  description: Abaixo do mínimo de noites
+  turns:
+    - guest: Casa para 4 de 10/12 a 11/12
+      expect: {action: search, contains: ["Mínimo de 2 noites neste período."]}
+
+- id: F18
+  kind: fluxo
+  description: Casa bloqueada no Réveillon não aparece
+  turns:
+    - guest: Casa para 8 no Réveillon
+      expect: {action: search, offers_exclude: [CASA03]}
+
+- id: F19
+  kind: fluxo
+  description: Duas tentativas sem entender - passa ao corretor
+  turns:
+    - guest: hmm
+      expect: {action: ask}
+    - guest: sei lá
+      expect: {action: handoff, handoff: clarification_attempts}
+
+- id: F20
+  kind: fluxo
+  description: Agradecimento depois das opções não repete a busca
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: Obrigado!
+      expect: {action: acknowledge, not_contains: ["Estimativa"]}
+
+- id: F21
+  kind: fluxo
+  description: Bloqueio extra exclui a casa nas datas sobrepostas, não nas encostadas
+  blocks:
+    - {codigo: CASA05, inicio: 2026-12-15, fim: 2026-12-18}
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: E de 14/12 a 16/12?
+      expect: {action: search, offers_exclude: [CASA05]}
+
+# --- M6: passagem fora do horário e mais fluxos --------------------------------------
+
+- id: F22
+  kind: fluxo
+  description: Pede corretor fora do horário - recebe o horário de retorno
+  brokers_back: amanhã a partir das 9h
+  turns:
+    - guest: Quero falar com um corretor
+      expect: {action: handoff, handoff: human, contains: ["voltam a atender amanhã a partir das 9h"]}
+
+- id: F23
+  kind: fluxo
+  description: Escolhe uma casa fora do horário
+  brokers_back: segunda-feira a partir das 9h
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: Gostei da segunda, quero a segunda
+      expect: {action: handoff, handoff: choose, chosen: CASA03, contains: ["voltam a atender segunda-feira a partir das 9h"]}
+
+- id: F24
+  kind: fluxo
+  description: Carnaval com pacote inteiro
+  turns:
+    - guest: Casa para 6 de 05/02 a 10/02
+      expect: {action: search, contains: ["com o pacote Carnaval", "R$ 8.400,00"]}
+
+- id: F25
+  kind: fluxo
+  description: Estadia que começa na última noite do Réveillon - mínimo do pacote
+  turns:
+    - guest: Casa para 4 de 01/01 a 05/01
+      expect: {action: search, contains: ["Mínimo de 5 noites neste período."]}
+
+- id: F26
+  kind: fluxo
+  description: Orçamento informado depois da primeira lista
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search, offers: [CASA05, CASA03, CASA02]}
+    - guest: Até 5 mil
+      expect: {action: search, offers: [CASA05]}
+
+- id: F27
+  kind: fluxo
+  description: Pessoas primeiro, entrada e saída em frase solta
+  turns:
+    - guest: Somos 8 pessoas
+      expect: {action: ask, contains: ["Para quais datas?"]}
+    - guest: Chego 10/12 e saio 13/12
+      expect: {action: search, offers: [CASA03, CASA02, CASA09]}
+
+- id: F28
+  kind: fluxo
+  description: Pergunta se a terceira opção aceita pet
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: E a terceira aceita pet?
+      expect: {action: answer_attribute, contains: ["Casa do Jardim (CASA02): aceita animais de estimação, sim."]}
+
+- id: F29
+  kind: fluxo
+  description: Pergunta wi-fi da primeira opção
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: A primeira tem wifi?
+      expect: {action: answer_attribute, contains: ["Casa Vista Mar (CASA05): wi-fi, sim."]}
+
+- id: F30
+  kind: fluxo
+  description: Pendência anotada e depois pede corretor
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: A primeira tem carregador de carro elétrico?
+      expect: {action: answer_attribute}
+    - guest: Quero falar com um corretor
+      expect: {action: handoff, handoff: human}
+
+- id: F31
+  kind: fluxo
+  description: Adultos e crianças somam no número de pessoas
+  turns:
+    - guest: 2 adultos e 3 crianças de 10/12 a 15/12
+      expect: {action: search, contains: ["(CASA05)"], offers_exclude: [CASA08]}
+
+- id: F32
+  kind: fluxo
+  description: Escolhe pelo código depois das opções
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: Quero a CASA03
+      expect: {action: handoff, handoff: choose, chosen: CASA03}
+
+- id: F33
+  kind: fluxo
+  description: Aumenta o grupo e a busca é refeita com a nova capacidade
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: Na verdade somos 9 pessoas
+      expect: {action: search, contains: ["(CASA02)"], offers_exclude: [CASA05, CASA03]}
+
+- id: F34
+  kind: fluxo
+  description: Troca as datas e a estimativa acompanha
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: "Mudou: de 05/01 a 09/01"
+      expect: {action: search, contains: ["4 noites, 05/01/2027 a 09/01/2027"]}
+
+- id: F35
+  kind: fluxo
+  description: Pergunta piscina da segunda opção (resposta sem artigo)
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: A segunda tem piscina?
+      expect: {action: answer_attribute, contains: ["Sobrado Azul (CASA03): piscina, não."], not_contains: ["A Sobrado"]}
+
+- id: F36
+  kind: fluxo
+  description: Reclamação vai ao corretor
+  turns:
+    - guest: A casa que aluguei estava suja, quero reclamar
+      expect: {action: handoff, handoff: complaint}
+
+- id: F37
+  kind: fluxo
+  description: Pagamento vai ao corretor
+  turns:
+    - guest: Como faço o pagamento? Aceitam pix?
+      expect: {action: handoff, handoff: payment}
+
+- id: F38
+  kind: fluxo
+  description: Cancelamento vai ao corretor
+  turns:
+    - guest: Quero cancelar minha reserva
+      expect: {action: handoff, handoff: cancel}
+
+- id: F39
+  kind: fluxo
+  description: Grupo maior que todas as casas
+  turns:
+    - guest: Casa para 60 pessoas de 10/12 a 15/12
+      expect: {contains: ["Não encontrei casas na nossa base para esse pedido."]}
+
+- id: F40
+  kind: fluxo
+  description: Data no passado pede novas datas
+  turns:
+    - guest: Casa para 4 de 10/01/2020 a 15/01/2020
+      expect: {action: ask, contains: ["Essa data já passou."]}
+
+- id: F41
+  kind: fluxo
+  description: Réveillon para 12 com piscina, só casas que comportam 12
+  turns:
+    - guest: Casa para 12 no Réveillon com piscina
+      expect: {action: search, contains: ["(CASA06)"], offers_exclude: [CASA05, CASA08, CASA03]}
+
+- id: F42
+  kind: fluxo
+  description: Pessoas e item, sem datas, pergunta as datas
+  turns:
+    - guest: Quero uma casa com piscina para 8
+      expect: {action: ask, contains: ["Para quais datas?"]}
+
+- id: F43
+  kind: fluxo
+  description: Datas sem pessoas pergunta quantas pessoas, contando crianças
+  turns:
+    - guest: Tem casa de 10/12 a 15/12?
+      expect: {action: ask, contains: ["Para quantas pessoas, contando as crianças?"]}
+
+- id: F44
+  kind: fluxo
+  description: Orçamento atendido mostra só o que cabe
+  turns:
+    - guest: Casa para 6 de 10/12 a 15/12 até 5 mil
+      expect: {action: search, offers: [CASA05]}
+
+- id: F45
+  kind: fluxo
+  description: Orçamento baixo demais avisa e mostra as mais próximas
+  turns:
+    - guest: Casa para 6 de 10/12 a 15/12 até 1 mil
+      expect: {action: search, contains: ["Não encontrei casas dentro do orçamento"]}
+
+- id: F46
+  kind: fluxo
+  description: Exigência de pet filtra as casas
+  turns:
+    - guest: Casa para 4 de 10/12 a 15/12 que aceite pet
+      expect: {action: search, contains: ["(CASA08)"]}
+
+- id: F47
+  kind: fluxo
+  description: Exigência de churrasqueira
+  turns:
+    - guest: Casa para 6 de 10/12 a 15/12 com churrasqueira
+      expect: {action: search, contains: ["(CASA03)"]}
+
+- id: F48
+  kind: fluxo
+  description: Exigência de wi-fi
+  turns:
+    - guest: Casa para 4 de 10/12 a 15/12 com wifi
+      expect: {action: search, contains: ["(CASA08)"]}
+
+- id: F49
+  kind: fluxo
+  description: Escolhe a primeira opção e vai ao corretor
+  turns:
+    - guest: Casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: Quero a primeira
+      expect: {action: handoff, handoff: choose, chosen: CASA05}
+
+- id: F50
+  kind: fluxo
+  description: Escolhe a segunda opção
+  turns:
+    - guest: Casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: Gostei da segunda
+      expect: {action: handoff, handoff: choose, chosen: CASA03}
+
+- id: F51
+  kind: fluxo
+  description: Capacidade da primeira opção vem da planilha
+  turns:
+    - guest: Casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: Quantas pessoas cabem na primeira?
+      expect: {action: answer_attribute, contains: ["Casa Vista Mar (CASA05) recebe até 6 pessoas."]}
+
+- id: F52
+  kind: fluxo
+  description: Distância da praia vem da planilha
+  turns:
+    - guest: Casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: A primeira fica perto da praia?
+      expect: {action: answer_attribute, contains: ["(CASA05) fica a", "metros da praia."]}
+
+- id: F53
+  kind: fluxo
+  description: Número de quartos da terceira opção
+  turns:
+    - guest: Casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: Quantos quartos tem a terceira?
+      expect: {action: answer_attribute, contains: ["Casa do Jardim (CASA02) tem 4 quartos."]}
+
+- id: F54
+  kind: fluxo
+  description: Datas vencidas não afirmam disponibilidade
+  data_fresh: false
+  turns:
+    - guest: Casa para 4 de 10/12 a 15/12
+      expect: {action: search, contains: ["Disponibilidade a confirmar com o corretor."]}
+
+- id: F55
+  kind: fluxo
+  description: Agradecimento depois das opções não repete as casas
+  turns:
+    - guest: Casa para 4 de 10/12 a 15/12
+      expect: {action: search}
+    - guest: Obrigado!
+      expect: {not_contains: ["Estimativa"]}
+
+- id: F56
+  kind: fluxo
+  description: Estadia abaixo do mínimo de noites traz o aviso do mínimo
+  turns:
+    - guest: Casa para 4 de 10/12 a 11/12
+      expect: {action: search, contains: ["Mínimo de 2 noites neste período."]}
+
+- id: F57
+  kind: fluxo
+  description: Pacote de Réveillon pedido em parte
+  turns:
+    - guest: Casa para 12 de 29/12 a 01/01
+      expect: {action: search, contains: ["(CASA06)"]}
+
+- id: F58
+  kind: fluxo
+  description: Pedido genérico de pessoa vai ao corretor
+  turns:
+    - guest: Quero falar com alguém
+      expect: {action: handoff, handoff: human}
+
+- id: F59
+  kind: fluxo
+  description: Pedido de desconto depois das opções vira negociação
+  turns:
+    - guest: Casa para 4 de 10/12 a 15/12
+      expect: {action: search}
+    - guest: Faz um desconto?
+      expect: {action: handoff, handoff: negotiate}
+
+- id: F60
+  kind: fluxo
+  description: Passagem fora do horário informa a volta da equipe
+  brokers_back: segunda-feira a partir das 9h
+  turns:
+    - guest: Quero falar com um corretor
+      expect: {action: handoff, handoff: human, contains: ["voltam a atender segunda-feira a partir das 9h"]}
+
+- id: F61
+  kind: fluxo
+  description: Ar-condicionado nos quartos como exigência
+  turns:
+    - guest: Casa para 6 de 10/12 a 15/12 com ar nos quartos
+      expect: {action: search, contains: ["(CASA05)"]}
+
+- id: F62
+  kind: fluxo
+  description: Troca o número de pessoas para menos e a busca é refeita
+  turns:
+    - guest: Casa para 10 pessoas de 10/12 a 15/12
+      expect: {action: search, offers_exclude: [CASA05, CASA08]}
+    - guest: Na verdade somos 4
+      expect: {action: search, contains: ["(CASA08)"]}
+
+- id: F63
+  kind: fluxo
+  description: Datas por extenso de entrada e saída
+  turns:
+    - guest: Somos 4, chego 10/12 e saio 15/12
+      expect: {action: search, contains: ["5 noites, 10/12/2026 a 15/12/2026"]}
+
+- id: F64
+  kind: fluxo
+  description: Pagamento depois da escolha vai ao corretor
+  turns:
+    - guest: Casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: Como faço o pagamento?
+      expect: {action: handoff, handoff: payment}
+
+- id: F65
+  kind: fluxo
+  description: Reclamação no meio da busca
+  turns:
+    - guest: Casa para 4 de 10/12 a 15/12
+      expect: {action: search}
+    - guest: Da última vez a casa estava suja, quero reclamar
+      expect: {action: handoff, handoff: complaint}

@@ -1,0 +1,21 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Simulador{% endblock %}
+{% block content %}
+<h1>Simulador</h1>
+<p class="dica">Escreva como um hóspede escreveria. O assistente responde com os dados aprovados da imobiliária,
+do mesmo jeito que responderia no WhatsApp. Nada é enviado a ninguém e a conversa não fica gravada.</p>
+<section class="cartao conversa">
+  {% if not exchanges %}<p class="dica">Experimente: "Casa para 6 pessoas de 28/12 a 02/01 com piscina".</p>{% endif %}
+  {% for e in exchanges %}
+  <p class="fala hospede">{{ e.guest }}</p>
+  <pre class="fala assistente">{{ e.reply }}</pre>
+  {% endfor %}
+</section>
+<form method="post" action="/painel/simulador" class="acoes">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input name="text" maxlength="1000" placeholder="Mensagem do hóspede" autofocus>
+  <button>Enviar</button>
+  <button name="action" value="recomecar" class="secundario">Recomeçar</button>
+</form>
+<p><a href="/painel/implantacao">Voltar à implantação</a></p>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Plantão{% endblock %}
+{% block content %}
+<h1>Plantão de {{ person.display_name }}</h1>
+<form method="post" class="cartao">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <p class="dica">As passagens vão em rodízio só para quem está de plantão naquele momento. Fora do horário da imobiliária
+  ninguém é avisado: a passagem espera o próximo plantão.</p>
+  <label><input type="checkbox" name="follows_tenant" value="sim" {% if follows_tenant %}checked{% endif %}>
+    Seguir o horário da imobiliária</label>
+  <p class="dica">Ou desmarque e defina a escala abaixo (deixe vazio o dia de folga):</p>
+  <div class="tabela"><table>
+    <thead><tr><th>Dia</th><th>Início</th><th>Fim</th></tr></thead>
+    <tbody>
+    {% for h in rows %}
+    <tr><td>{{ h.name }}</td>
+      <td><input type="time" name="d{{ h.day }}_inicio" value="{{ h.start }}" aria-label="início {{ h.name }}"></td>
+      <td><input type="time" name="d{{ h.day }}_fim" value="{{ h.end }}" aria-label="fim {{ h.name }}"></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <button>Salvar</button> <a href="/painel/configuracoes">Voltar</a>
+</form>
+{% endblock %}

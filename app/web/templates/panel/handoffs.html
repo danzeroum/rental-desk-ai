@@ -1,0 +1,41 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Passagens{% endblock %}
+{% block content %}
+<h1>Passagens ao corretor</h1>
+<p class="acoes">
+  <a href="?show=abertas">Abertas</a> · <a href="?show=sem-desfecho">Sem desfecho</a> · <a href="?show=todas">Todas</a>
+</p>
+{% if not rows %}<p class="dica">Nenhuma passagem aqui.</p>{% endif %}
+<div class="tabela">
+<table>
+  <thead><tr><th>Quando</th><th>Motivo</th><th>Pedido</th><th>Hóspede</th><th>Estado</th><th>Ações</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.created }}</td>
+    <td>{{ r.reason }}</td>
+    <td>{{ r.summary }}</td>
+    <td>{{ r.guest }}{% if r.opted_out %}<br><span class="selo alerta" title="O hóspede escreveu PARAR; só ele reativa, escrevendo VOLTAR.">saiu (PARAR)</span>{% endif %}</td>
+    <td>{{ r.status_label }}{% if r.assumed_by %}<br><span class="dica">{{ r.assumed_by }}, {{ r.assumed }}</span>{% endif %}
+        {% if r.outcome %}<br><span class="selo">{{ r.outcome }}</span>{% endif %}</td>
+    <td class="acoes">
+      {% if r.status == "open" %}
+      <form method="post" action="/painel/passagens/{{ r.id }}/assumir">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button>Assumir</button>
+      </form>
+      {% elif ctx.is_manager %}
+      <form method="post" action="/painel/passagens/{{ r.id }}/desfecho" class="acoes">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="next" value="/painel/passagens?show={{ show }}">
+        {% for value, label in outcomes.items() %}
+        <button name="outcome" value="{{ value }}" class="secundario">{{ label }}</button>
+        {% endfor %}
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

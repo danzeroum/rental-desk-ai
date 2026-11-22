@@ -1,0 +1,58 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Planilha{% endblock %}
+{% block content %}
+<h1>Planilha das casas</h1>
+<section class="cartao">
+  <h2>Enviar nova versão</h2>
+  <p class="dica">Nada vai ao ar sem a sua aprovação. <a href="/painel/dados/modelo">Baixar a planilha modelo</a>.</p>
+  <form method="post" action="/painel/dados" enctype="multipart/form-data" class="acoes">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="file" name="arquivo" accept=".xlsx" required>
+    <button>Enviar e conferir</button>
+  </form>
+</section>
+<section class="cartao">
+  <h2>Planilha Google (opcional)</h2>
+  {% if not service_email %}
+  <p class="dica">A ligação com o Google ainda não foi configurada pelo operador. Use o envio do arquivo acima.</p>
+  {% elif sheet %}
+  <p>Ligada. {% if sheet.failing %}<span class="selo erro">falhando ({{ sheet.failures }}x)</span>{% elif sheet.ok %}<span class="selo ok">em dia</span>{% else %}<span class="selo">aguardando</span>{% endif %}
+  {% if sheet.last_success %}<span class="dica">última leitura {{ sheet.last_success }}</span>{% endif %}</p>
+  {% if sheet.error %}<p class="aviso alerta">{{ sheet.error }}</p>{% endif %}
+  <p class="dica">A cada 15 minutos: bloqueios entram direto; mudança de casa, tarifa ou regra vira uma nova versão que espera a sua aprovação aqui embaixo.</p>
+  <div class="acoes">
+    <form method="post" action="/painel/planilha-google/sincronizar"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secundario">Sincronizar agora</button></form>
+    <form method="post" action="/painel/planilha-google/desligar"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Desligar</button></form>
+  </div>
+  {% else %}
+  <p class="dica">Em vez de enviar o arquivo, use a planilha modelo no Google Planilhas: compartilhe com
+  <code>{{ service_email }}</code> (só leitura) e cole o link aqui.</p>
+  <form method="post" action="/painel/planilha-google" class="acoes">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="link" placeholder="https://docs.google.com/spreadsheets/d/..." required>
+    <button>Ligar planilha</button>
+  </form>
+  {% endif %}
+</section>
+<section class="cartao">
+  <h2>Versões</h2>
+  {% if not snapshots %}<p class="dica">Nenhuma planilha enviada ainda.</p>{% endif %}
+  <div class="tabela"><table>
+    <thead><tr><th>Versão</th><th>Arquivo</th><th>Situação</th><th>Enviada</th><th></th></tr></thead>
+    <tbody>
+    {% for s in snapshots %}
+    <tr>
+      <td>{{ s.version }}</td>
+      <td>{{ s.file_name or "—" }}{% if s.source == "google_sheet" %} <span class="selo">Google</span>{% endif %}</td>
+      <td>{% if s.status == "draft" %}<span class="selo alerta">Aguardando aprovação</span>
+          {% elif s.status == "approved" %}<span class="selo ok">No ar</span>
+          {% elif s.status == "rejected" %}<span class="selo">Recusada</span>
+          {% else %}<span class="selo">Substituída</span>{% endif %}</td>
+      <td>{{ s.created_at | local("%d/%m/%Y") }}</td>
+      <td><a href="/painel/dados/{{ s.id }}">{% if s.status == "draft" %}Conferir e aprovar{% else %}Ver{% endif %}</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

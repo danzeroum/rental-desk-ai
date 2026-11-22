@@ -1,0 +1,192 @@
+# Uso: make up (equivale a docker compose --project-directory . -f deploy/docker-compose.yml --env-file .env ...)
+# Caminhos relativos partem da raiz do repositório.
+name: rental-desk-ai
+
+x-app-image: &app-image
+  image: ${IMAGE_NAME:-rental-desk-ai}:${APP_VERSION:-dev}
+  build:
+    context: .
+    dockerfile: deploy/Dockerfile
+    args:
+      APP_VERSION: ${APP_VERSION:-dev}
+
+# Cada processo recebe só as variáveis de que precisa (menor privilégio).
+x-app-env: &app-env
+  ENV: ${ENV:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-40}
+  SECRET_KEY: ${SECRET_KEY:?defina SECRET_KEY no .env}
+  PUBLIC_BASE_URL: https://${DOMAIN:-localhost}
+  DATABASE_URL: postgresql://rentaldesk_app:${DB_APP_PASSWORD:?}@postgres:5432/rentaldesk
+  REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
+  DATA_ENCRYPTION_KEYS: ${DATA_ENCRYPTION_KEYS:?defina DATA_ENCRYPTION_KEYS no .env}
+  WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-fake}
+  WHATSAPP_API_BASE_URL: ${WHATSAPP_API_BASE_URL:-https://graph.facebook.com/v21.0}
+  WHATSAPP_AUTH_HEADER: ${WHATSAPP_AUTH_HEADER:-Authorization}
+  WHATSAPP_AUTH_SCHEME: ${WHATSAPP_AUTH_SCHEME-Bearer}
+  WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+  WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+  TRANSCRIBER_PROVIDER: ${TRANSCRIBER_PROVIDER:-fake}
+  TRANSCRIBER_API_URL: ${TRANSCRIBER_API_URL:-https://api.openai.com/v1/audio/transcriptions}
+  TRANSCRIBER_API_KEY: ${TRANSCRIBER_API_KEY:-}
+  TRANSCRIBER_MODEL: ${TRANSCRIBER_MODEL:-whisper-1}
+  WHATSAPP_ECHO_MUTE: ${WHATSAPP_ECHO_MUTE:-false}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_SENDER: ${SMTP_SENDER:-rental-desk-ai <nao-responda@localhost>}
+  LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+  LLM_MODEL: ${LLM_MODEL:-}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_EFFORT: ${LLM_EFFORT:-low}
+  GOOGLE_SERVICE_ACCOUNT_JSON: ${GOOGLE_SERVICE_ACCOUNT_JSON:-}
+
+x-app-common: &app-common
+  <<: *app-image
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  environment: *app-env
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  logging: &logging
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      app: { condition: service_healthy }
+    logging: *logging
+
+  app:
+    <<: *app-common
+
+  worker:
+    <<: *app-common
+    command: ["python", "-m", "app.workers"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.core.healthcheck", "worker"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  scheduler:
+    <<: *app-common
+    command: ["python", "-m", "app.scheduler"]
+    environment:
+      <<: *app-env
+      DATABASE_OPS_URL: postgresql://rentaldesk_ops:${DB_OPS_PASSWORD:?}@postgres:5432/rentaldesk
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.core.healthcheck", "scheduler"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  # Só roda sob demanda: make migrate
+  migrate:
+    <<: *app-image
+    profiles: [tools]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_MIGRATION_URL: postgresql://rentaldesk_owner:${DB_OWNER_PASSWORD:?}@postgres:5432/rentaldesk
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # Conexões: worker (até ~34 com WORKER_CONCURRENCY=64) + app + scheduler + folga (docs/carga.md).
+    command: ["postgres", "-c", "max_connections=200"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: rentaldesk
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --locale=C.UTF-8 --encoding=UTF8"
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?}
+      DB_OPS_PASSWORD: ${DB_OPS_PASSWORD:?}
+      TZ: America/Sao_Paulo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-init-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rentaldesk"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    shm_size: 256mb
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  backup:
+    image: ${IMAGE_NAME:-rental-desk-ai}-backup:${APP_VERSION:-dev}
+    build:
+      context: deploy/backup
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      PGDATABASE: rentaldesk
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:?}
+      BACKUP_HOUR: ${BACKUP_HOUR:-03}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      # Cópia externa S3 compatível (opcional; vazio = só local, com alerta no painel do operador)
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-us-east-1}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-rental-desk}
+      BACKUP_S3_ACCESS_KEY: ${BACKUP_S3_ACCESS_KEY:-}
+      BACKUP_S3_SECRET_KEY: ${BACKUP_S3_SECRET_KEY:-}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
+      TZ: America/Sao_Paulo
+    volumes:
+      - backups:/backups
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  backups:

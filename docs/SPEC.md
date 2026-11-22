@@ -20,6 +20,7 @@ Este arquivo é a **fonte da verdade** do produto. Se algo aqui conflitar com ou
 | Relatório também por WhatsApp ao gestor, com consentimento (RF32) | Gestor lê no celular |
 | **TOTP para todos os usuários do painel**; homologação em **VPS separada**; conjunto de ouro de **100 casos antes do lançamento** | Restaurado o nível de produção que tinha sido cortado para ganhar prazo |
 | Marcos M9 a M11 e **definição de pronto da Versão 1.0** (seção 12) | Critério objetivo para dizer "está pronto para vender" |
+| Login do painel: **e-mail + senha + TOTP para todos**; o link mágico da v0.2 sai. O `Mailer` serve a convite de usuário, recuperação de senha e relatório semanal (esclarecimento de 21/11/2026) | Mesmo nível de segurança para gestor, corretor e operador |
 | O "teste de coexistência" continua, mas é **verificação técnica de 1 hora** de uma dependência externa da Meta, não prova de conceito do produto | Não dá para escrever código contra um comportamento da Meta que ninguém confirmou |
 
 ---
@@ -84,7 +85,7 @@ Itens **não** aceitos das revisões: fixar um modelo de IA específico no códi
   - `WhatsAppGateway`: envio/recebimento no formato da Cloud API. URL base e cabeçalho de autenticação configuráveis, para funcionar com parceiro oficial (BSP) ou Meta direta.
   - `LLMClient`: extração (saída JSON com esquema) e redação curta. Provedor e modelo por variável de ambiente.
   - `Transcriber`: áudio → texto por API.
-  - `Mailer`: e-mail do link mágico e do relatório.
+  - `Mailer`: e-mail de convite de usuário, recuperação de senha e relatório semanal. (Não há link mágico: o painel usa e-mail + senha + TOTP para todos os usuários.)
 - **Proibido**: APIs não oficiais de WhatsApp (QR code / WhatsApp Web).
 
 ### Pipeline de cada mensagem recebida
@@ -118,7 +119,7 @@ Itens **não** aceitos das revisões: fixar um modelo de IA específico no códi
 | RF09 | Atributos só com dado | Campo vazio → "vou confirmar com o corretor" + pendência no resumo |
 | RF10 | Passagem para humano | Gatilhos da seção 7 → aviso ao corretor de plantão com resumo; hóspede informado |
 | RF11 | Assumir conversa | Corretor responde "1" ao aviso **ou** clica "assumir" no painel → conversa muda por 24 h. Eco automático (mensagem do app detectada) só após prova no M0 |
-| RF12 | Escalonamento | Passagem sem assumir em 15 min (horário comercial) → alerta ao gestor e ao operador; em 60 min → mensagem ao hóspede com previsão/telefone. Fora do horário: hóspede recebe o horário de retorno |
+| RF12 | Escalonamento | Contado em tempo comercial (horário dos corretores). Sem assumir em **10 min** → a passagem vai ao próximo corretor de plantão no rodízio, e segue girando a cada 10 min; em **15 min** → alerta ao gestor e ao operador; em **60 min** → mensagem ao hóspede com previsão de retorno e telefone de contato. Fora do horário dos corretores nada disso dispara: o hóspede recebe o horário de retorno e a passagem entra na fila do primeiro corretor do próximo plantão (esclarecimento de 21/11/2026) |
 | RF13 | Dados vencidos | `ultima_atualizacao` > 24 h → nenhuma resposta afirma disponibilidade; cards dizem "disponibilidade a confirmar" |
 | RF14 | Importação da planilha | Erros bloqueantes por aba/linha; **avisos não bloqueantes**: casa sem tarifa futura, link de fotos fora do ar (checagem HTTP), capacidade incoerente |
 | RF15 | Aprovação | Nada vai ao ar sem aprovação registrada (quem, quando, hash do snapshot) |
@@ -135,7 +136,7 @@ Itens **não** aceitos das revisões: fixar um modelo de IA específico no códi
 | RF26 | Sincronização de calendário (iCal) | Gestor cola o link iCal de cada casa (Airbnb, Booking, Vrbo ou sistema próprio); sincroniza a cada 15 min; bloqueios importados com origem `ical`; link que falha 3 vezes gera alerta; dado sincronizado conta como "atualizado" para o RF13 |
 | RF27 | Planilha Google sincronizada | Alternativa ao upload: gestor compartilha a planilha modelo no Google com a conta de serviço; sincroniza a cada 15 min; cada mudança gera novo snapshot; mudanças em preço ou atributo exigem aprovação no painel; bloqueios entram direto |
 | RF28 | Assistente de implantação | Passo a passo no painel: (1) conectar WhatsApp pelo cadastro do parceiro em coexistência; (2) enviar ou ligar planilha e links iCal; (3) corrigir erros; (4) conversar com o assistente num simulador; (5) aprovar; (6) modo sombra de 2 dias; (7) ativar. Progresso salvo; o operador acompanha |
-| RF29 | Corretores, plantão e rodízio | Cadastro de corretores (nome, WhatsApp pessoal, consentimento); escala de plantão por dia e horário; passagens distribuídas em rodízio entre os de plantão; se ninguém assumir em 10 min, vai ao próximo; gestor sempre em cópia |
+| RF29 | Corretores, plantão e rodízio | Cadastro de corretores (nome, WhatsApp pessoal, consentimento); escala de plantão por dia e horário; passagens distribuídas em rodízio entre os de plantão; se ninguém assumir em 10 min comerciais, vai ao próximo, e continua girando a cada 10 min; gestor sempre em cópia. Regras de tempo e fora do horário: ver RF12 (esclarecimento de 21/11/2026) |
 | RF30 | Painel de resultados | Gráficos do dia, semana e mês: contatos, fora do horário, tempo de resposta, passagens, tempo até o corretor assumir, desfechos, taxa de fechamento, valor estimado das opções enviadas |
 | RF31 | Páginas de produto | Central de ajuda (como preencher a planilha, como assumir, perguntas frequentes), termos de uso, política de privacidade e página de status pública do serviço |
 | RF32 | Relatório por WhatsApp | Resumo semanal de 5 linhas enviado ao WhatsApp do gestor com consentimento registrado; link para o painel |
@@ -170,7 +171,7 @@ Itens **não** aceitos das revisões: fixar um modelo de IA específico no códi
 
 ### Tabelas (todas as de negócio com `tenant_id` + RLS)
 
-`tenant`, `user` (papel: operador | gestor | corretor), `property`, `rate`, `block`, `data_snapshot`, `contact`, `conversation` (inclui `state_json`, `muted_until`, `status`), `message`, `intent`, `search_result`, `handoff` (inclui `outcome`, `assumed_at`, `assumed_by`), `audit_log` (append-only, `prev_hash` + `hash`), `privacy_notice` (versionado), `weekly_report`, `consent` (opt-in do gestor/corretor para mensagens ativas).
+`tenant`, `user` (papel: operador | gestor | corretor; implementado como `app_user` + `tenant_member`, ver DECISIONS D011), `property`, `rate`, `block`, `data_snapshot`, `contact`, `conversation` (inclui `state_json`, `muted_until`, `status`), `message`, `intent`, `search_result`, `handoff` (inclui `outcome`, `assumed_at`, `assumed_by`), `audit_log` (append-only, `prev_hash` + `hash`), `privacy_notice` (versionado), `weekly_report`, `consent` (opt-in do gestor/corretor para mensagens ativas).
 
 RLS: `SET LOCAL app.current_tenant_id` no início de cada transação; política `tenant_id = current_setting('app.current_tenant_id')::uuid`. O papel de banco da aplicação **não** tem `BYPASSRLS`. Tarefas globais do operador usam papel separado e explícito.
 
@@ -237,8 +238,10 @@ RLS: `SET LOCAL app.current_tenant_id` no início de cada transação; política
 ## 8. Planilha modelo (.xlsx, 4 abas, com validação de células)
 
 1. **Imoveis**: `codigo`, `titulo_curto`, `bairro_ou_modulo`, `link_fotos`, `capacidade_max`, `quartos`, `suites`, `banheiros`, `vagas`, `piscina`, `aceita_pet`, `permite_festa`, `ar_quartos`, `wifi`, `churrasqueira`, `distancia_praia_m`, `observacoes_publicas`. Atributos: Sim / Não / vazio (vazio = desconhecido).
-2. **Tarifas**: `codigo`, `inicio`, `fim`, `diaria`, `minimo_noites`, `pacote_nome`, `pacote_valor`, `pacote_fechado` (Sim/Não), `taxa_limpeza`.
-3. **Bloqueios**: `codigo`, `inicio`, `fim`.
+2. **Tarifas**: `codigo`, `primeira_noite`, `ultima_noite`, `diaria`, `minimo_noites`, `pacote_nome`, `pacote_valor`, `pacote_fechado` (Sim/Não), `taxa_limpeza`. As duas datas são noites **incluídas** (Réveillon com entrada em 28/12 e saída em 02/01: `primeira_noite` 28/12, `ultima_noite` 01/01).
+3. **Bloqueios**: `codigo`, `entrada`, `saida`. São as datas do hóspede; no dia da `saida` a casa já fica livre para nova entrada.
+
+Internamente todo período segue a regra da estadia (noite de entrada incluída, dia de saída excluído); o importador converte `ultima_noite` somando um dia (esclarecimento de 22/11/2026, DECISIONS D016).
 4. **Regras**: chave/valor curto (check-in, check-out, caução, pagamento, cancelamento).
 
 O sistema gera o arquivo modelo (`make template` e botão no painel).
@@ -297,6 +300,7 @@ O sistema gera o arquivo modelo (`make template` e botão no painel).
 | M9 | Sincronização iCal e planilha Google (RF26, RF27) | Bloqueio criado no Airbnb aparece em até 15 min; mudança de preço na planilha Google pede aprovação |
 | M10 | Assistente de implantação, corretores com plantão e rodízio, painel de resultados, relatório por WhatsApp (RF28–RF30, RF32) | Uma pessoa que não conhece o sistema ativa uma imobiliária fictícia sozinha seguindo o painel |
 | M11 | Páginas de produto (RF31), revisão de segurança, conjunto de ouro com 100 casos, `CHANGELOG`, tag `v1.0.0` | Definição de pronto abaixo atendida |
+| M12 *(depois da Versão 1.0; nada dele entra antes do M11)* | **Tenant próprio:** o número da BuildToValue como primeiro tenant em produção, com um pacote de domínio simples de perguntas e respostas (serviços, segmentos, link dos cardápios, agendar diagnóstico), sem disponibilidade nem preço. Desse tenant, o comando "DEMO <segmento>" abre uma conversa no modo demonstração (RF25), com dados fictícios marcados como tal | O número da BuildToValue responde só com o conteúdo aprovado; "DEMO temporada" abre a demonstração com dados marcados como fictícios |
 
 ### Definição de pronto da Versão 1.0
 

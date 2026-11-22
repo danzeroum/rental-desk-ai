@@ -1,0 +1,34 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Direitos do titular{% endblock %}
+{% block content %}
+<h1>Direitos do titular</h1>
+<p class="dica">Um hóspede pediu para ver ou apagar os dados dele? Busque pelo telefone. Responda em até 15 dias.
+Quem escreve PARAR na conversa já deixa de receber mensagens automáticas sozinho.</p>
+<form method="post" action="/painel/titular" class="cartao acoes">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Telefone do hóspede <input name="phone" value="{{ phone or '' }}" placeholder="(11) 98888-7777" required></label>
+  <button name="action" value="buscar">Buscar</button>
+</form>
+{% if not_found %}<p class="aviso alerta">Nenhum dado com esse telefone.</p>{% endif %}
+{% if summary %}
+<section class="cartao">
+  <h2>{{ phone }}</h2>
+  <p>{{ summary.conversations }} conversa(s), {{ summary.messages }} mensagem(ns)
+  {% if summary.first_at %}de {{ summary.first_at | local("%d/%m/%Y") }} a {{ summary.last_at | local("%d/%m/%Y") }}{% endif %}.
+  {% if summary.opted_out %}<span class="selo">pediu PARAR</span>{% endif %}</p>
+  {% if summary.open_handoffs %}<p class="aviso alerta">Há {{ summary.open_handoffs }} passagem(ns) em andamento com este hóspede.</p>{% endif %}
+  <form method="post" action="/painel/titular" class="acoes">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="phone" value="{{ phone }}">
+    <button name="action" value="exportar" class="secundario">Exportar (arquivo JSON)</button>
+  </form>
+  <form method="post" action="/painel/titular" class="acoes">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="phone" value="{{ phone }}">
+    <label>Para apagar tudo, digite APAGAR <input name="confirm" autocomplete="off"></label>
+    <button name="action" value="apagar" class="perigo">Apagar os dados</button>
+  </form>
+  <p class="dica">Apagar remove conversas, mensagens, áudios transcritos e passagens. O registro de auditoria fica, sem telefone nem texto do hóspede.</p>
+</section>
+{% endif %}
+{% endblock %}

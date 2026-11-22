@@ -1,0 +1,42 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Datas das casas{% endblock %}
+{% block content %}
+<h1>Datas das casas</h1>
+<section class="cartao">
+  <p>Última confirmação: <strong>{{ updated or "nunca" }}</strong>. Depois de 24 horas sem confirmação o assistente
+  passa a dizer "disponibilidade a confirmar".</p>
+  <form method="post" action="/painel/bloqueios/confirmar">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button>As datas abaixo estão certas</button>
+  </form>
+</section>
+<section class="cartao">
+  <h2>Bloquear datas</h2>
+  {% if not codes %}<p class="dica">Aprove uma planilha antes de bloquear datas.</p>{% else %}
+  <form method="post" action="/painel/bloqueios" class="grade">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Casa <select name="codigo" required>{% for c in codes %}<option>{{ c }}</option>{% endfor %}</select></label>
+    <label>Entrada <input type="date" name="entrada" min="{{ today }}" required></label>
+    <label>Saída <input type="date" name="saida" min="{{ today }}" required></label>
+    <div><button>Bloquear</button></div>
+  </form>
+  <p class="dica">A noite da saída fica livre: entrada 28/12 e saída 02/01 ocupam as noites de 28 a 01.</p>
+  {% endif %}
+</section>
+<section class="cartao">
+  <h2>Bloqueios a partir de hoje</h2>
+  {% if not rows %}<p class="dica">Nenhum bloqueio.</p>{% endif %}
+  <div class="tabela"><table>
+    <thead><tr><th>Casa</th><th>Entrada</th><th>Saída</th><th>Origem</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr><td>{{ r.code }}</td><td>{{ r.start }}</td><td>{{ r.end }}</td><td>{{ r.source }}</td>
+      <td>{% if r.removable %}
+        <form method="post" action="/painel/bloqueios/{{ r.id }}/remover">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Liberar</button>
+        </form>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

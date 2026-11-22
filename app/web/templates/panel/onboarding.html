@@ -1,0 +1,36 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Implantação{% endblock %}
+{% block content %}
+<h1>Implantação</h1>
+<p>{{ done }} de {{ steps | length }} passos feitos.{% if current %} Agora: <strong>{{ current.number }}. {{ current.title }}</strong>.{% else %} <span class="selo ok">Concluída</span>{% endif %}</p>
+<ol class="passos">
+  {% for s in steps %}
+  <li class="cartao {% if s.done %}feito{% elif current and s.number == current.number %}atual{% endif %}">
+    <div class="acoes">
+      <strong>{{ s.title }}</strong>
+      {% if s.done %}<span class="selo ok">feito</span>{% elif current and s.number == current.number %}<span class="selo alerta">agora</span>{% endif %}
+    </div>
+    <p class="dica">{{ s.hint }}</p>
+    {% if s.number == 1 %}
+      <div id="whatsapp">
+      {% if account %}<p>Número {{ account.display_phone }} conectado{% if account.quality_rating %} · qualidade {{ account.quality_rating }}{% endif %}.</p>{% endif %}
+      <details {% if not account %}open{% endif %}><summary>{% if account %}Trocar o token{% else %}Conectar{% endif %}</summary>
+        <p class="dica">Faça o cadastro do número no parceiro oficial do WhatsApp, em coexistência (o app WhatsApp Business continua funcionando).
+        O parceiro informa o ID do número e um token. O sistema testa antes de salvar.</p>
+        <form method="post" action="/painel/whatsapp" class="grade">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <label>Telefone do número <input name="display_phone" placeholder="(13) 3333-0000" required></label>
+          <label>ID do número (phone_number_id) <input name="phone_number_id" inputmode="numeric" required></label>
+          <label>Token do parceiro <input name="access_token" type="password" autocomplete="off" required></label>
+          <div><button>Testar e conectar</button></div>
+        </form>
+      </details>
+      </div>
+    {% elif not s.done %}
+      <p><a href="{{ s.link }}">Ir para este passo</a></p>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ol>
+<p class="dica">O operador acompanha este progresso no painel dele. Dúvidas: central de ajuda.</p>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Calendários{% endblock %}
+{% block content %}
+<h1>Calendários das casas</h1>
+<p class="dica">Cole o link iCal de cada casa (Airbnb, Booking, Vrbo ou o sistema da imobiliária). A cada 15 minutos
+o sistema lê o calendário e bloqueia as datas ocupadas. Quando todas as casas têm calendário funcionando, as datas
+ficam em dia sozinhas, sem precisar do "OK" diário.</p>
+{% if missing and rows %}<p class="aviso alerta">Casas sem calendário: {{ missing | join(", ") }}. Para essas, continue confirmando as datas.</p>{% endif %}
+<section class="cartao">
+  <h2>Adicionar calendário</h2>
+  {% if not codes %}<p class="dica">Aprove uma planilha antes.</p>{% else %}
+  <form method="post" action="/painel/calendarios" class="grade">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Casa <select name="codigo">{% for c in codes %}<option>{{ c }}</option>{% endfor %}</select></label>
+    <label>Link iCal <input name="url" type="url" placeholder="https://www.airbnb.com.br/calendar/ical/..." required></label>
+    <div><button>Adicionar</button></div>
+  </form>
+  <p class="dica">No Airbnb: Calendário → Disponibilidade → Conectar calendários → Exportar calendário.</p>
+  {% endif %}
+</section>
+<section class="cartao">
+  <div class="acoes"><h2>Calendários ligados</h2>
+  {% if rows %}<form method="post" action="/painel/calendarios/sincronizar"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secundario">Sincronizar agora</button></form>{% endif %}</div>
+  {% if not rows %}<p class="dica">Nenhum calendário ainda.</p>{% endif %}
+  <div class="tabela"><table>
+    <thead><tr><th>Casa</th><th>Origem</th><th>Situação</th><th>Reservas</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr><td>{{ r.code }}</td><td>{{ r.label }}<br><span class="dica">{{ r.hint }}</span></td>
+      <td>{% if r.failing %}<span class="selo erro">falhando ({{ r.failures }}x)</span>
+          {% elif r.failures %}<span class="selo alerta">falhou {{ r.failures }}x</span>
+          {% elif r.ok %}<span class="selo ok">em dia</span>{% else %}<span class="selo">aguardando</span>{% endif %}
+          {% if r.last_success %}<br><span class="dica">última leitura {{ r.last_success }}</span>{% endif %}
+          {% if r.error %}<br><span class="dica">{{ r.error }}</span>{% endif %}</td>
+      <td>{{ r.events }}</td>
+      <td><form method="post" action="/painel/calendarios/{{ r.id }}/remover"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Remover</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}
