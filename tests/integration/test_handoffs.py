@@ -16,7 +16,7 @@ from app.adapters.fake_llm import FakeLLM
 from app.adapters.mailer import FakeMailer
 from app.adapters.transcriber import FakeTranscriber
 from app.adapters.whatsapp import FakeWhatsAppGateway
-from app.adapters.whatsapp_webhook import InboundMessage, WebhookBatch
+from app.adapters.whatsapp_webhook import EchoMessage, InboundMessage, WebhookBatch
 from app.core.config import TIMEZONE, Settings
 from app.core.crypto import Keyring
 from app.core.rls import global_session, tenant_session
@@ -341,3 +341,27 @@ async def test_no_broker_on_duty_still_alerts_at_15_minutes(world: World) -> Non
 
 def test_key_helper() -> None:
     assert conversation_key(uuid.UUID(int=1), uuid.UUID(int=2)).count(":") == 1
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+async def test_echo_from_business_app_mutes_only_when_enabled(world: World, enabled: bool) -> None:
+    await team(world)
+    await world.say("Quero falar com um corretor")
+    echo = EchoMessage(
+        phone_number_id=world.pnid, external_id=f"wamid.e{uuid.uuid4().hex}", to_wa_id=GUEST,
+        kind=MessageKind.TEXT, timestamp=world.clock.now, text="Oi, aqui é a Ana",
+    )  # fmt: skip
+    await ingest_batch(
+        WebhookBatch(echoes=[echo]), sessions=world.app, queue=world.queue,
+        now=world.clock.now, echo_mute=enabled,
+    )  # fmt: skip
+    handoff = await world.handoff()
+    async with tenant_session(world.app, world.tenant) as session:
+        conversation = await session.get(Conversation, handoff.conversation_id)
+    assert conversation is not None
+    if enabled:
+        assert (handoff.status, handoff.assumed_via) == (HandoffStatus.ASSUMED, "echo")
+        assert conversation.muted_until == world.clock.now + timedelta(hours=24)
+    else:
+        assert handoff.status == HandoffStatus.OPEN
+        assert conversation.muted_until is None

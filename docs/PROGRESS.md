@@ -10,12 +10,47 @@ Marcos do SPEC (seção 12). Atualizado ao fim de cada marco.
 | M3 · `pricing` + `search` (TDD) | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.4.0 |
 | M4 · Webhook, gateway, debounce, rate limit, transcrição, estado | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.5.0 |
 | M5 · Extração, decisão, templates, validador, auditoria | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.6.0 |
-| M6 · Passagem, assumir, escalonamento, pausa, desfecho | ⏳ próximo | | |
-| M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | — | | |
+| M6 · Passagem, assumir, escalonamento, pausa, desfecho | ✅ concluído | danzeroum/rental-desk-ai#1 | 0.7.0 |
+| M7 · Painel, lembrete 9h, relatório, demo, direitos do titular | ⏳ próximo | | |
 | M8 · Backup/restore, monitoramento, carga, modo sombra, runbook | — | | |
 | M9 · iCal e planilha Google | — | | |
 | M10 · Implantação guiada, plantão/rodízio, resultados, relatório WhatsApp | — | | |
 | M11 · Páginas de produto, segurança, ouro 100 casos, v1.0.0 | — | | |
+
+---
+
+## M6 · Passagem, assumir, escalonamento, pausa, desfecho — concluído em 22/11/2026
+
+### Entregue
+- **Ajustes pedidos sobre o M5:** colunas da planilha sem ambiguidade (`primeira_noite`/`ultima_noite`,
+  `entrada`/`saida`, D016), comparação de modelos no `make golden-live` (Haiku, Sonnet e Opus: acertos,
+  critérios, p95 e custo por conversa), `.env` com `claude-haiku-5-5`, fallback de recusa registrado no
+  `audit_log` (`llm_refusal_fallback`, `llm_calls`).
+- **Horário comercial** (`app/domain/hours.py`, TDD) e migração `0004` (tempos da passagem).
+- **Aviso ao corretor (RF10)** por template, em rodízio, com cópia ao gestor e só com consentimento.
+  Fora do horário, o hóspede recebe o horário de retorno e a passagem espera o plantão.
+- **Assumir (RF11):** "responda 1" pelo WhatsApp do corretor ou pelo serviço do painel; 24 h de silêncio.
+  Eco do app atrás de `WHATSAPP_ECHO_MUTE` (desligado até a verificação de coexistência).
+- **Escalonamento (RF12)** em tempo comercial: rodízio a cada 10 min, alerta ao gestor e ao operador
+  (e-mail) aos 15, mensagem ao hóspede aos 60, cada um uma vez; scheduler a cada minuto (D034).
+- **Pausa geral (RF19)** e **desfecho (RF17)** com auditoria. `Mailer` SMTP.
+- `docs/whatsapp-templates.md`: textos dos templates para cadastrar na Meta.
+- SPEC: RF12 e RF29 com o esclarecimento de escalonamento. Conjunto de ouro com 55 casos (30 + 25).
+- Versão 0.7.0.
+
+### Verificado
+- `make lint test golden` verdes: 558 testes de unidade e integração (2 pulados de propósito), cobertura 93% (núcleo 96%), e 62 do conjunto de ouro (55 casos, 75 voltas, todos os critérios).
+- **Aceite do M6:** fluxos RF10-RF12, RF17 e RF19 testados com banco e Redis reais e relógio
+  controlado: aviso ao corretor e cópia ao gestor; quem não deu consentimento não recebe nada; rodízio
+  entre passagens; linha do tempo 10/15/20/60 min com cada passo uma vez; passagem de sexta à noite que
+  espera até segunda 9h; "1" do corretor assume, confirma com o telefone do hóspede e silencia a conversa;
+  segunda tentativa de assumir é recusada; desfecho encerra; pausa tem efeito imediato.
+- Stack Docker: scheduler roda o escalonamento com o papel de operação (só ele recebe essa credencial).
+
+### Depende de humano
+- Cadastrar e aprovar os 3 templates de `docs/whatsapp-templates.md` na conta do parceiro (BSP).
+- Provedor de e-mail (SMTP) para os alertas ao operador.
+- Verificação de coexistência para decidir `WHATSAPP_ECHO_MUTE`.
 
 ---
 

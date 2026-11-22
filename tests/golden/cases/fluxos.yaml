@@ -182,3 +182,84 @@
       expect: {offers: [CASA05, CASA03, CASA02]}
     - guest: E de 14/12 a 16/12?
       expect: {action: search, offers_exclude: [CASA05]}
+
+# --- M6: passagem fora do horário e mais fluxos --------------------------------------
+
+- id: F22
+  kind: fluxo
+  description: Pede corretor fora do horário - recebe o horário de retorno
+  brokers_back: amanhã a partir das 9h
+  turns:
+    - guest: Quero falar com um corretor
+      expect: {action: handoff, handoff: human, contains: ["voltam a atender amanhã a partir das 9h"]}
+
+- id: F23
+  kind: fluxo
+  description: Escolhe uma casa fora do horário
+  brokers_back: segunda-feira a partir das 9h
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: Gostei da segunda, quero a segunda
+      expect: {action: handoff, handoff: choose, chosen: CASA03, contains: ["voltam a atender segunda-feira a partir das 9h"]}
+
+- id: F24
+  kind: fluxo
+  description: Carnaval com pacote inteiro
+  turns:
+    - guest: Casa para 6 de 05/02 a 10/02
+      expect: {action: search, contains: ["com o pacote Carnaval", "R$ 8.400,00"]}
+
+- id: F25
+  kind: fluxo
+  description: Estadia que começa na última noite do Réveillon - mínimo do pacote
+  turns:
+    - guest: Casa para 4 de 01/01 a 05/01
+      expect: {action: search, contains: ["Mínimo de 5 noites neste período."]}
+
+- id: F26
+  kind: fluxo
+  description: Orçamento informado depois da primeira lista
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search, offers: [CASA05, CASA03, CASA02]}
+    - guest: Até 5 mil
+      expect: {action: search, offers: [CASA05]}
+
+- id: F27
+  kind: fluxo
+  description: Pessoas primeiro, entrada e saída em frase solta
+  turns:
+    - guest: Somos 8 pessoas
+      expect: {action: ask, contains: ["Para quais datas?"]}
+    - guest: Chego 10/12 e saio 13/12
+      expect: {action: search, offers: [CASA03, CASA02, CASA09]}
+
+- id: F28
+  kind: fluxo
+  description: Pergunta se a terceira opção aceita pet
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: E a terceira aceita pet?
+      expect: {action: answer_attribute, contains: ["Casa do Jardim (CASA02): aceita animais de estimação, sim."]}
+
+- id: F29
+  kind: fluxo
+  description: Pergunta wi-fi da primeira opção
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {offers: [CASA05, CASA03, CASA02]}
+    - guest: A primeira tem wifi?
+      expect: {action: answer_attribute, contains: ["Casa Vista Mar (CASA05): wi-fi, sim."]}
+
+- id: F30
+  kind: fluxo
+  description: Pendência anotada e depois pede corretor
+  turns:
+    - guest: Quero uma casa para 6 pessoas de 10/12 a 15/12
+      expect: {action: search}
+    - guest: A primeira tem carregador de carro elétrico?
+      expect: {action: answer_attribute}
+    - guest: Quero falar com um corretor
+      expect: {action: handoff, handoff: human}

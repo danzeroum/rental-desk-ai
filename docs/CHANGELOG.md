@@ -5,6 +5,22 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+## [0.7.0] - 2026-11-22 · M6 Passagem ao corretor
+
+### Adicionado
+- Aviso de passagem ao corretor de plantão por template do WhatsApp, em rodízio, com cópia ao gestor e
+  consentimento obrigatório.
+- Assumir pelo "responda 1" ou pelo painel, com 24 h de silêncio do assistente; eco do app opcional.
+- Escalonamento em tempo comercial (10/15/60 min) com scheduler; resposta fora do horário com o horário de
+  retorno.
+- Pausa geral e desfecho das passagens, auditados; envio de e-mail por SMTP.
+- Comparação de modelos no `make golden-live` e registro do fallback de recusa no `audit_log`.
+- Conjunto de ouro com 55 casos.
+
+### Alterado
+- Planilha: colunas `primeira_noite`/`ultima_noite` (Tarifas) e `entrada`/`saida` (Bloqueios).
+- Modelo sugerido no `.env`: `claude-haiku-5-5`.
+
 ## [0.6.0] - 2026-11-22 · M5 Resposta ao hóspede
 
 ### Adicionado

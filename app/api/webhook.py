@@ -68,5 +68,6 @@ async def receive(request: Request) -> dict[str, str]:
         sessions=request.app.state.sessions,
         queue=request.app.state.queue,
         now=datetime.now(UTC),
+        echo_mute=settings.whatsapp_echo_mute,
     )
     return {"status": "ok"}

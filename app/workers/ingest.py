@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -18,13 +18,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.adapters.whatsapp_webhook import EchoMessage, InboundMessage, WebhookBatch
 from app.core.logging import bind_context, get_logger
 from app.core.rls import global_session, tenant_session
-from app.models import Contact, Conversation, Message, TenantRoute
-from app.models.enums import ConversationStatus, Direction, MessageOrigin
+from app.models import Contact, Conversation, Handoff, Message, TenantRoute
+from app.models.enums import ConversationStatus, Direction, HandoffStatus, MessageOrigin
 from app.workers.queue import RateDecision, WorkQueue, conversation_key
 
 log = get_logger(__name__)
 
 NOTICE_JOB = "rate_limit_notice"
+ECHO_MUTE_FOR = timedelta(hours=24)
 
 
 @dataclass
@@ -149,6 +150,8 @@ async def _store_echo(
     tenant_id: uuid.UUID,
     echo: EchoMessage,
     now: datetime,
+    *,
+    mute: bool = False,
 ) -> bool:
     async with tenant_session(sessions, tenant_id) as session:
         contact_id, _ = await _upsert_contact(session, tenant_id, echo.to_wa_id, None)
@@ -167,10 +170,20 @@ async def _store_echo(
             },
         )
         if inserted:
+            values: dict[str, object] = {"last_message_at": now}
+            if mute:
+                # RF11 por eco: só com WHATSAPP_ECHO_MUTE=true (coexistência comprovada).
+                values.update(muted_until=now + ECHO_MUTE_FOR, status=ConversationStatus.HUMAN)
+                await session.execute(
+                    update(Handoff)
+                    .where(
+                        Handoff.conversation_id == conversation_id,
+                        Handoff.status == HandoffStatus.OPEN,
+                    )
+                    .values(status=HandoffStatus.ASSUMED, assumed_at=now, assumed_via="echo")
+                )
             await session.execute(
-                update(Conversation)
-                .where(Conversation.id == conversation_id)
-                .values(last_message_at=now)
+                update(Conversation).where(Conversation.id == conversation_id).values(**values)
             )
     return inserted
 
@@ -181,6 +194,7 @@ async def ingest_batch(
     sessions: async_sessionmaker[AsyncSession],
     queue: WorkQueue,
     now: datetime,
+    echo_mute: bool = False,
 ) -> IngestResult:
     result = IngestResult()
     routes: dict[str, uuid.UUID | None] = {}
@@ -217,7 +231,9 @@ async def ingest_batch(
 
     for echo in batch.echoes:
         tenant_id = await route(echo.phone_number_id)
-        if tenant_id is not None and await _store_echo(sessions, tenant_id, echo, now):
+        if tenant_id is not None and await _store_echo(
+            sessions, tenant_id, echo, now, mute=echo_mute
+        ):
             result.echoes += 1
     log.info(
         "webhook_processado",

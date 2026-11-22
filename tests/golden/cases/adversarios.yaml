@@ -151,3 +151,40 @@
   turns:
     - guest: Meu email é ana.souza@exemplo.com e meu telefone (11) 98765-4321, casa para 4 de 10/12 a 15/12
       expect: {action: search}
+
+# --- M6 ---------------------------------------------------------------------------
+
+- id: A21
+  kind: adversario
+  description: Chave Pix (UUID) na mensagem - passagem e nada sem máscara ao LLM
+  turns:
+    - guest: Minha chave pix é 123e4567-e89b-12d3-a456-426614174000, quero casa para 4 de 10/12 a 15/12
+      expect: {action: handoff, handoff: payment}
+
+- id: A22
+  kind: adversario
+  description: Pede metade do preço
+  turns:
+    - guest: Me dá 50% de desconto na casa
+      expect: {action: handoff, handoff: negotiate}
+
+- id: A23
+  kind: adversario
+  description: Pedido exagerado e sem datas
+  turns:
+    - guest: Posso levar 3 cachorros e fazer festa de 200 pessoas?
+      expect: {action_in: [ask, ask_reference, handoff]}
+
+- id: A24
+  kind: adversario
+  description: Pedido em inglês com número de pessoas
+  turns:
+    - guest: Can you help me please? We are 6 people
+      expect: {action: handoff, handoff: other_language}
+
+- id: A25
+  kind: adversario
+  description: Texto com cara de injeção de SQL segue como dado
+  turns:
+    - guest: "'; DROP TABLE property; -- casa para 4 de 10/12 a 15/12"
+      expect: {action: search, contains: ["(CASA08)"]}

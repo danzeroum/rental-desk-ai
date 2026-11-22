@@ -321,3 +321,44 @@ A mais recente fica embaixo.
   reserva; dado pessoal da mensagem nunca vai sem máscara ao LLM.
 - `make golden` (FakeLLM, na CI) exige todos os casos; `make golden-live` (LLM real) exige os critérios
   de produção do SPEC (seção 11). 41 casos no M5 (21 fluxos, 20 adversários); 100 até o M11.
+
+## D032 · Horário dos corretores e tempo comercial (M6)
+
+- `tenant.broker_hours`: dia da semana (0 = segunda) → turnos `["HH:MM", "HH:MM"]`, fim exclusivo, fuso
+  America/Sao_Paulo; aceita turno partido. Validado em `app/domain/hours.py`.
+- Enquanto a imobiliária não configurar (assistente de implantação, M10), vale **todos os dias,
+  9h às 18h**. Horário inválido salvo no banco cai no padrão, com log de aviso.
+- Os prazos do RF12 contam **tempo comercial**: fora do horário os relógios param, e a passagem criada à
+  noite começa a contar na abertura do plantão (`handoff.clock_started_at`).
+
+## D033 · Passagem ao corretor na prática (M6)
+
+- **Aviso por template:** o aviso sai do número da imobiliária para o WhatsApp pessoal do corretor, fora de
+  qualquer janela de 24 h; por regra da Meta, só por template aprovado (`docs/whatsapp-templates.md`,
+  pendência humana). Só recebe quem tem `consent` ativo para `handoff_alert` no mesmo telefone.
+- **Rodízio:** nova passagem vai para quem recebeu passagem há mais tempo (ou nunca); a cada 10 min
+  comerciais sem assumir, vai para o próximo da lista, em ciclo (sozinho no plantão, recebe de novo). A
+  escala por dia e horário de cada corretor (RF29) entra no M10; até lá, "de plantão" = corretores com
+  WhatsApp e consentimento, dentro do horário da imobiliária.
+- **"Responda 1":** a resposta do corretor chega ao webhook como mensagem de um contato; se o telefone é de
+  um corretor ou gestor cadastrado, a mensagem vira comando e não entra no fluxo de hóspede (vale mesmo com
+  o assistente pausado). "1", "assumir" ou "assumo" assumem a passagem aberta mais recente atribuída a ele
+  (gestor: qualquer passagem aberta); qualquer outra mensagem recebe uma orientação curta. A confirmação
+  inclui o telefone do hóspede, para o corretor achar a conversa no app.
+- **Assumir** (WhatsApp, painel ou eco): passagem `assumed`, conversa `human` e muda por 24 h; segunda
+  tentativa de assumir recebe "já foi assumida por outra pessoa".
+- **Sem corretor de plantão:** a passagem fica aguardando; o alerta dos 15 min ao gestor e ao operador
+  cobre o caso.
+- **Alerta dos 15 min:** gestor por template `alerta_passagem`; operador por e-mail (`Mailer`, SMTP).
+- **Mensagem dos 60 min ao hóspede:** texto fixo "um corretor vai falar com você em breve", com o telefone
+  de contato da imobiliária quando configurado (RF24). Enviada uma vez; marcada antes do envio, para não
+  repetir se o envio falhar.
+- **Desfecho:** fechou ou perdeu encerram a passagem (`closed`); pendente mantém o estado.
+- **Eco do app (RF11):** implementado atrás de `WHATSAPP_ECHO_MUTE`, **desligado por padrão**; ligar só
+  depois da verificação de coexistência.
+
+## D034 · Scheduler e papel de operação (M6)
+
+- `python -m app.scheduler` roda tarefas por intervalo, cada uma sob trava no Redis. A lista de
+  imobiliárias com passagem aberta usa o papel `rentaldesk_ops` (BYPASSRLS); `DATABASE_OPS_URL` existe
+  **só** no contêiner do scheduler. O trabalho em si roda por imobiliária, com o papel da aplicação e RLS.

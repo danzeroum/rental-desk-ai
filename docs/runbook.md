@@ -49,6 +49,15 @@ O token de acesso de cada imobiliária fica cifrado no banco (assistente de impl
 | `make migrate` | Aplica migrações |
 | `make backup` | Backup cifrado imediato (fica no volume `backups`) |
 
+## Passagens ao corretor
+
+- Templates obrigatórios na conta do WhatsApp: `docs/whatsapp-templates.md`.
+- Corretor e gestor só recebem aviso com WhatsApp cadastrado e consentimento registrado.
+- O `scheduler` escalona a cada minuto (log `tarefa_agendada_concluida job=escalonamento`); se ele parar,
+  passagens não giram nem alertam. Ele precisa de `DATABASE_OPS_URL` (montada pelo compose).
+- Logs úteis: `passagem_assumida`, `passagem_sem_corretor_de_plantao`, `aviso_passagem_falhou`,
+  `alerta_operador_falhou`, `passagem_na_fila_fora_do_horario`.
+
 ## Fila
 
 - Trabalhos que falharam 3 vezes vão para o stream `rd:jobs:dead` no Redis

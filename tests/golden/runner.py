@@ -58,6 +58,7 @@ class Case:
     today: date = date(2026, 11, 21)
     data_fresh: bool = True
     llm: str = "ok"  # ok | down | bad_writer
+    brokers_back: str | None = None  # fora do horário: quando os corretores voltam
     extra_blocks: list[BlockData] = field(default_factory=list)
 
 
@@ -93,6 +94,7 @@ def load_cases(directory: Path = CASES_DIR) -> list[Case]:
                     today=raw.get("today", date(2026, 11, 21)),
                     data_fresh=raw.get("data_fresh", True),
                     llm=raw.get("llm", "ok"),
+                    brokers_back=raw.get("brokers_back"),
                     extra_blocks=[
                         BlockData(b["codigo"], b["inicio"], b["fim"]) for b in raw.get("blocks", [])
                     ],
@@ -214,6 +216,7 @@ async def run_case(case: Case, llm: LLMClient | None = None) -> list[TurnReport]
             first_response=index == 0, state=state, history=list(history),
             new_text=None if turn.audio_failed else turn.guest, catalog=catalog,
             data_fresh=case.data_fresh, audio_not_understood=turn.audio_failed,
+            brokers_back=case.brokers_back,
         )  # fmt: skip
         result = await engine.run(ctx)
         failures = _check_expect(turn.expect, result)
