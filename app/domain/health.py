@@ -38,6 +38,9 @@ class HealthInput:
     """Calendários iCal ou planilha Google com 3+ falhas seguidas (RF26, RF27)."""
     demo: bool = False
     """Imobiliária de demonstração: ficar dias sem mensagem é normal, não é alerta."""
+    failed_deliveries_24h: int = 0
+    """Mensagens nossas que a Meta aceitou mas não entregou (status `failed`)."""
+    delivery_error_code: int | None = None
 
 
 @dataclass(frozen=True)
@@ -46,17 +49,26 @@ class Health:
     reasons: list[str] = field(default_factory=list)
 
 
-def assess(data: HealthInput, now: datetime) -> Health:
+def _errors(data: HealthInput) -> list[str]:
     errors: list[str] = []
-    alerts: list[str] = []
     if data.dead_jobs:
         errors.append(f"{data.dead_jobs} tarefa(s) na fila de falhas")
     if data.stuck_messages:
         errors.append(f"{data.stuck_messages} mensagem(ns) sem processar há mais de 10 min")
+    if data.failed_deliveries_24h:
+        code = f" (código {data.delivery_error_code} da Meta)" if data.delivery_error_code else ""
+        errors.append(
+            f"{data.failed_deliveries_24h} mensagem(ns) não entregue(s) ao hóspede em 24 h{code}"
+        )
     if (data.quality or "").upper() == "RED":
         errors.append("qualidade do número vermelha")
     if data.active and not data.has_approved_data:
         errors.append("sem planilha aprovada")
+    return errors
+
+
+def _alerts(data: HealthInput, now: datetime) -> list[str]:
+    alerts: list[str] = []
     if data.paused:
         alerts.append("assistente pausado")
     if (data.quality or "").upper() == "YELLOW":
@@ -81,6 +93,11 @@ def assess(data: HealthInput, now: datetime) -> Health:
     quiet = data.last_inbound_at is None or now - data.last_inbound_at > QUIET_WEBHOOK
     if data.active and not data.demo and quiet:
         alerts.append("nenhuma mensagem recebida em 48 h")
+    return alerts
+
+
+def assess(data: HealthInput, now: datetime) -> Health:
+    errors, alerts = _errors(data), _alerts(data, now)
     level = Level.ERROR if errors else Level.ALERT if alerts else Level.OK
     return Health(level, errors + alerts)
 

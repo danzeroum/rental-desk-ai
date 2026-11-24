@@ -389,7 +389,9 @@ async def test_rate_limit_sends_one_polite_notice_and_audits(
         outbound = (
             await session.execute(select(Message).where(Message.origin == MessageOrigin.ASSISTANT))
         ).scalar_one()
-    assert events == ["rate_limit_notice"]
+    # Cada mensagem recebida fica na trilha (rastreio); a única resposta é o aviso.
+    assert [e for e in events if e != "message_received"] == ["rate_limit_notice"]
+    assert events.count("message_received") >= 1
     assert outbound.body == RATE_LIMIT_NOTICE
 
 

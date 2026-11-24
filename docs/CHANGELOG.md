@@ -10,6 +10,13 @@ versionamento semântico (veja `DECISIONS.md`, D007).
   `WHATSAPP_API_BASE_URL` no `.env`.
 
 ### Adicionado
+- Rastreio de ponta a ponta (D047):
+  - status de entrega da Meta (enviada, entregue, lida, falhou com código) gravado na mensagem e
+    na trilha imutável;
+  - cada mensagem recebida e cada eco do app WhatsApp Business também entram na trilha;
+  - entrega que falhou vira erro na Saúde do operador;
+  - página `/operador/rastreio` com filtros, conferência da cadeia de hash, linha do tempo da
+    conversa e exportação em CSV; as consultas ficam registradas.
 - `scripts/numero-teste-meta.sh` e `docs/numero-teste-meta.md`: liga o número de teste da Meta à Demo
   Riviera em um comando (credenciais sem eco, provedor oficial, conferência do webhook) e explica o
   modo sombra enquanto a Meta bloquear envios (erro 130497).

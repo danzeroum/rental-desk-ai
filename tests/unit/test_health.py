@@ -36,6 +36,15 @@ def test_demo_tenant_is_not_blamed_for_silence() -> None:
     assert assess(quiet, NOW).level is Level.OK
 
 
+def test_failed_deliveries_are_an_error_with_meta_code() -> None:
+    health = assess(replace(HEALTHY, failed_deliveries_24h=3, delivery_error_code=130497), NOW)
+    assert health.level is Level.ERROR
+    assert (
+        health.reasons[0]
+        == "3 mensagem(ns) não entregue(s) ao hóspede em 24 h (código 130497 da Meta)"
+    )
+
+
 def test_errors_come_first() -> None:
     health = assess(replace(HEALTHY, dead_jobs=1, paused=True, quality="RED"), NOW)
     assert health.level is Level.ERROR

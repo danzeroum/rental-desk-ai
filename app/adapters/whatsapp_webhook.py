@@ -54,10 +54,30 @@ class EchoMessage:
     text: str | None = field(default=None, repr=False)
 
 
+@dataclass(frozen=True)
+class StatusUpdate:
+    """Situação de entrega de uma mensagem nossa (campo `statuses`): sent, delivered, read, failed.
+
+    O telefone do destinatário vem no evento, mas não é guardado: a mensagem é achada pelo wamid.
+    """
+
+    phone_number_id: str
+    external_id: str
+    status: str
+    timestamp: datetime
+    error_code: int | None = None
+    error_title: str | None = None
+
+
+DELIVERY_STATUSES: Final = frozenset({"sent", "delivered", "read", "failed"})
+MAX_ERROR_TITLE: Final = 200
+
+
 @dataclass
 class WebhookBatch:
     messages: list[InboundMessage] = field(default_factory=list)
     echoes: list[EchoMessage] = field(default_factory=list)
+    statuses: list[StatusUpdate] = field(default_factory=list)
     discarded: int = 0
 
 
@@ -153,6 +173,49 @@ def _echo(item: Any, phone_number_id: str) -> EchoMessage | None:
     )
 
 
+def _status(item: Any, phone_number_id: str) -> StatusUpdate | None:
+    if not isinstance(item, dict):
+        return None
+    external_id, status = item.get("id"), item.get("status")
+    if not isinstance(external_id, str) or status not in DELIVERY_STATUSES:
+        return None
+    errors = item.get("errors") if isinstance(item.get("errors"), list) else []
+    first = errors[0] if errors and isinstance(errors[0], dict) else {}
+    code = first.get("code")
+    title = first.get("title") or first.get("message")
+    return StatusUpdate(
+        phone_number_id=phone_number_id,
+        external_id=external_id[:128],
+        status=str(status),
+        timestamp=_timestamp(item.get("timestamp")),
+        error_code=code if isinstance(code, int) else None,
+        error_title=str(title)[:MAX_ERROR_TITLE] if title else None,
+    )
+
+
+def _messages_change(value: dict[str, Any], phone_number_id: str, batch: WebhookBatch) -> None:
+    """Campo `messages`: mensagens do hóspede e status de entrega das nossas."""
+    profiles = _profiles(value)
+    for item in value.get("messages") or []:
+        parsed = _inbound(item, phone_number_id, profiles)
+        batch.discarded += parsed is None
+        if parsed is not None:
+            batch.messages.append(parsed)
+    for item in value.get("statuses") or []:
+        update = _status(item, phone_number_id)
+        batch.discarded += update is None
+        if update is not None:
+            batch.statuses.append(update)
+
+
+def _echoes_change(value: dict[str, Any], phone_number_id: str, batch: WebhookBatch) -> None:
+    for item in value.get("message_echoes") or []:
+        echo = _echo(item, phone_number_id)
+        batch.discarded += echo is None
+        if echo is not None:
+            batch.echoes.append(echo)
+
+
 def parse_webhook(payload: Any) -> WebhookBatch:
     batch = WebhookBatch()
     if not isinstance(payload, dict):
@@ -167,16 +230,7 @@ def parse_webhook(payload: Any) -> WebhookBatch:
                 batch.discarded += 1
                 continue
             if change.get("field") == "messages":
-                profiles = _profiles(value)
-                for item in value.get("messages") or []:
-                    parsed = _inbound(item, phone_number_id, profiles)
-                    batch.discarded += parsed is None
-                    if parsed is not None:
-                        batch.messages.append(parsed)
+                _messages_change(value, phone_number_id, batch)
             elif change.get("field") == "smb_message_echoes":
-                for item in value.get("message_echoes") or []:
-                    echo = _echo(item, phone_number_id)
-                    batch.discarded += echo is None
-                    if echo is not None:
-                        batch.echoes.append(echo)
+                _echoes_change(value, phone_number_id, batch)
     return batch

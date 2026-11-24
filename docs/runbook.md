@@ -87,6 +87,30 @@ make seed-demo PNID=123456789012345
 - Aviso de privacidade público: `https://<domínio>/privacidade/<slug>` (a versão vai na 1ª resposta).
   **Texto-base em `app/domain/privacy.py` precisa de revisão jurídica** antes do lançamento.
 
+## Rastreio: comprovar a um cliente o que aconteceu
+
+Operador → **Rastreio** (`/operador/rastreio`):
+
+1. **Escolha a imobiliária e o período.** Para uma conversa específica, digite o telefone do
+   hóspede, com ou sem o 55 e com ou sem o 9.
+2. **Confira o selo "cadeia íntegra".** O banco recalcula o hash de todos os eventos daquela
+   imobiliária na hora. Se aparecer **"cadeia QUEBRADA"**, trate como incidente de segurança
+   (seção abaixo): não apague nada.
+3. **Abra "ver conversa".** Aparece cada mensagem com hora, quem enviou e o status da Meta
+   (enviada, entregue, lida ou **NÃO ENTREGUE** com o código). Os códigos mais comuns:
+
+   | Código | O que é |
+   |---|---|
+   | 130497 | Conta bloqueada para enviar ao país do destinatário. Peça a verificação da empresa e abra chamado na Meta. |
+   | 131047 | Passou a janela de 24 h: só por template aprovado. |
+   | 131026 | Destinatário não alcançável (sem WhatsApp ou bloqueou o número). |
+   | 190 | Token inválido ou vencido: gere outro e rode `scripts/numero-teste-meta.sh` ou reconecte em Configurações. |
+
+4. **"Exportar CSV"** gera o arquivo com o hash de cada evento. Ele serve de prova: qualquer
+   alteração no banco quebraria a cadeia.
+
+Toda consulta e exportação fica registrada na própria trilha, com quem consultou e quando.
+
 ## Comandos do dia a dia
 
 | Comando | O que faz |

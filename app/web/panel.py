@@ -25,6 +25,7 @@ from app.web import (
     routes_settings,
     routes_shadow,
     routes_sync,
+    routes_trace,
 )
 from app.web.common import SECURITY_HEADERS, WEB_DIR, LoginRequired, redirect, render
 
@@ -100,5 +101,6 @@ def install_panel(app: FastAPI) -> None:
         routes_onboarding,
         routes_public,
         routes_demo,
+        routes_trace,
     ):
         app.include_router(module.router)
