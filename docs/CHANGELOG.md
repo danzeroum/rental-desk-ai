@@ -8,6 +8,8 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 ### Alterado
 - API da Meta na versão v25.0 por padrão (era v21.0). Em instalações existentes, ajuste
   `WHATSAPP_API_BASE_URL` no `.env`.
+- Rastreio: consultas, exportações e acessos de suporte saem da visão "todos" e ganham o filtro
+  "acessos"; continuam gravados na trilha e no CSV de "todos".
 
 ### Adicionado
 - Rastreio de ponta a ponta (D047):
