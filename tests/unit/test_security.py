@@ -84,7 +84,12 @@ def test_provisioning_uri_and_qr() -> None:
     uri = provisioning_uri("JBSWY3DPEHPK3PXP", "ana@x.com", issuer="Rental Desk")
     assert uri.startswith("otpauth://totp/Rental%20Desk:ana%40x.com?secret=JBSWY3DPEHPK3PXP")
     assert "issuer=Rental%20Desk" in uri
-    assert qr_svg(uri).lstrip().startswith("<svg")
+    svg = qr_svg(uri)
+    assert svg.lstrip().startswith("<svg")
+    # Escalável sem cortar (o CSS define o tamanho) e com fundo branco também no modo escuro.
+    head = svg.split(">", 1)[0]
+    assert 'viewBox="0 0 ' in head and "width=" not in head
+    assert 'fill="#fff"' in svg
 
 
 def test_tokens_are_random_and_hashed() -> None:

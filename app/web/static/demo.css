@@ -42,7 +42,7 @@ a { color: var(--acento); }
 .sistema { align-self: center; max-width: 92%; text-align: center; font-size: .8rem; color: var(--suave);
            background: var(--dele); padding: .35rem .6rem; border-radius: 8px; }
 .digitando { align-self: flex-start; font-size: .85rem; color: var(--suave); font-style: italic; margin: 0; }
-.sugestoes { display: flex; gap: .4rem; overflow-x: auto; padding: .4rem .6rem; }
+.sugestoes { display: flex; flex-wrap: wrap; gap: .4rem; padding: .4rem .6rem; }
 .sugestoes form { flex: none; }
 .chip { white-space: nowrap; border: 1px solid rgba(127,127,127,.35); background: var(--chip); color: var(--texto);
         border-radius: 999px; padding: .35rem .7rem; font: inherit; font-size: .82rem; cursor: pointer; }
@@ -63,5 +63,8 @@ button.link { background: none; border: 0; color: var(--suave); text-decoration:
   .celular { height: calc(100svh - 6.5rem); min-height: 26rem; border-radius: 12px; }
   .celular.corretor { height: auto; min-height: 20rem; max-height: 80svh; }
   .so-celular { display: inline; }
+  /* No celular, as sugestões rolam de lado, sem barra visível. */
+  .sugestoes { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .sugestoes::-webkit-scrollbar { display: none; }
   .demo-nav { padding: 0 .5rem; font-size: .9rem; }
 }

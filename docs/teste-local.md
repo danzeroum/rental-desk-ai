@@ -283,7 +283,7 @@ de pronto da v1.0.0.
 ## 6. Como as peças se encaixam
 
 ```
-Hóspede (WhatsApp) ──► Meta / parceiro (BSP) ──► Caddy (HTTPS) ──► app: /webhook (assinatura conferida)
+Hóspede (WhatsApp) ──► Meta / parceiro (BSP) ──► Caddy (HTTPS) ──► app: /webhooks/whatsapp (assinatura conferida)
                                                                       │ grava a mensagem (RLS)
                                                                       ▼
                                                     Redis: debounce + limite anti-abuso

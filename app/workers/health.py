@@ -121,5 +121,6 @@ async def collect(
         has_approved_data=tenant.active_snapshot_id is not None,
         llm_failures_1h=int(llm_failures or 0),
         failing_syncs=failing_syncs,
+        demo=tenant.is_demo,
     )
     return TenantSnapshot(data, account)

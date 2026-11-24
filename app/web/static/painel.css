@@ -35,7 +35,7 @@ form.inline { display: inline; }
 .aviso.erro { color: var(--erro); border-color: var(--erro); }
 .aviso.alerta { color: var(--alerta); border-color: var(--alerta); }
 .dica { color: var(--suave); font-size: .92rem; }
-.qr svg { width: 220px; height: 220px; background: #fff; padding: 8px; border-radius: 6px; }
+.qr svg { display: block; width: 240px; max-width: 100%; height: auto; background: #fff; border-radius: 6px; }
 .chave { word-break: break-all; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--borda); vertical-align: top; }

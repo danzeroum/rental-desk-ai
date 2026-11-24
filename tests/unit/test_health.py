@@ -31,6 +31,11 @@ def test_alerts() -> None:
         assert health.level is Level.ALERT and word in health.reasons[0], word
 
 
+def test_demo_tenant_is_not_blamed_for_silence() -> None:
+    quiet = replace(HEALTHY, last_inbound_at=None, demo=True)
+    assert assess(quiet, NOW).level is Level.OK
+
+
 def test_errors_come_first() -> None:
     health = assess(replace(HEALTHY, dead_jobs=1, paused=True, quality="RED"), NOW)
     assert health.level is Level.ERROR

@@ -13,6 +13,7 @@ bash scripts/teste-local.sh   # sobe tudo, cria operador, demonstração e link 
 ```
 
 Guia completo, com o roteiro do que testar em cada tela: [`docs/teste-local.md`](docs/teste-local.md).
+Com o WhatsApp de verdade (número de teste da Meta, sem parceiro): [`docs/numero-teste-meta.md`](docs/numero-teste-meta.md).
 
 ## Começo rápido (desenvolvimento)
 

@@ -26,6 +26,12 @@ from app.workers.health import collect, dead_jobs_by_tenant
 
 router = APIRouter(prefix="/operador")
 LEVEL_ORDER: Final = {Level.ERROR: 0, Level.ALERT: 1, Level.OK: 2}
+STATUS_NAMES: Final = {
+    "onboarding": "em implantação",
+    "shadow": "modo sombra",
+    "active": "atendendo",
+    "suspended": "suspensa",
+}
 
 
 async def operator_session(panel: Annotated[PanelSession, Depends(panel_session)]) -> PanelSession:
@@ -90,5 +96,5 @@ async def overview(request: Request, operator: Operator) -> Response:
     summary = {level: sum(r.health.level is level for r in rows) for level in Level}
     return render(
         request, "operator/overview.html",
-        {"rows": rows, "summary": summary, "checked": _fmt(now)},
+        {"rows": rows, "summary": summary, "checked": _fmt(now), "status_names": STATUS_NAMES},
     )  # fmt: skip

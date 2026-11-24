@@ -93,7 +93,11 @@ def provisioning_uri(secret: str, email: str, *, issuer: str) -> str:
 
 def qr_svg(data: str) -> str:
     buffer = io.BytesIO()
-    segno.make(data, error="m").save(buffer, kind="svg", scale=5, xmldecl=False)
+    # `omitsize` grava viewBox em vez de largura/altura fixas: o CSS pode redimensionar sem
+    # cortar. A borda de 4 módulos é a margem branca que o leitor de QR exige.
+    segno.make(data, error="m").save(
+        buffer, kind="svg", border=4, omitsize=True, xmldecl=False, dark="#000", light="#fff"
+    )
     return buffer.getvalue().decode()
 
 
