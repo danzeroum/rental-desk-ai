@@ -24,7 +24,7 @@
     </select></label>
   <label>Eventos
     <select name="tipo">
-      <option value="">todos</option>
+      <option value="">todos (exceto acessos)</option>
       {% for g in groups %}<option value="{{ g }}" {% if filters.group == g %}selected{% endif %}>{{ g }}</option>{% endfor %}
     </select></label>
   <label>Telefone do hóspede (opcional)
@@ -40,7 +40,7 @@
   {% else %}
   <p><span class="selo erro">cadeia QUEBRADA</span> no evento nº {{ broken }}. Isso não acontece em uso normal: avise o responsável técnico e não apague nada.</p>
   {% endif %}
-  <p><a href="/operador/rastreio/exportar?imobiliaria={{ filters.tenant_id }}&periodo={{ filters.period }}&tipo={{ filters.group }}&telefone={{ filters.phone }}">Exportar CSV (com o hash de cada evento)</a></p>
+  <p><a href="/operador/rastreio/exportar?imobiliaria={{ filters.tenant_id }}&periodo={{ filters.period }}&tipo={{ filters.group }}&telefone={{ filters.phone }}">Exportar CSV (com o hash de cada evento{% if not filters.group %}, incluindo os acessos{% endif %})</a></p>
 </section>
 
 <div class="tabela"><table>

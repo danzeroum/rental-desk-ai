@@ -81,13 +81,21 @@ async def test_trace_shows_chain_delivery_and_conversation(
     )
     assert GUEST not in page.text.split("<tbody>")[1]  # nos resultados, nunca o número completo
 
+    again = panel.get(f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d")
+    assert "Rastreio consultado" not in again.text  # acessos fora da visão "todos"
+    accesses = panel.get(f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d&tipo=acessos")
+    assert "Rastreio consultado" in accesses.text
+    assert "Mensagem recebida do hóspede" not in accesses.text
+
     other = panel.get(f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d&telefone=11900000000")
     assert "Nenhum evento nesse filtro" in other.text
 
     exported = panel.get(f"/operador/rastreio/exportar?imobiliaria={tenant_id}&periodo=7d")
     assert exported.status_code == 200 and "attachment" in exported.headers["content-disposition"]
     rows = list(csv.DictReader(io.StringIO(exported.text)))
-    assert {"message_received", "response_sent", "delivery_status"} <= {r["evento"] for r in rows}
+    assert {"message_received", "response_sent", "delivery_status", "trace_viewed"} <= {
+        r["evento"] for r in rows
+    }  # o CSV de "todos" é a prova completa, com os acessos
     assert all(len(r["hash"]) == 64 for r in rows)
 
     async with tenant_session(app_sessions, tenant_id) as session:

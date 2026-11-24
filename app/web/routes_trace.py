@@ -94,9 +94,12 @@ GROUPS: Final = {
                   "handoff_assumed", "handoff_outcome", "broker_reply"),
     "painel": ("status_changed", "assistant_paused", "settings_changed", "snapshot_imported",
                "snapshot_approved", "snapshot_rejected", "availability_confirmed", "block_added",
-               "block_removed", "support_access", "trace_viewed", "trace_exported",
-               "subject_erased"),
+               "block_removed", "subject_erased"),
+    "acessos": ("support_access", "trace_viewed", "trace_exported"),
 }  # fmt: skip
+ACCESS_EVENTS: Final = GROUPS["acessos"]
+"""Quem consultou o quê (LGPD). Fora da visão "todos" para não encobrir o atendimento; sempre
+no CSV de "todos", que é a prova completa."""
 DELIVERY_LABELS: Final = {
     "sent": "enviada", "delivered": "entregue", "read": "lida", "failed": "NÃO ENTREGUE",
 }  # fmt: skip
@@ -235,11 +238,14 @@ async def _conversations_of(session: AsyncSession, phone: str) -> list[uuid.UUID
 
 
 async def _events(
-    session: AsyncSession, filters: Filters, now: datetime, limit: int
+    session: AsyncSession, filters: Filters, now: datetime, limit: int, *, complete: bool = False
 ) -> list[AuditLog]:
+    """Eventos do filtro. Sem grupo, a tela omite os acessos; `complete` (CSV) traz todos."""
     query = select(AuditLog).where(AuditLog.created_at >= now - PERIODS[filters.period])
     if filters.group:
         query = query.where(AuditLog.event_type.in_(GROUPS[filters.group]))
+    elif not complete:
+        query = query.where(AuditLog.event_type.not_in(ACCESS_EVENTS))
     if filters.conversation_id:
         query = query.where(AuditLog.conversation_id == filters.conversation_id)
     elif filters.phone:
@@ -302,7 +308,7 @@ async def trace_export(request: Request, operator: Operator, filters: FiltersDep
     async with tenant_session(
         request.app.state.sessions, filters.tenant_id, user_id=operator.user_uuid
     ) as session:
-        events = await _events(session, filters, now, MAX_EXPORT)
+        events = await _events(session, filters, now, MAX_EXPORT, complete=True)
         await append_audit(
             session, tenant_id=filters.tenant_id, event_type="trace_exported",
             payload={"user_id": operator.user_id, "rows": len(events), **filters.as_audit()},
