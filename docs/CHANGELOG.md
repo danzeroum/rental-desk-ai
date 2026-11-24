@@ -19,6 +19,8 @@ versionamento semântico (veja `DECISIONS.md`, D007).
   Enseada (6 quartos), links com token revogáveis em `/operador/demo` e limpeza diária.
 
 ### Corrigido
+- QR do autenticador (TOTP) saía cortado na tela e não era lido pelo app; agora escala sem
+  cortar, com margem e fundo branco também no modo escuro.
 - Painel do operador mostrava a situação em inglês ("active"); agora "atendendo", "modo sombra" etc.
 - Imobiliárias de demonstração não geram mais o alerta "nenhuma mensagem recebida em 48 h".
 - Demonstração: as datas das empresas fictícias são renovadas na limpeza diária; antes, depois de 24 h,
