@@ -30,12 +30,18 @@ set_env() {  # troca ou acrescenta NOME=valor sem mostrar o valor
   printf '%s=%s\n' "$1" "$2" >> "${tmp}"
   cat "${tmp}" > .env && rm -f "${tmp}"
 }
-env_value() { grep -E "^$1=" .env | tail -n 1 | cut -d= -f2-; }
+env_value() {  # valor de NOME no .env, ou vazio se não existir (sem derrubar o set -e)
+  { grep -E "^$1=" .env || true; } | tail -n 1 | cut -d= -f2-
+}
 
 step "1/4 Credenciais da Meta (não aparecem na tela)"
 read -rsp "    Chave secreta do app (Configurações do app → Básico): " APP_SECRET; echo
 read -rsp "    Token de acesso (usuário do sistema ou o de teste, 24 h): " DEMO_WHATSAPP_TOKEN; echo
 [[ -n "${APP_SECRET}" && -n "${DEMO_WHATSAPP_TOKEN}" ]] || { echo "ERRO: chave e token são obrigatórios." >&2; exit 1; }
+# A chave secreta da Meta tem 32 caracteres hexadecimais; o token começa com EAA. Conferir
+# aqui evita trocar um pelo outro (ou colar com espaço) e só descobrir quando nada chega.
+[[ "${APP_SECRET}" =~ ^[0-9a-f]{32}$ ]] || { echo "ERRO: a chave secreta precisa ter 32 caracteres 0-9/a-f (Configurações do app → Básico → Mostrar). Nada foi alterado." >&2; exit 1; }
+[[ "${DEMO_WHATSAPP_TOKEN}" == EAA* ]] || { echo "ERRO: o token de acesso começa com EAA (Etapa 1 → Gerar token). Nada foi alterado." >&2; exit 1; }
 export DEMO_WHATSAPP_TOKEN
 
 step "2/4 Ligando o provedor oficial (Cloud API) no .env"
@@ -44,7 +50,7 @@ set_env WHATSAPP_APP_SECRET "${APP_SECRET}"
 unset APP_SECRET
 [[ -n "$(env_value WHATSAPP_VERIFY_TOKEN)" ]] || set_env WHATSAPP_VERIFY_TOKEN "$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 chmod 600 .env
-compose up -d --wait > /dev/null
+compose up -d --wait --force-recreate app worker scheduler > /dev/null
 info "serviços reiniciados com a configuração nova"
 
 step "3/4 Conectando o número ${PNID} à Imobiliária Demo Riviera"
