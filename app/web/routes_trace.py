@@ -12,8 +12,6 @@ qualquer requisição. Toda consulta e exportação fica registrada na própria 
 
 from __future__ import annotations
 
-import csv
-import io
 import json
 import re
 import uuid
@@ -111,6 +109,22 @@ class Row:
     conversation_id: uuid.UUID | None
     detail: str
     failed: bool
+
+
+_FORMULA_START: Final = ("=", "+", "-", "@", "\t", "\r")
+
+
+def csv_cell(value: object) -> str:
+    """Célula de CSV segura: texto que começa como fórmula (=, +, -, @) ganha um apóstrofo,
+    para a planilha mostrar o texto em vez de executar (injeção de fórmula em CSV)."""
+    text = "" if value is None else str(value)
+    if text.startswith(_FORMULA_START):
+        text = "'" + text
+    return '"' + text.replace('"', '""') + '"'
+
+
+def csv_line(cells: list[object]) -> str:
+    return ",".join(csv_cell(cell) for cell in cells) + "\r\n"
 
 
 def mask_phone(phone: str) -> str:
@@ -274,20 +288,26 @@ async def trace_export(request: Request, operator: Operator, filters: FiltersDep
             session, tenant_id=filters.tenant_id, event_type="trace_exported",
             payload={"user_id": operator.user_id, "rows": len(events), **filters.as_audit()},
         )  # fmt: skip
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(["seq", "data_hora_utc", "evento", "descricao", "conversa", "detalhes",
-                     "hash", "hash_anterior"])  # fmt: skip
-    for e in reversed(events):
-        writer.writerow([
-            e.seq, e.created_at.isoformat(), e.event_type,
-            EVENT_LABELS.get(e.event_type, e.event_type), e.conversation_id or "",
-            mask_pii(json.dumps(e.payload, ensure_ascii=False, default=str)),
-            e.hash.hex(), e.prev_hash.hex(),
-        ])  # fmt: skip
+    lines = [csv_line(["seq", "data_hora_utc", "evento", "descricao", "conversa", "detalhes",
+                       "hash", "hash_anterior"])]  # fmt: skip
+    lines += [
+        csv_line(
+            [
+                e.seq,
+                e.created_at.isoformat(),
+                e.event_type,
+                EVENT_LABELS.get(e.event_type, e.event_type),
+                e.conversation_id or "",
+                mask_pii(json.dumps(e.payload, ensure_ascii=False, default=str)),
+                e.hash.hex(),
+                e.prev_hash.hex(),
+            ]
+        )
+        for e in reversed(events)
+    ]
     name = f"rastreio-{filters.tenant_id}-{now:%Y%m%d-%H%M}.csv"
     return Response(
-        buffer.getvalue(),
+        "".join(lines),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )

@@ -17,7 +17,7 @@ from app.core.config import Settings
 from app.core.crypto import Keyring
 from app.core.rls import global_session, tenant_session
 from app.models import AppUser, AuditLog
-from app.web.routes_trace import mask_phone
+from app.web.routes_trace import csv_line, mask_phone
 from app.workers.ingest import ingest_batch
 from tests.integration.panel_client import PanelClient, panel_client, user_with_password
 from tests.integration.test_pipeline import (  # noqa: F401 - fixtures
@@ -45,6 +45,12 @@ async def _login_operator(panel: PanelClient, app: Sessions) -> None:
         session.add(AppUser(id=user_id, email=email, display_name="Op", is_operator=True,
                             password_hash=password_hash))  # fmt: skip
     panel.login(email)
+
+
+def test_csv_neutralizes_formulas_and_quotes() -> None:
+    line = csv_line(['=HYPERLINK("x")', "+1", "normal", 7, None])
+    assert line == '"\'=HYPERLINK(""x"")","\'+1","normal","7",""\r\n'
+    assert next(csv.reader(io.StringIO(line)))[0] == '\'=HYPERLINK("x")'
 
 
 def test_mask_phone() -> None:
