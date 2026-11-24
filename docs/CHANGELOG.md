@@ -5,6 +5,12 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+### Segurança
+- Revisão LGPD de 24/11/2026 (`docs/revisao-2026-11-24.md`), itens P1:
+  - Risco-002: o filtro por telefone e a exportação do Rastreio passam a ser POST com CSRF; o
+    telefone não vai mais na URL. Os logs do Caddy (acesso e erro) apagam `telefone`/`phone` da URL
+    e encurtam o IP.
+
 ### Alterado
 - API da Meta na versão v25.0 por padrão (era v21.0). Em instalações existentes, ajuste
   `WHATSAPP_API_BASE_URL` no `.env`.

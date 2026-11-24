@@ -73,7 +73,8 @@ async def test_trace_shows_chain_delivery_and_conversation(
     await _login_operator(panel, app_sessions)
     panel.clock.now = NOW.replace(hour=16)
 
-    page = panel.get(f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d&telefone={GUEST}")
+    search = {"imobiliaria": str(tenant_id), "periodo": "7d"}
+    page = panel.post("/operador/rastreio", {**search, "telefone": GUEST})
     assert page.status_code == 200, page.text
     assert "cadeia íntegra" in page.text
     assert (
@@ -87,10 +88,10 @@ async def test_trace_shows_chain_delivery_and_conversation(
     assert "Rastreio consultado" in accesses.text
     assert "Mensagem recebida do hóspede" not in accesses.text
 
-    other = panel.get(f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d&telefone=11900000000")
+    other = panel.post("/operador/rastreio", {**search, "telefone": "11900000000"})
     assert "Nenhum evento nesse filtro" in other.text
 
-    exported = panel.get(f"/operador/rastreio/exportar?imobiliaria={tenant_id}&periodo=7d")
+    exported = panel.post("/operador/rastreio/exportar", search)
     assert exported.status_code == 200 and "attachment" in exported.headers["content-disposition"]
     rows = list(csv.DictReader(io.StringIO(exported.text)))
     assert {"message_received", "response_sent", "delivery_status", "trace_viewed"} <= {
@@ -111,6 +112,22 @@ async def test_trace_shows_chain_delivery_and_conversation(
     assert timeline.status_code == 200
     assert "Casa para 8 pessoas" in timeline.text and "NÃO ENTREGUE" in timeline.text
     assert mask_phone("+" + GUEST) in timeline.text
+
+
+async def test_phone_never_travels_in_the_url(
+    panel: PanelClient, app_sessions: Sessions, ops_sessions: Sessions, keyring: Keyring,
+) -> None:  # fmt: skip
+    """Telefone na URL vai para o log de acesso (revisão LGPD, Risco-002): por GET é ignorado."""
+    tenant_id, _ = await setup_tenant(app_sessions, ops_sessions, keyring)
+    await _login_operator(panel, app_sessions)
+    url = f"/operador/rastreio?imobiliaria={tenant_id}&telefone=11900000000"
+    page = panel.get(url)
+    assert page.status_code == 200
+    assert 'value="11900000000"' not in page.text  # o filtro da URL não foi aplicado
+    assert 'method="post" action="/operador/rastreio"' in page.text
+    assert panel.get(f"/operador/rastreio/exportar?imobiliaria={tenant_id}").status_code == 405
+    no_csrf = panel.http.post("/operador/rastreio", data={"imobiliaria": str(tenant_id)})
+    assert no_csrf.status_code == 403
 
 
 async def test_trace_requires_operator(panel: PanelClient) -> None:

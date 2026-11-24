@@ -92,7 +92,9 @@ make seed-demo PNID=123456789012345
 Operador → **Rastreio** (`/operador/rastreio`):
 
 1. **Escolha a imobiliária e o período.** Para uma conversa específica, digite o telefone do
-   hóspede, com ou sem o 55 e com ou sem o 9.
+   hóspede, com ou sem o 55 e com ou sem o 9. O telefone vai no corpo do formulário, nunca na
+   URL: um link com `?telefone=` é ignorado (a URL fica no log de acesso). O Caddy também apaga
+   `telefone`/`phone` da URL e encurta o IP nos próprios logs.
 2. **Confira o selo "cadeia íntegra".** O banco recalcula o hash de todos os eventos daquela
    imobiliária na hora. Se aparecer **"cadeia QUEBRADA"**, trate como incidente de segurança
    (seção abaixo): não apague nada.
