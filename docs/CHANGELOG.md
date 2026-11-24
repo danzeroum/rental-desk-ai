@@ -5,6 +5,10 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+### Alterado
+- API da Meta na versão v25.0 por padrão (era v21.0). Em instalações existentes, ajuste
+  `WHATSAPP_API_BASE_URL` no `.env`.
+
 ### Adicionado
 - `scripts/numero-teste-meta.sh` e `docs/numero-teste-meta.md`: liga o número de teste da Meta à Demo
   Riviera em um comando (credenciais sem eco, provedor oficial, conferência do webhook) e explica o
@@ -19,6 +23,8 @@ versionamento semântico (veja `DECISIONS.md`, D007).
   Enseada (6 quartos), links com token revogáveis em `/operador/demo` e limpeza diária.
 
 ### Corrigido
+- Erro de envio pelo WhatsApp agora registra o código e o motivo que a Meta devolve (mascarados);
+  antes o log dizia só "API respondeu 400", sem dizer se era token, versão ou destinatário.
 - `numero-teste-meta.sh` parava sem aviso na conferência do webhook quando o `.env` não tinha
   `PUBLIC_BASE_URL` (o padrão na VPS); agora usa `https://<DOMAIN>`. Também recusa uma chave secreta
   fora do formato (32 hex) ou um token que não começa com EAA, e recria os serviços para aplicar a

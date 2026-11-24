@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 import httpx2
 
 from app.core.logging import get_logger
+from app.core.masking import mask_pii
 
 MAX_ATTEMPTS: Final = 3
 MAX_MEDIA_BYTES: Final = 16 * 1024 * 1024  # limite de áudio do WhatsApp
@@ -47,6 +48,23 @@ class GatewayError(Exception):
         super().__init__(message)
         self.retryable = retryable
         self.status = status
+        self.meta_code: int | None = None
+        """Código de erro da Meta (ex.: 190 token inválido, 131030 destinatário não permitido)."""
+
+
+MAX_REASON: Final = 160
+
+
+def _meta_error(response: httpx2.Response) -> tuple[int | None, str]:
+    """Código e motivo do erro que a Meta devolve, para o log e o painel. O texto passa pela
+    máscara de dados pessoais e é cortado: nunca leva o corpo da mensagem nem o token."""
+    try:
+        error = response.json().get("error") or {}
+    except (ValueError, AttributeError):
+        return None, ""
+    code = error.get("code")
+    reason = " ".join(str(error.get("message") or error.get("error_user_msg") or "").split())
+    return (code if isinstance(code, int) else None), mask_pii(reason)[:MAX_REASON]
 
 
 class WhatsAppGateway(Protocol):
@@ -120,14 +138,18 @@ class CloudApiGateway:
             else:
                 if response.status_code < 400:  # noqa: PLR2004
                     return response
+                code, reason = _meta_error(response)
                 error = GatewayError(
-                    f"API respondeu {response.status_code}",
+                    f"API respondeu {response.status_code}"
+                    + (f" (código {code}: {reason})" if code else ""),
                     retryable=response.status_code in RETRYABLE_STATUS,
                     status=response.status_code,
                 )
+                error.meta_code = code
             log.warning(
-                "whatsapp_api_erro", attempt=attempt, status=error.status, retryable=error.retryable
-            )
+                "whatsapp_api_erro", attempt=attempt, status=error.status,
+                retryable=error.retryable, meta_code=error.meta_code, motivo=str(error),
+            )  # fmt: skip
             if not error.retryable or attempt == MAX_ATTEMPTS:
                 raise error
             await self._sleep(delay)
