@@ -20,7 +20,9 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ### Corrigido
 - `numero-teste-meta.sh` parava sem aviso na conferência do webhook quando o `.env` não tinha
-  `PUBLIC_BASE_URL` (o padrão na VPS); agora usa `https://<DOMAIN>`.
+  `PUBLIC_BASE_URL` (o padrão na VPS); agora usa `https://<DOMAIN>`. Também recusa uma chave secreta
+  fora do formato (32 hex) ou um token que não começa com EAA, e recria os serviços para aplicar a
+  chave nova.
 - QR do autenticador (TOTP) saía cortado na tela e não era lido pelo app; agora escala sem
   cortar, com margem e fundo branco também no modo escuro.
 - Painel do operador mostrava a situação em inglês ("active"); agora "atendendo", "modo sombra" etc.
