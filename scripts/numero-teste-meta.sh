@@ -30,7 +30,9 @@ set_env() {  # troca ou acrescenta NOME=valor sem mostrar o valor
   printf '%s=%s\n' "$1" "$2" >> "${tmp}"
   cat "${tmp}" > .env && rm -f "${tmp}"
 }
-env_value() { grep -E "^$1=" .env | tail -n 1 | cut -d= -f2-; }
+env_value() {  # valor de NOME no .env, ou vazio se não existir (sem derrubar o set -e)
+  { grep -E "^$1=" .env || true; } | tail -n 1 | cut -d= -f2-
+}
 
 step "1/4 Credenciais da Meta (não aparecem na tela)"
 read -rsp "    Chave secreta do app (Configurações do app → Básico): " APP_SECRET; echo
