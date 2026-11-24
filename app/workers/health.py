@@ -93,6 +93,17 @@ async def collect(
                 AuditLog.payload["llm_unavailable"].astext == "true",
             )
         )
+        failed_deliveries, last_error_code = (
+            await session.execute(
+                select(
+                    func.count(),
+                    func.max(Message.delivery_error_code),
+                ).where(
+                    Message.delivery_status == "failed",
+                    Message.delivery_status_at >= now - DAY,
+                )
+            )
+        ).one()
         account = await session.scalar(select(WhatsAppAccount).limit(1))
         failing_syncs = sum(
             [
@@ -122,5 +133,7 @@ async def collect(
         llm_failures_1h=int(llm_failures or 0),
         failing_syncs=failing_syncs,
         demo=tenant.is_demo,
+        failed_deliveries_24h=int(failed_deliveries or 0),
+        delivery_error_code=last_error_code,
     )
     return TenantSnapshot(data, account)

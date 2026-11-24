@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Conversa · Rastreio{% endblock %}
+{% block nav %}
+  <a href="/operador">Saúde</a>
+  <a href="/operador/rastreio">Rastreio</a>
+  <a href="/operador/demo">Demonstração</a>
+{% endblock %}
+{% block content %}
+<p><a href="/operador/rastreio?imobiliaria={{ filters.tenant_id }}">← Voltar ao rastreio</a></p>
+<h1>Conversa com {{ phone }}</h1>
+<p class="dica">Aberta em {{ local(conversation.created_at, "%d/%m/%Y %H:%M") }}. Mensagens com a hora em que o sistema as
+  gravou e, nas que saíram, o status informado pela Meta. "Sem confirmação" quer dizer que a Meta ainda não
+  avisou a entrega.</p>
+<div class="tabela"><table>
+  <thead><tr><th>Quando</th><th>Quem</th><th>Conteúdo</th><th>Entrega</th></tr></thead>
+  <tbody>
+  {% for item in items %}
+  <tr>
+    <td>{{ local(item.at, "%d/%m %H:%M:%S") }}</td>
+    <td>{{ item.who }}</td>
+    <td class="quebra">{{ item.text }}</td>
+    <td>{% if item.failed %}<span class="selo erro">{{ item.delivery }}</span>{% else %}{{ item.delivery }}{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

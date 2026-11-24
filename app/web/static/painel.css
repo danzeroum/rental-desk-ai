@@ -73,3 +73,6 @@ pre.resposta { white-space: pre-wrap; font: inherit; background: var(--fundo); p
 .texto h1 { margin-bottom: .5rem; }
 .texto h2 { margin-top: 1.5rem; }
 .lista-ajuda li { margin: .4rem 0; }
+.filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0 1rem; align-items: end; }
+.filtros button { margin: .75rem 0; }
+td.quebra { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 40rem; }

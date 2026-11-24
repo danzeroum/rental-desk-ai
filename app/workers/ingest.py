@@ -10,13 +10,16 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Final
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.adapters.whatsapp_webhook import EchoMessage, InboundMessage, WebhookBatch
+from app.adapters.whatsapp_webhook import EchoMessage, InboundMessage, StatusUpdate, WebhookBatch
+from app.core.audit import append_audit
 from app.core.logging import bind_context, get_logger
+from app.core.masking import mask_pii
 from app.core.rls import global_session, tenant_session
 from app.models import Contact, Conversation, Handoff, Message, TenantRoute
 from app.models.enums import ConversationStatus, Direction, HandoffStatus, MessageOrigin
@@ -36,6 +39,7 @@ class IngestResult:
     scheduled: int = 0
     silenced: int = 0
     echoes: int = 0
+    statuses: int = 0
 
 
 def e164(wa_id: str) -> str:
@@ -95,7 +99,7 @@ async def _open_conversation(
     return conversation.id
 
 
-async def _insert_message(session: AsyncSession, values: dict[str, object]) -> bool:
+async def _insert_message(session: AsyncSession, values: dict[str, object]) -> uuid.UUID | None:
     statement = (
         insert(Message)
         .values(**values)
@@ -105,7 +109,8 @@ async def _insert_message(session: AsyncSession, values: dict[str, object]) -> b
         )
         .returning(Message.id)
     )
-    return await session.scalar(statement) is not None
+    message_id: uuid.UUID | None = await session.scalar(statement)
+    return message_id
 
 
 async def _store_inbound(
@@ -132,8 +137,15 @@ async def _store_inbound(
                 "origin": MessageOrigin.GUEST,
             },
         )
-        if not inserted:
+        if inserted is None:
             return None
+        # Trilha imutável: a mensagem pode ser anonimizada depois; o fato de ter chegado, não.
+        await append_audit(
+            session, tenant_id=tenant_id, conversation_id=conversation_id,
+            event_type="message_received",
+            payload={"message_id": str(inserted), "kind": msg.kind,
+                     "at": msg.timestamp.isoformat()},
+        )  # fmt: skip
         await session.execute(
             update(Conversation)
             .where(Conversation.id == conversation_id)
@@ -169,7 +181,12 @@ async def _store_echo(
                 "origin": MessageOrigin.BUSINESS_APP,
             },
         )
-        if inserted:
+        if inserted is not None:
+            await append_audit(
+                session, tenant_id=tenant_id, conversation_id=conversation_id,
+                event_type="business_app_message",
+                payload={"message_id": str(inserted), "kind": echo.kind, "muted": mute},
+            )  # fmt: skip
             values: dict[str, object] = {"last_message_at": now}
             if mute:
                 # RF11 por eco: só com WHATSAPP_ECHO_MUTE=true (coexistência comprovada).
@@ -185,7 +202,43 @@ async def _store_echo(
             await session.execute(
                 update(Conversation).where(Conversation.id == conversation_id).values(**values)
             )
-    return inserted
+    return inserted is not None
+
+
+STATUS_RANK: Final = {"sent": 1, "delivered": 2, "read": 3, "failed": 4}
+"""A Meta pode mandar os status fora de ordem; só avançamos (lida não volta a entregue)."""
+
+
+async def _store_status(
+    sessions: async_sessionmaker[AsyncSession], tenant_id: uuid.UUID, status: StatusUpdate
+) -> bool:
+    """Atualiza a mensagem de saída pelo wamid e registra a mudança na trilha imutável."""
+    async with tenant_session(sessions, tenant_id) as session:
+        message = await session.scalar(
+            select(Message)
+            .where(Message.external_id == status.external_id,
+                   Message.direction == Direction.OUTBOUND)
+            .with_for_update()
+        )  # fmt: skip
+        if message is None:
+            return False
+        current = STATUS_RANK.get(message.delivery_status or "", 0)
+        if STATUS_RANK[status.status] <= current:
+            return False
+        reason = mask_pii(status.error_title)[:200] if status.error_title else None
+        message.delivery_status, message.delivery_status_at = status.status, status.timestamp
+        message.delivery_error_code, message.delivery_error = status.error_code, reason
+        payload: dict[str, object] = {"message_id": str(message.id), "status": status.status,
+                                      "at": status.timestamp.isoformat()}  # fmt: skip
+        if status.error_code is not None:
+            payload.update(error_code=status.error_code, error=reason)
+        await append_audit(
+            session, tenant_id=tenant_id, conversation_id=message.conversation_id,
+            event_type="delivery_status", payload=payload,
+        )  # fmt: skip
+    if status.status == "failed":
+        log.warning("entrega_falhou", error_code=status.error_code, motivo=reason)
+    return True
 
 
 async def ingest_batch(
@@ -229,6 +282,11 @@ async def ingest_batch(
         else:
             result.silenced += 1
 
+    for status in batch.statuses:
+        tenant_id = await route(status.phone_number_id)
+        if tenant_id is not None and await _store_status(sessions, tenant_id, status):
+            result.statuses += 1
+
     for echo in batch.echoes:
         tenant_id = await route(echo.phone_number_id)
         if tenant_id is not None and await _store_echo(
@@ -243,6 +301,7 @@ async def ingest_batch(
         scheduled=result.scheduled,
         silenced=result.silenced,
         echoes=result.echoes,
+        statuses=result.statuses,
         discarded=batch.discarded,
     )
     return result

@@ -535,6 +535,50 @@ no aviso ao corretor, "Não encontrei casas"). Só a tela da demo diz "quartos".
 imobiliária segue anotado em "Pontos de extensão" e fica para o M12. **Depende de você:** decidir se
 isso atrapalha a venda para pousadas antes do M12.
 
+## D047 · Rastreabilidade de ponta a ponta e página de rastreio do operador
+
+Contexto: no primeiro teste real com o número da Meta, a API aceitava os envios, mas a entrega
+falhava depois (erro 130497). Isso só aparecia no painel da Meta. Para operar um produto vendido,
+é preciso provar a um cliente o que chegou, o que foi respondido e se a Meta entregou, sem depender
+de log de servidor, que roda e se apaga.
+
+- **Trilha imutável como fonte da prova.** Além do que já ia para o `audit_log`, passam a entrar:
+  - `message_received`, para cada mensagem do hóspede, com o id e o tipo, sem o texto;
+  - `business_app_message`, para cada eco do app WhatsApp Business;
+  - `delivery_status`, para cada mudança de status de entrega informada pela Meta (enviada,
+    entregue, lida ou falhou, com o código e o motivo mascarados).
+
+  Na mensagem, ficam o último status e a hora (migração 0010). A trilha sobrevive à anonimização
+  da conversa, porque não tem chave estrangeira com ela.
+- **Status fora de ordem:** só avança (enviada < entregue < lida < falhou). O telefone do
+  destinatário, que vem no evento, não é guardado: a mensagem é achada pelo wamid.
+- **Saúde:** entrega que falhou nas últimas 24 h vira **erro** no painel do operador, com o código
+  da Meta. É hóspede sem resposta, e não pode passar como alerta.
+- **Página `/operador/rastreio`:**
+  - filtros por imobiliária, período, grupo de eventos e telefone do hóspede (que acha as duas
+    formas do celular, com e sem o 9);
+  - conferência da cadeia de hash no banco a cada consulta (`audit_log_verify`);
+  - exportação em CSV com o hash e o hash anterior de cada evento, para verificar fora do
+    sistema;
+  - linha do tempo da conversa: mensagens, status de entrega e eventos da trilha.
+- **LGPD:**
+  - telefones aparecem mascarados (`+55 11 9****-5998`) e os textos passam pela máscara de CPF,
+    cartão, e-mail e Pix;
+  - cada consulta e exportação grava `trace_viewed` ou `trace_exported` na própria trilha, com
+    quem consultou e o filtro (telefone mascarado);
+  - só o operador acessa, com o papel da aplicação (RLS), lendo uma imobiliária por vez.
+- **Observabilidade** (recomendação de DevOps de André Borges: logs estruturados, métricas e
+  rastreio):
+  - **logs estruturados:** os logs técnicos seguem em JSON, com `trace_id` por requisição, e
+    `whatsapp_api_erro` passa a ter o código e o motivo da Meta;
+  - **métricas:** as falhas de entrega entram na Saúde;
+  - **rastreio:** é a trilha por conversa, que liga a mensagem recebida, a resposta e o status de
+    entrega pelo `message_id`.
+- **Alternativas descartadas:**
+  - um serviço de logs externo (Loki ou Elastic): mais uma peça para operar, e não é prova
+    imutável;
+  - guardar o payload bruto dos webhooks: tem telefone e conteúdo sem máscara.
+
 ## Pontos de extensão para outros segmentos
 
 Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nada disto foi refatorado).

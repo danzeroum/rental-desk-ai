@@ -83,6 +83,16 @@ class Message(TenantScoped, Base):
         CheckConstraint(check_in("direction", values(Direction)), name="direction"),
         CheckConstraint(check_in("kind", values(MessageKind)), name="kind"),
         CheckConstraint(check_in("origin", values(MessageOrigin)), name="origin"),
+        CheckConstraint(
+            "delivery_status IS NULL OR delivery_status IN ('sent', 'delivered', 'read', 'failed')",
+            name="delivery_status",
+        ),
+        Index(
+            "ix_message_delivery_failed",
+            "tenant_id",
+            "delivery_status_at",
+            postgresql_where=text("delivery_status = 'failed'"),
+        ),
         Index(
             "ix_message_unprocessed",
             "conversation_id",
@@ -118,6 +128,11 @@ class Message(TenantScoped, Base):
     origin: Mapped[str] = mapped_column(String(20), server_default=MessageOrigin.GUEST.value)
     processed_at: Mapped[datetime | None]
     """Entrada já tratada pelo pipeline (lote do debounce)."""
+    delivery_status: Mapped[str | None] = mapped_column(String(12))
+    """Saída: último status informado pela Meta (sent, delivered, read, failed)."""
+    delivery_status_at: Mapped[datetime | None]
+    delivery_error_code: Mapped[int | None]
+    delivery_error: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[CreatedAt]
 
 

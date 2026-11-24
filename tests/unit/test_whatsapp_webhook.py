@@ -150,3 +150,21 @@ def test_repr_hides_personal_data() -> None:
     (msg,) = parse_webhook(payload(text_msg(body="meu cpf 123"))).messages
     assert "5511999990000" not in repr(msg)
     assert "cpf" not in repr(msg)
+
+
+def test_statuses_are_parsed_and_invalid_ones_discarded() -> None:
+    payload = {"entry": [{"changes": [{"field": "messages", "value": {
+        "metadata": {"phone_number_id": "PN1"},
+        "statuses": [
+            {"id": "wamid.1", "status": "delivered", "timestamp": "1795543749",
+             "recipient_id": "5511999990000"},
+            {"id": "wamid.2", "status": "failed", "timestamp": "1795543750",
+             "errors": [{"code": 131026, "title": "Message undeliverable"}]},
+            {"id": "wamid.3", "status": "estranho"},
+        ],
+    }}]}]}  # fmt: skip
+    batch = parse_webhook(payload)
+    assert [(s.external_id, s.status) for s in batch.statuses] == [
+        ("wamid.1", "delivered"), ("wamid.2", "failed")]  # fmt: skip
+    assert batch.statuses[1].error_code == 131026 and batch.discarded == 1
+    assert "5511999990000" not in repr(batch.statuses[0])
