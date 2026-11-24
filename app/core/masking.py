@@ -8,7 +8,7 @@ vêm antes dos genéricos (CPF, telefone) para não serem cortados ao meio.
 from __future__ import annotations
 
 import re
-from typing import Final
+from typing import Any, Final
 
 _DIGIT_GROUP_SEP = r"[ .\-]?"
 
@@ -41,3 +41,23 @@ def mask_pii(text: str) -> str:
     for pattern, replacement in _PATTERNS:
         text = pattern.sub(replacement, text)
     return text
+
+
+_ID_KEYS: Final = re.compile(r"(^id$|_id$|_ids$|_by$|hash|^at$|_at$)")
+"""Campos estruturados com identificadores internos e datas: não são dado pessoal. Um UUID
+interno tem o mesmo formato de uma chave Pix aleatória; mascará-lo apagaria a ligação entre os
+eventos da trilha."""
+
+
+def mask_structured(value: Any, key: str = "") -> Any:
+    """Máscara de dados pessoais num JSON (payload da trilha): só nos textos livres.
+
+    Identificadores e datas (`*_id`, `*_ids`, `*_by`, `*_at`, hashes) ficam como estão.
+    """
+    if isinstance(value, dict):
+        return {k: mask_structured(v, str(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [mask_structured(item, key) for item in value]
+    if isinstance(value, str) and not _ID_KEYS.search(key):
+        return mask_pii(value)
+    return value

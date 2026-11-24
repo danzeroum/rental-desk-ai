@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.masking import mask_pii
+from app.core.masking import mask_pii, mask_structured
 
 
 @pytest.mark.parametrize(
@@ -46,3 +46,17 @@ def test_empty_string() -> None:
 def test_multiple_items_in_one_text() -> None:
     text = "cpf 123.456.789-09 e email a@b.co"
     assert mask_pii(text) == "cpf [CPF] e email [EMAIL]"
+
+
+def test_structured_keeps_ids_and_dates_but_masks_free_text() -> None:
+    uid = "0ab2b2f0-c19a-4ea4-990d-cebde3bb8922"
+    payload = {
+        "user_id": uid, "approved_by": uid, "inbound_message_ids": [uid], "at": "2026-11-24",
+        "text": "Meu e-mail é ana@x.com e o CPF 123.456.789-09",
+        "nested": {"snapshot_id": uid, "obs": f"chave {uid}"},
+    }  # fmt: skip
+    masked = mask_structured(payload)
+    assert masked["user_id"] == uid and masked["approved_by"] == uid
+    assert masked["inbound_message_ids"] == [uid] and masked["nested"]["snapshot_id"] == uid
+    assert "ana@x.com" not in masked["text"] and "123.456.789-09" not in masked["text"]
+    assert masked["nested"]["obs"] == "chave [CHAVE_PIX]"  # em texto livre, continua mascarado

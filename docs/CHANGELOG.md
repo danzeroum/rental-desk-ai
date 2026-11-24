@@ -30,6 +30,10 @@ versionamento semântico (veja `DECISIONS.md`, D007).
   Enseada (6 quartos), links com token revogáveis em `/operador/demo` e limpeza diária.
 
 ### Corrigido
+- Rastreio: identificadores internos (ids de usuário, planilha, mensagem) saíam como `[CHAVE_PIX]`
+  no CSV e na tela, porque têm o formato de uma chave Pix aleatória; a máscara agora vale só para
+  texto livre (`mask_structured`). Coluna `data_hora_utc` renomeada para `data_hora` (vem com o fuso).
+  Todos os eventos da trilha têm descrição em português.
 - Erro de envio pelo WhatsApp agora registra o código e o motivo que a Meta devolve (mascarados);
   antes o log dizia só "API respondeu 400", sem dizer se era token, versão ou destinatário.
 - `numero-teste-meta.sh` parava sem aviso na conferência do webhook quando o `.env` não tinha

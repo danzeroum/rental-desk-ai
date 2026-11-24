@@ -26,7 +26,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import append_audit
-from app.core.masking import mask_pii
+from app.core.masking import mask_pii, mask_structured
 from app.core.rls import global_session, tenant_session
 from app.models import AuditLog, Contact, Conversation, Message, Tenant
 from app.web.auth import PanelSession
@@ -66,6 +66,25 @@ EVENT_LABELS: Final = {
     "trace_viewed": "Rastreio consultado",
     "trace_exported": "Rastreio exportado",
     "subject_erased": "Dados do titular apagados (LGPD)",
+    "tenant_created": "Imobiliária criada",
+    "whatsapp_connected": "Número de WhatsApp conectado",
+    "member_added": "Pessoa adicionada à equipe",
+    "member_removed": "Pessoa removida da equipe",
+    "consent_changed": "Aceite de avisos alterado",
+    "duty_hours_changed": "Plantão do corretor alterado",
+    "weekly_email_changed": "Relatório semanal por e-mail alterado",
+    "weekly_report": "Relatório semanal enviado",
+    "weekly_report_whatsapp": "Resumo semanal por WhatsApp",
+    "reminder_sent": "Lembrete das 9h enviado",
+    "reminder_reply": "Resposta ao lembrete das 9h",
+    "calendar_feed_added": "Calendário iCal ligado",
+    "calendar_feed_removed": "Calendário iCal removido",
+    "calendar_feed_failing": "Calendário iCal com falhas",
+    "sheet_linked": "Planilha Google ligada",
+    "sheet_unlinked": "Planilha Google desligada",
+    "sheet_blocks_synced": "Bloqueios sincronizados da planilha Google",
+    "sheet_sync_failing": "Planilha Google com falhas",
+    "simulator_used": "Simulador usado",
 }
 GROUPS: Final = {
     "conversas": ("message_received", "response_sent", "shadow_response", "delivery_status",
@@ -176,7 +195,7 @@ def summarize(event: str, payload: dict[str, Any]) -> str:
     if handler is not None:
         return handler(payload)
     keep = {k: v for k, v in payload.items() if k not in {"text", "external_id", "user_id"}}
-    return mask_pii(json.dumps(keep, ensure_ascii=False, default=str))[:300] if keep else ""
+    return json.dumps(mask_structured(keep), ensure_ascii=False, default=str)[:300] if keep else ""
 
 
 TenantParam = Annotated[str | None, Query(alias="imobiliaria")]
@@ -288,7 +307,7 @@ async def trace_export(request: Request, operator: Operator, filters: FiltersDep
             session, tenant_id=filters.tenant_id, event_type="trace_exported",
             payload={"user_id": operator.user_id, "rows": len(events), **filters.as_audit()},
         )  # fmt: skip
-    lines = [csv_line(["seq", "data_hora_utc", "evento", "descricao", "conversa", "detalhes",
+    lines = [csv_line(["seq", "data_hora", "evento", "descricao", "conversa", "detalhes",
                        "hash", "hash_anterior"])]  # fmt: skip
     lines += [
         csv_line(
@@ -298,7 +317,7 @@ async def trace_export(request: Request, operator: Operator, filters: FiltersDep
                 e.event_type,
                 EVENT_LABELS.get(e.event_type, e.event_type),
                 e.conversation_id or "",
-                mask_pii(json.dumps(e.payload, ensure_ascii=False, default=str)),
+                json.dumps(mask_structured(e.payload), ensure_ascii=False, default=str),
                 e.hash.hex(),
                 e.prev_hash.hex(),
             ]
