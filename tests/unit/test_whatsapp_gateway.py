@@ -190,3 +190,30 @@ async def test_phone_quality(body: object, expected: str) -> None:
         return httpx2.Response(200, json=body)
 
     assert await gateway(handler).phone_quality(CHANNEL) == expected
+
+
+async def test_meta_error_reason_is_kept_and_masked() -> None:
+    """Sem o motivo da Meta, um 400 não diz se é token, versão ou destinatário."""
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            400,
+            json={"error": {"code": 190, "type": "OAuthException",
+                            "message": "Error validating access token for ana@exemplo.com"}},
+        )  # fmt: skip
+
+    with pytest.raises(GatewayError) as info:
+        await gateway(handler).send_text(CHANNEL, "5511999990000", "Olá")
+    assert info.value.meta_code == 190 and not info.value.retryable
+    text = str(info.value)
+    assert "código 190" in text and "Error validating access token" in text
+    assert "ana@exemplo.com" not in text and "tok-secreto" not in text
+
+
+async def test_error_without_json_body_still_raises() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(400, text="Bad Request")
+
+    with pytest.raises(GatewayError) as info:
+        await gateway(handler).send_text(CHANNEL, "5511999990000", "Olá")
+    assert info.value.meta_code is None and str(info.value) == "API respondeu 400"

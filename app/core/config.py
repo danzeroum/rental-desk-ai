@@ -67,7 +67,7 @@ class Settings(BaseSettings):
 
     # WhatsApp (formato da Cloud API; URL e cabeçalho configuráveis para BSP ou Meta direta)
     whatsapp_provider: WhatsAppProvider = WhatsAppProvider.FAKE
-    whatsapp_api_base_url: str = "https://graph.facebook.com/v21.0"
+    whatsapp_api_base_url: str = "https://graph.facebook.com/v25.0"
     whatsapp_auth_header: str = Field(default="Authorization", pattern=r"^[A-Za-z0-9-]{1,40}$")
     whatsapp_auth_scheme: str = Field(default="Bearer", max_length=20)
     """Prefixo antes do token ("Bearer"); vazio para parceiros que usam só a chave."""
