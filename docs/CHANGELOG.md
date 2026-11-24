@@ -6,6 +6,9 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 ## [Não lançado]
 
 ### Adicionado
+- `scripts/numero-teste-meta.sh` e `docs/numero-teste-meta.md`: liga o número de teste da Meta à Demo
+  Riviera em um comando (credenciais sem eco, provedor oficial, conferência do webhook) e explica o
+  modo sombra enquanto a Meta bloquear envios (erro 130497).
 - `scripts/teste-local.sh` e `docs/teste-local.md`: instalação local em um comando (portas
   automáticas, operador, demonstração, link do kit, testes opcionais) e roteiro de teste de cada tela.
 - `make demo-link` / `python -m app.cli create-demo-link`: link do kit pela linha de comando.
@@ -14,6 +17,14 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 - Kit de demonstração para vendas: conversa com aparência de WhatsApp em `/demo` pelo pipeline real,
   celular do corretor com "Responder 1", imobiliárias fictícias Maré Alta (8 casas) e Pousada Recanto da
   Enseada (6 quartos), links com token revogáveis em `/operador/demo` e limpeza diária.
+
+### Corrigido
+- Painel do operador mostrava a situação em inglês ("active"); agora "atendendo", "modo sombra" etc.
+- Imobiliárias de demonstração não geram mais o alerta "nenhuma mensagem recebida em 48 h".
+- Demonstração: as datas das empresas fictícias são renovadas na limpeza diária; antes, depois de 24 h,
+  os cartões diziam que a disponibilidade não foi atualizada.
+- Demonstração no computador: sugestões em linhas, sem barra de rolagem horizontal.
+- Guia de teste local citava o webhook em `/webhook`; o caminho é `/webhooks/whatsapp`.
 
 ### Segurança
 - Tokens de convite, troca de senha e demonstração não aparecem mais no log de requisições.

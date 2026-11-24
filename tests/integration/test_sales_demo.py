@@ -219,5 +219,7 @@ async def test_daily_purge_removes_demo_visitors(
     assert await purge_sales_demos(redis, ops_engine, app_sessions, now=night) == 0  # 1x/dia
     async with tenant_session(app_sessions, tenant_id) as session:
         left = await session.scalar(select(func.count()).select_from(Contact))
+        tenant = await session.get(Tenant, tenant_id)
     assert left == 0
+    assert tenant is not None and tenant.availability_updated_at == night  # datas renovadas
     assert await DemoOutbox(redis).read(RECANTO.pnid, "5500912345678") == []

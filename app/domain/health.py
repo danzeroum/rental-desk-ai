@@ -36,6 +36,8 @@ class HealthInput:
     llm_failures_1h: int = 0
     failing_syncs: int = 0
     """Calendários iCal ou planilha Google com 3+ falhas seguidas (RF26, RF27)."""
+    demo: bool = False
+    """Imobiliária de demonstração: ficar dias sem mensagem é normal, não é alerta."""
 
 
 @dataclass(frozen=True)
@@ -76,7 +78,8 @@ def assess(data: HealthInput, now: datetime) -> Health:
         alerts.append(
             f"{data.validator_rejections_24h} frase(s) recusada(s) pelo validador em 24 h"
         )
-    if data.active and (data.last_inbound_at is None or now - data.last_inbound_at > QUIET_WEBHOOK):
+    quiet = data.last_inbound_at is None or now - data.last_inbound_at > QUIET_WEBHOOK
+    if data.active and not data.demo and quiet:
         alerts.append("nenhuma mensagem recebida em 48 h")
     level = Level.ERROR if errors else Level.ALERT if alerts else Level.OK
     return Health(level, errors + alerts)

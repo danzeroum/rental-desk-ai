@@ -146,18 +146,23 @@ async def purge_sales_demos(
         return 0
     deleted = 0
     for tenant_id in await demo_tenants(ops_engine):
-        deleted += await purge_contacts(app, tenant_id)
+        deleted += await purge_contacts(app, tenant_id, now)
     screens = await DemoOutbox(redis).clear_all()
     log.info("demo_limpa", contatos=deleted, telas=screens)
     return deleted
 
 
-async def purge_contacts(app: async_sessionmaker[AsyncSession], tenant_id: uuid.UUID) -> int:
-    """Apaga os visitantes da demo (contatos, conversas e mensagens em cascata)."""
+async def purge_contacts(
+    app: async_sessionmaker[AsyncSession], tenant_id: uuid.UUID, now: datetime
+) -> int:
+    """Apaga os visitantes da demo (contatos, conversas e mensagens em cascata) e renova as
+    datas: numa demonstração ninguém confirma as datas às 9h, e sem isso, depois de 24 h, os
+    cartões passariam a dizer que a disponibilidade não foi atualizada."""
     async with tenant_session(app, tenant_id) as session:
         tenant = await session.get(Tenant, tenant_id)
         if tenant is None or not tenant.is_demo:
             return 0
+        tenant.availability_updated_at = now
         deleted = await session.scalars(
             delete(Contact).where(Contact.tenant_id == tenant_id).returning(Contact.id)
         )
