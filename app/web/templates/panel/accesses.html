@@ -1,0 +1,23 @@
+{% extends "panel/_layout.html" %}
+{% block title %}Acessos do suporte{% endblock %}
+{% block content %}
+<h1>Acessos do suporte</h1>
+<p class="dica">Quando a equipe de suporte do Rental Desk entrou na sua conta ou consultou o histórico das
+  conversas, quem foi e por quê, nos últimos 90 dias. Cada acesso exige um motivo e fica gravado na trilha
+  imutável; ninguém do suporte consegue apagar estes registros.</p>
+<div class="tabela"><table>
+  <thead><tr><th>Quando</th><th>Quem</th><th>O que fez</th><th>Motivo</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{{ local(r.at, "%d/%m/%Y %H:%M") }}</td>
+    <td>{{ r.who }}</td>
+    <td>{{ r.action }}</td>
+    <td>{{ r.reason }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4">Nenhum acesso do suporte nos últimos 90 dias.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

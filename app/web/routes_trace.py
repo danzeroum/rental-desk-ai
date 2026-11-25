@@ -32,7 +32,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import append_audit
 from app.core.masking import mask_pii, mask_structured
 from app.core.rls import global_session, tenant_session
-from app.domain.access import REASONS, AccessReason, describe_payload, parse_reason
+from app.domain.access import (
+    ACCESS_EVENTS,
+    REASONS,
+    AccessReason,
+    describe_payload,
+    parse_reason,
+)
 from app.models import AuditLog, Contact, Conversation, Message, Tenant
 from app.web.auth import PanelSession
 from app.web.common import local_time, render, verify_csrf
@@ -103,7 +109,7 @@ GROUPS: Final = {
                "snapshot_approved", "snapshot_rejected", "availability_confirmed", "block_added",
                "block_removed", "subject_erased", "subject_erasure_replayed",
                "retention_applied"),
-    "acessos": ("support_access", "trace_viewed", "trace_exported"),
+    "acessos": ACCESS_EVENTS,
 }  # fmt: skip
 GROUP_LABELS: Final = {
     "conversas": "Conversas (recebidas, respostas, entregas)",
@@ -112,9 +118,8 @@ GROUP_LABELS: Final = {
     "painel": "Ações no painel",
     "acessos": "Acessos (quem consultou e por quê)",
 }
-ACCESS_EVENTS: Final = GROUPS["acessos"]
-"""Quem consultou o quê (LGPD). Fora da visão "todos" para não encobrir o atendimento; sempre
-no CSV de "todos", que é a prova completa."""
+# ACCESS_EVENTS (quem consultou o quê, LGPD) fica fora da visão "todos" para não encobrir o
+# atendimento; sempre no CSV de "todos", que é a prova completa.
 DELIVERY_LABELS: Final = {
     "sent": "enviada", "delivered": "entregue", "read": "lida", "failed": "NÃO ENTREGUE",
 }  # fmt: skip

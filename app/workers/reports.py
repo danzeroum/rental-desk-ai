@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from typing import Any, Final
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.adapters.mailer import Mailer, MailError
@@ -94,6 +94,7 @@ class ReportService:
             if exists is not None or tenant is None:
                 return None
             metrics = (await collect_period(session, tenant, period)).metrics
+            accesses = await support_accesses(session, period)
             session.add(
                 WeeklyReport(
                     tenant_id=tenant_id, period_start=period[0], period_end=period[1],
@@ -106,7 +107,7 @@ class ReportService:
                 payload={"period_start": period[0].isoformat(), "recipients": len(emails)},
             )  # fmt: skip
             tenant_name = tenant.name
-        subject, body = email_text(tenant_name, metrics, self.panel_url)
+        subject, body = email_text(tenant_name, metrics, self.panel_url, support_accesses=accesses)
         for email in emails:
             try:
                 await self.mailer.send(email, subject, body)
@@ -148,6 +149,18 @@ class ReportService:
                 payload={"sent": sent, "period_start": metrics.period_start.isoformat()},
             )  # fmt: skip
         return sent
+
+
+async def support_accesses(session: AsyncSession, period: tuple[date, date]) -> int:
+    """Entradas do suporte no período: o gestor fica sabendo toda semana (Risco-005)."""
+    start, end = _local_midnight(period[0]), _local_midnight(period[1])
+    count = await session.scalar(
+        select(func.count()).select_from(AuditLog).where(
+            AuditLog.event_type == "support_access",
+            AuditLog.created_at >= start, AuditLog.created_at < end,
+        )
+    )  # fmt: skip
+    return int(count or 0)
 
 
 @dataclass(frozen=True)

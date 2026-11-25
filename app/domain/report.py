@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from app.domain.access import support_line
 from app.domain.hours import BusinessHours
 from app.domain.render import br_date, brl
 
@@ -112,7 +113,9 @@ def _or_dash(value: int | None, suffix: str) -> str:
     return "—" if value is None else f"{value}{suffix}"
 
 
-def email_text(tenant_name: str, m: WeeklyMetrics, panel_url: str) -> tuple[str, str]:
+def email_text(
+    tenant_name: str, m: WeeklyMetrics, panel_url: str, *, support_accesses: int = 0
+) -> tuple[str, str]:
     """Assunto e corpo do e-mail ao gestor."""
     last_day = m.period_end - timedelta(days=1)
     subject = f"Resumo da semana {br_date(m.period_start)} a {br_date(last_day)} — {tenant_name}"
@@ -130,6 +133,7 @@ def email_text(tenant_name: str, m: WeeklyMetrics, panel_url: str) -> tuple[str,
         f"{m.without_outcome} sem desfecho marcado",
         f"Taxa de fechamento: {_or_dash(m.close_rate_pct, '%')}",
         f"Soma dos valores estimados das opções enviadas: {brl(m.offered_value_cents)}",
+        support_line(support_accesses),
         "",
     ]
     if m.without_outcome:

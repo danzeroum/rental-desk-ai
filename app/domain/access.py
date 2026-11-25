@@ -20,6 +20,13 @@ REASONS: Final = {
     "auditoria": "Auditoria interna",
 }
 MAX_DETAIL: Final = 120
+ACCESS_EVENTS: Final = ("support_access", "trace_viewed", "trace_exported")
+"""Eventos da trilha que registram o fornecedor (suporte) vendo dados da imobiliária."""
+ACCESS_ACTIONS: Final = {
+    "support_access": "Entrou no painel como suporte",
+    "trace_viewed": "Consultou o rastreio",
+    "trace_exported": "Exportou o rastreio (CSV)",
+}
 
 
 @dataclass(frozen=True)
@@ -52,3 +59,10 @@ def describe_payload(payload: dict[str, object]) -> str:
     if code not in REASONS:
         return ""
     return AccessReason(code, str(payload.get("reason_detail") or "")).describe()
+
+
+def support_line(count: int) -> str:
+    """Linha do relatório semanal ao gestor (revisão LGPD, Risco-005)."""
+    if count == 0:
+        return "Acessos do suporte à sua conta: nenhum"
+    return f"Acessos do suporte à sua conta: {count} (veja quem e por quê em Acessos do suporte)"

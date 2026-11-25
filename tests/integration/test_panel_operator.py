@@ -135,6 +135,10 @@ async def test_operator_overview_and_support_access(
         )
     assert access is not None and access.payload["reason"] == "chamado"
     assert access.payload["reason_detail"] == "nº 88, hóspede [TELEFONE]"
+    page = panel.get("/painel/acessos")  # o que o gestor vê (Risco-005)
+    assert page.status_code == 200 and "Você está como suporte" in page.text
+    assert "Entrou no painel como suporte" in page.text
+    assert "Chamado do cliente: nº 88, hóspede [TELEFONE]" in page.text
 
 
 async def test_non_operator_is_refused(panel: PanelClient, app_sessions: Sessions) -> None:
