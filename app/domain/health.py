@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Final
 
+from app.domain.meta_errors import short
 from app.domain.search import FRESHNESS_LIMIT
 
 QUIET_WEBHOOK: Final = timedelta(hours=48)
@@ -56,7 +57,7 @@ def _errors(data: HealthInput) -> list[str]:
     if data.stuck_messages:
         errors.append(f"{data.stuck_messages} mensagem(ns) sem processar há mais de 10 min")
     if data.failed_deliveries_24h:
-        code = f" (código {data.delivery_error_code} da Meta)" if data.delivery_error_code else ""
+        code = f" ({short(data.delivery_error_code)})" if data.delivery_error_code else ""
         errors.append(
             f"{data.failed_deliveries_24h} mensagem(ns) não entregue(s) ao hóspede em 24 h{code}"
         )

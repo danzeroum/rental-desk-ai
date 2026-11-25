@@ -41,7 +41,8 @@ def test_failed_deliveries_are_an_error_with_meta_code() -> None:
     assert health.level is Level.ERROR
     assert (
         health.reasons[0]
-        == "3 mensagem(ns) não entregue(s) ao hóspede em 24 h (código 130497 da Meta)"
+        == "3 mensagem(ns) não entregue(s) ao hóspede em 24 h (código 130497 da Meta: a Meta"
+        " bloqueou envios desta conta para o país do hóspede)"
     )
 
 

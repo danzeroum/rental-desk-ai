@@ -28,6 +28,9 @@ versionamento semântico (veja `DECISIONS.md`, D007).
     `ERASURE_LEDGER_PATH` (já definida no docker-compose).
 
 ### Alterado
+- Erros de envio da Meta aparecem em português, com o que fazer, no Rastreio, na linha do tempo e na
+  Saúde (130497, 131047, 131026, 131049, 131056, 131048, 131031, 368, 190); o texto original segue
+  na trilha e no CSV (UX-1, `app/domain/meta_errors.py`).
 - API da Meta na versão v25.0 por padrão (era v21.0). Em instalações existentes, ajuste
   `WHATSAPP_API_BASE_URL` no `.env`.
 - Rastreio: consultas, exportações e acessos de suporte saem da visão "todos" e ganham o filtro

@@ -39,6 +39,7 @@ from app.domain.access import (
     describe_payload,
     parse_reason,
 )
+from app.domain.meta_errors import explain
 from app.models import AuditLog, Contact, Conversation, Message, Tenant
 from app.web.auth import PanelSession
 from app.web.common import local_time, render, verify_csrf
@@ -195,8 +196,9 @@ def _phone_variants(phone: str) -> list[str]:
 
 def _delivery(payload: dict[str, Any]) -> str:
     label = DELIVERY_LABELS.get(str(payload.get("status")), str(payload.get("status")))
-    if payload.get("error_code"):
-        return f"{label}: código {payload['error_code']} ({payload.get('error') or 'sem motivo'})"
+    if payload.get("error_code") or payload.get("error"):
+        code = payload.get("error_code")
+        return f"{label}: {explain(code if isinstance(code, int) else None, payload.get('error'))}"
     return label
 
 
@@ -483,7 +485,7 @@ def _message_item(message: Message) -> TimelineItem:
         delivery = status_label
         if message.delivery_status_at:
             delivery += f" em {local_time(message.delivery_status_at, '%d/%m %H:%M:%S')}"
-        if message.delivery_error_code:
-            delivery += f" · código {message.delivery_error_code}: {message.delivery_error or ''}"
+        if message.delivery_error_code or message.delivery_error:
+            delivery += f" · {explain(message.delivery_error_code, message.delivery_error)}"
     return TimelineItem(message.created_at, who, body, delivery,
                         message.delivery_status == "failed")  # fmt: skip

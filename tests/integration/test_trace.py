@@ -80,7 +80,8 @@ async def test_trace_shows_chain_delivery_and_conversation(
     assert page.status_code == 200, page.text
     assert "cadeia íntegra" in page.text
     assert (
-        "Mensagem recebida do hóspede" in page.text and "NÃO ENTREGUE: código 130497" in page.text
+        "Mensagem recebida do hóspede" in page.text
+        and "NÃO ENTREGUE: código 130497: a Meta bloqueou" in page.text
     )
     assert GUEST not in page.text.split("<tbody>")[1]  # nos resultados, nunca o número completo
 
