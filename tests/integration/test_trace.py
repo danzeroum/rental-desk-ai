@@ -73,7 +73,9 @@ async def test_trace_shows_chain_delivery_and_conversation(
     await _login_operator(panel, app_sessions)
     panel.clock.now = NOW.replace(hour=16)
 
-    search = {"imobiliaria": str(tenant_id), "periodo": "7d"}
+    search = {"imobiliaria": str(tenant_id), "periodo": "7d", "motivo": "comprovacao"}
+    no_reason = panel.post("/operador/rastreio", {"imobiliaria": str(tenant_id), "periodo": "7d"})
+    assert "motivo da consulta" in no_reason.text and "<tbody>" not in no_reason.text
     page = panel.post("/operador/rastreio", {**search, "telefone": GUEST})
     assert page.status_code == 200, page.text
     assert "cadeia íntegra" in page.text
@@ -82,9 +84,12 @@ async def test_trace_shows_chain_delivery_and_conversation(
     )
     assert GUEST not in page.text.split("<tbody>")[1]  # nos resultados, nunca o número completo
 
-    again = panel.get(f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d")
+    again = panel.get(f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d&motivo=chamado")
     assert "Rastreio consultado" not in again.text  # acessos fora da visão "todos"
-    accesses = panel.get(f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d&tipo=acessos")
+    accesses = panel.get(
+        f"/operador/rastreio?imobiliaria={tenant_id}&periodo=7d&tipo=acessos&motivo=auditoria"
+    )
+    assert "Comprovação pedida pelo cliente" in accesses.text  # o motivo aparece na trilha
     assert "Rastreio consultado" in accesses.text
     assert "Mensagem recebida do hóspede" not in accesses.text
 
@@ -108,7 +113,9 @@ async def test_trace_shows_chain_delivery_and_conversation(
         )
     assert viewed is not None and viewed.payload["rows"] >= 3
 
-    timeline = panel.get(f"/operador/rastreio/conversa/{conversation_id}?imobiliaria={tenant_id}")
+    base = f"/operador/rastreio/conversa/{conversation_id}?imobiliaria={tenant_id}"
+    assert panel.get(base).status_code == 303  # sem motivo, volta para o rastreio
+    timeline = panel.get(base + "&motivo=comprovacao")
     assert timeline.status_code == 200
     assert "Casa para 8 pessoas" in timeline.text and "NÃO ENTREGUE" in timeline.text
     assert mask_phone("+" + GUEST) in timeline.text

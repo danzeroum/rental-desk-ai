@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "operator/_reason.html" import reason_fields %}
 {% block title %}Operador{% endblock %}
 {% block nav %}
   <a href="/operador">Saúde</a>
@@ -27,9 +28,10 @@
     <td>{{ r.open_handoffs }}</td>
     <td>{{ r.quality }}{% if r.test_number %} <span class="selo">teste</span>{% endif %}</td>
     <td>
-      <form method="post" action="/painel/escolher">
+      <form method="post" action="/painel/escolher" class="acesso-suporte">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="tenant_id" value="{{ r.tenant.id }}">
+        {{ reason_fields(reasons, compact=True) }}
         <button class="secundario">Entrar como suporte</button>
       </form>
     </td>

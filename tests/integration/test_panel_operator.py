@@ -120,12 +120,21 @@ async def test_operator_overview_and_support_access(
     page = panel.get("/operador")
     assert page.status_code == 200 and "1 tarefa(s) na fila de falhas" in page.text
     assert "sem número" in page.text and "Entrar como suporte" in page.text
-    entered = panel.post("/painel/escolher", {"tenant_id": str(created.tenant_id)})
+    target = {"tenant_id": str(created.tenant_id)}
+    refused = panel.post("/painel/escolher", target)
+    assert refused.status_code == 400 and "motivo" in refused.text  # sem motivo, não entra
+    entered = panel.post(
+        "/painel/escolher",
+        {**target, "motivo": "chamado", "detalhe": "nº 88, hóspede 11 99668-5998"},
+    )
     assert entered.headers["location"] == "/painel"
     assert panel.get("/painel/configuracoes").status_code == 200  # suporte administra
     async with tenant_session(app_sessions, created.tenant_id) as session:
-        events = list((await session.execute(select(AuditLog.event_type))).scalars())
-    assert "support_access" in events
+        access = await session.scalar(
+            select(AuditLog).where(AuditLog.event_type == "support_access")
+        )
+    assert access is not None and access.payload["reason"] == "chamado"
+    assert access.payload["reason_detail"] == "nº 88, hóspede [TELEFONE]"
 
 
 async def test_non_operator_is_refused(panel: PanelClient, app_sessions: Sessions) -> None:

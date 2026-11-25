@@ -76,3 +76,6 @@ pre.resposta { white-space: pre-wrap; font: inherit; background: var(--fundo); p
 .filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0 1rem; align-items: end; }
 .filtros button { margin: .75rem 0; }
 td.quebra { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 40rem; }
+.acesso-suporte { display: grid; gap: .25rem; min-width: 12rem; }
+.acesso-suporte label { margin: 0; font-size: .85rem; }
+.acesso-suporte button { margin-top: .25rem; }

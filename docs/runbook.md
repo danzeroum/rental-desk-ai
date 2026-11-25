@@ -50,7 +50,10 @@ O painel exige e-mail + senha + autenticador (TOTP) para todos.
 
 O gestor convida a equipe em **Configurações**; cada pessoa aceita os avisos no WhatsApp na própria página
 **Meus avisos** (sem aceite, nenhuma mensagem ativa sai). O operador vê a saúde de todas as imobiliárias
-em `/operador` e entra em qualquer uma com "Entrar como suporte" (fica no `audit_log`).
+em `/operador` e entra em qualquer uma com "Entrar como suporte", **escolhendo o motivo** (chamado,
+comprovação, implantação, incidente, auditoria) e, se quiser, um detalhe curto como o nº do chamado.
+Sem motivo não entra. Quem, quando e para quê fica no `audit_log`, e o gestor vê em **Painel → Acessos
+do suporte**.
 
 **Demonstração com o número de teste da Meta:** exporte o token só no shell e passe o `phone_number_id`:
 ```bash
@@ -95,7 +98,8 @@ make seed-demo PNID=123456789012345
 
 Operador → **Rastreio** (`/operador/rastreio`):
 
-1. **Escolha a imobiliária e o período.** Para uma conversa específica, digite o telefone do
+1. **Escolha a imobiliária, o período e o motivo da consulta.** Sem motivo, nada é listado; o
+   motivo vai para a trilha e o gestor da imobiliária o vê. Para uma conversa específica, digite o telefone do
    hóspede, com ou sem o 55 e com ou sem o 9. O telefone vai no corpo do formulário, nunca na
    URL: um link com `?telefone=` é ignorado (a URL fica no log de acesso). O Caddy também apaga
    `telefone`/`phone` da URL e encurta o IP nos próprios logs.

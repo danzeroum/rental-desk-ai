@@ -1,0 +1,10 @@
+{# Motivo do acesso do suporte (revisão LGPD, Risco-004): vai para a trilha da imobiliária. #}
+{% macro reason_fields(reasons, selected="", compact=False) %}
+<label>{% if not compact %}Motivo do acesso{% else %}<span class="dica">Motivo</span>{% endif %}
+  <select name="motivo" required>
+    <option value="">Escolha…</option>
+    {% for code, label in reasons.items() %}<option value="{{ code }}" {% if selected == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select></label>
+<label>{% if not compact %}Detalhe (opcional){% else %}<span class="dica">Detalhe</span>{% endif %}
+  <input name="detalhe" maxlength="120" placeholder="ex.: chamado nº 123"></label>
+{% endmacro %}

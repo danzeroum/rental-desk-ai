@@ -33,6 +33,7 @@ from app.core.security import (
     verify_password,
     verify_totp,
 )
+from app.domain.access import AccessReason
 from app.models import AppUser, Tenant, TenantMember
 
 MAX_FAILED_LOGINS: Final = 5
@@ -86,6 +87,10 @@ class PanelSession:
 
 class AuthError(Exception):
     """Mensagem pronta para a pessoa."""
+
+
+class MissingReasonError(AuthError):
+    """Operador tentou entrar como suporte sem dizer o motivo."""
 
 
 def totp_context(user_id: uuid.UUID) -> str:
@@ -362,13 +367,19 @@ class AuthService:
             )
             return list(rows.scalars())
 
-    async def choose_tenant(self, token: str, data: PanelSession, tenant_id: uuid.UUID) -> None:
-        """Entra na imobiliária: membro com o papel dele; operador como suporte (auditado)."""
+    async def choose_tenant(
+        self, token: str, data: PanelSession, tenant_id: uuid.UUID,
+        reason: AccessReason | None = None,
+    ) -> None:  # fmt: skip
+        """Entra na imobiliária: membro com o papel dele; operador como suporte, só com motivo
+        declarado, gravado na trilha (revisão LGPD, Risco-004)."""
         member = next(
             (m for m in await self.memberships(data.user_uuid) if m.tenant_id == tenant_id), None
         )
         if member is None and not data.is_operator:
             raise AuthError("Você não tem acesso a essa imobiliária.")
+        if member is None and reason is None:
+            raise MissingReasonError("Escolha o motivo do acesso de suporte.")
         async with tenant_session(self.db, tenant_id, user_id=data.user_uuid) as session:
             tenant = await session.get(Tenant, tenant_id)
             if tenant is None:
@@ -376,7 +387,7 @@ class AuthService:
             if member is None:
                 await append_audit(
                     session, tenant_id=tenant_id, event_type="support_access",
-                    payload={"user_id": data.user_id},
+                    payload={"user_id": data.user_id, **(reason.as_audit() if reason else {})},
                 )  # fmt: skip
             data.tenant_name = tenant.name
         data.tenant_id = str(tenant_id)
