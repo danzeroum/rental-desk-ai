@@ -126,7 +126,7 @@ Toda consulta e exportação fica registrada na própria trilha, com quem consul
 | Comando | O que faz |
 |---|---|
 | `make ps` | Estado dos serviços |
-| `make logs` | Logs ao vivo (JSON, sem dados pessoais) |
+| `make logs` | Logs ao vivo (JSON, sem dados pessoais). O log de acesso do Caddy fica em arquivo, 30 dias: `docker compose ... exec caddy tail -f /data/logs/acesso.log` |
 | `make up` | Sobe ou atualiza tudo |
 | `make down` | Para tudo (dados preservados nos volumes) |
 | `make migrate` | Aplica migrações |

@@ -12,6 +12,10 @@ versionamento semântico (veja `DECISIONS.md`, D007).
   - Risco-005: o gestor vê em **Painel → Acessos do suporte** quem do suporte entrou na conta, o que
     fez e por quê (90 dias), e o relatório semanal traz a contagem. Selo "Você está como suporte" no
     topo do painel quando o operador está numa conta (UX-3).
+  - Risco-006: o log de acesso do Caddy vai para arquivo (`/data/logs/acesso.log`) e é apagado
+    em 30 dias (D050).
+  - Risco-007: política de privacidade e aviso padrão declaram a transferência internacional
+    (Meta, IA, transcrição; LGPD art. 33).
 - Revisão LGPD de 24/11/2026 (`docs/revisao-2026-11-24.md`), itens P1:
   - Risco-002: o filtro por telefone e a exportação do Rastreio passam a ser POST com CSRF; o
     telefone não vai mais na URL. Os logs do Caddy (acesso e erro) apagam `telefone`/`phone` da URL

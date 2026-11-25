@@ -641,6 +641,30 @@ Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nad
   externo); apagar o titular de dentro dos backups (dumps cifrados e imutáveis, e a cópia externa
   expira sozinha em 30 dias).
 
+## D050 · Motivo e transparência no acesso do suporte; logs e transferência internacional (revisão LGPD, P2)
+
+- **Motivo obrigatório (Risco-004):** entrar numa imobiliária como suporte e consultar ou exportar o
+  rastreio exigem um motivo de lista fixa (`app/domain/access.py`) e aceitam um detalhe curto
+  (≤ 120, mascarado). Vai para `support_access`, `trace_viewed` e `trace_exported`. Na URL só o
+  código do motivo (o detalhe é texto livre e pode trazer dado pessoal). Alternativa descartada:
+  motivo guardado na sessão por imobiliária (esconderia a finalidade de cada consulta).
+- **Gestor vê os acessos (Risco-005):** página `Painel → Acessos do suporte` (90 dias, até 300
+  linhas) e linha no e-mail semanal com a contagem. Não entra no resumo por WhatsApp: o template
+  aprovado na Meta tem 5 parâmetros fixos.
+- **Logs técnicos 30 dias (Risco-006):** o único log com dado de rede é o de acesso do Caddy (IP já
+  encurtado, telefone removido). Ele vai para arquivo no volume `caddy_data`, em pedaços de 1 MiB, e
+  o Caddy apaga os pedaços com mais de 30 dias (`roll_keep_for 720h`). O Caddy 2.10 não rotaciona
+  por tempo: com tráfego muito baixo um pedaço pode durar mais, mas sem dado pessoal. Os logs do app,
+  worker e scheduler não têm dado pessoal (mascarados, sem IP) e seguem na rotação por tamanho do
+  Docker (20 MB × 5). Alternativa descartada: cron no host reescrevendo os logs do Docker (a VPS é
+  compartilhada com outros projetos e o arquivo está aberto pelo Docker).
+- **Transferência internacional (Risco-007):** a política e o aviso padrão dizem que a Meta e os
+  provedores de IA e de transcrição podem tratar dados fora do Brasil, com as garantias do art. 33.
+  O aviso padrão novo vale para imobiliárias criadas daqui em diante (versões são imutáveis). As
+  já criadas continuam na versão 1 até a revisão jurídica: o texto revisado pelo advogado será
+  publicado como versão nova para todas (ainda não há tela para isso). As cláusulas com cada
+  provedor ficam com o advogado (`docs/lancamento.md`).
+
 ## D041 · Operação: backup, alertas, capacidade, falhas e modo sombra (M8)
 
 - **Backup:** `pg_dump` em formato custom **com dono e permissões** (antes era `--no-owner`: a
