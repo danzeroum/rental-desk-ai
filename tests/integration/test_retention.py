@@ -48,7 +48,7 @@ async def _guest_with_history(
 
 async def _contact(app: Sessions, tenant_id: uuid.UUID) -> Contact:
     async with tenant_session(app, tenant_id) as session:
-        contact = await session.scalar(select(Contact))
+        contact: Contact | None = await session.scalar(select(Contact))
     assert contact is not None
     return contact
 

@@ -109,6 +109,8 @@ class Settings(BaseSettings):
     # Retenção (SPEC seção 9; política de privacidade): nome e telefone saem das conversas
     # paradas há mais que isto, sem passagem ao corretor em aberto.
     retention_days: int = Field(default=180, ge=30, le=3650)
+    erasure_ledger_path: str | None = None
+    """Livro de eliminações (fora do banco, num volume próprio). Obrigatório em produção."""
 
     @property
     def is_production_like(self) -> bool:
@@ -146,6 +148,8 @@ class Settings(BaseSettings):
         ]
         if missing:
             raise ValueError(f"obrigatório em produção: {', '.join(missing)}")
+        if not self.erasure_ledger_path:
+            raise ValueError("obrigatório em produção: ERASURE_LEDGER_PATH (livro de eliminações)")
 
 
 @lru_cache(maxsize=1)

@@ -12,6 +12,10 @@ versionamento semântico (veja `DECISIONS.md`, D007).
     e encurtam o IP.
   - Risco-001: retenção diária (D048). Hóspede sem conversa há mais de `RETENTION_DAYS` (180) e sem
     passagem aberta perde nome e telefone; registrado na trilha como "Retenção aplicada".
+  - Risco-003: livro de eliminações fora do banco (D049). Cada exclusão de titular vai para um volume
+    próprio, copiado no backup e na cópia externa; `make restore` reaplica o livro, e quem pediu
+    exclusão não volta com um backup antigo. Nova variável obrigatória em produção:
+    `ERASURE_LEDGER_PATH` (já definida no docker-compose).
 
 ### Alterado
 - API da Meta na versão v25.0 por padrão (era v21.0). Em instalações existentes, ajuste

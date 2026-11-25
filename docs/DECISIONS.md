@@ -623,6 +623,24 @@ Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nad
   trilha; o pedido do hóspede continua útil sem identificá-lo); job por SQL puro (não aplicaria
   `mask_pii`, que é Python).
 
+## D049 · Livro de eliminações fora do banco (revisão LGPD, Risco-003)
+
+- **Contexto:** os backups guardam 30 dias. Restaurar um deles trazia de volta quem pediu exclusão
+  depois, e a trilha restaurada também perdia o registro `subject_erased` (Art. 18, VI).
+- **Escolha:** um arquivo append-only (`ERASURE_LEDGER_PATH`, volume `erasures`) recebe uma linha
+  JSON por exclusão **antes** de mexer no banco, com `fsync`: data, imobiliária e contato (ids
+  internos, sem telefone nem nome). O backup copia o livro para `/backups` e para a cópia externa.
+  `make restore` reaplica o livro depois da migração (`app.cli replay-erasures --merge-stdin`,
+  juntando a cópia do backup à local), apaga quem reapareceu e grava `subject_erasure_replayed`.
+  Obrigatório em produção (a configuração recusa subir sem o caminho).
+- **Por que gravar antes do banco:** se o banco falhar depois, a próxima reaplicação apaga o contato,
+  que era o pedido do titular; o inverso (banco antes) poderia perder a linha.
+- **Limite aceito:** perdida a VPS inteira, as exclusões feitas depois do último backup se perdem
+  junto com os dados delas (mesmo RPO de 24 h); o runbook pede que as imobiliárias repitam as do dia.
+- **Alternativas descartadas:** tabela no próprio banco (some na restauração); Redis (não tem backup
+  externo); apagar o titular de dentro dos backups (dumps cifrados e imutáveis, e a cópia externa
+  expira sozinha em 30 dias).
+
 ## D041 · Operação: backup, alertas, capacidade, falhas e modo sombra (M8)
 
 - **Backup:** `pg_dump` em formato custom **com dono e permissões** (antes era `--no-owner`: a

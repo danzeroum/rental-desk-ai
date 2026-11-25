@@ -70,6 +70,7 @@ EVENT_LABELS: Final = {
     "trace_viewed": "Rastreio consultado",
     "trace_exported": "Rastreio exportado",
     "subject_erased": "Dados do titular apagados (LGPD)",
+    "subject_erasure_replayed": "Exclusões reaplicadas após restaurar backup",
     "tenant_created": "Imobiliária criada",
     "whatsapp_connected": "Número de WhatsApp conectado",
     "member_added": "Pessoa adicionada à equipe",
@@ -99,7 +100,8 @@ GROUPS: Final = {
                   "handoff_assumed", "handoff_outcome", "broker_reply"),
     "painel": ("status_changed", "assistant_paused", "settings_changed", "snapshot_imported",
                "snapshot_approved", "snapshot_rejected", "availability_confirmed", "block_added",
-               "block_removed", "subject_erased", "retention_applied"),
+               "block_removed", "subject_erased", "subject_erasure_replayed",
+               "retention_applied"),
     "acessos": ("support_access", "trace_viewed", "trace_exported"),
 }  # fmt: skip
 ACCESS_EVENTS: Final = GROUPS["acessos"]

@@ -66,8 +66,9 @@ async def subject_action(request: Request, ctx: ManagerCtx) -> Response:
                     status_code=400,
                 )  # fmt: skip
             erased = await subject_rights.erase(
-                session, tenant_id=ctx.tenant_id, phone_e164=phone, user_id=ctx.user_id
-            )
+                session, tenant_id=ctx.tenant_id, phone_e164=phone, user_id=ctx.user_id,
+                ledger=request.app.state.erasure_ledger, now=request.app.state.auth.clock(),
+            )  # fmt: skip
             if erased is not None:
                 return render(request, "panel/subject.html", {"notice": "Dados apagados."})
         summary = await subject_rights.find(session, phone)

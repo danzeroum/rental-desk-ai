@@ -22,6 +22,7 @@ from app.api import health, webhook
 from app.api.middleware import TraceMiddleware
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine
+from app.core.erasure_ledger import ErasureLedger
 from app.core.logging import configure_logging, get_logger
 from app.core.redis import create_redis
 from app.core.rls import scoped_session_factory
@@ -51,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.queue = build_queue(app.state.redis, settings)
         app.state.keyring = build_keyring(settings)
         app.state.mailer = build_mailer(settings)
+        app.state.erasure_ledger = ErasureLedger(settings.erasure_ledger_path)
         app.state.auth = AuthService(
             sessions=app.state.sessions,
             redis=app.state.redis,

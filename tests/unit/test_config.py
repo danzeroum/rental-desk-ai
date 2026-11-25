@@ -63,3 +63,8 @@ def test_debounce_window_must_be_consistent() -> None:
 def test_production_refuses_fake_llm() -> None:
     with pytest.raises(ValidationError, match="LLM_PROVIDER=fake"):
         production_settings(llm_provider="fake")
+
+
+def test_production_requires_the_erasure_ledger() -> None:
+    with pytest.raises(ValidationError, match="ERASURE_LEDGER_PATH"):
+        production_settings(erasure_ledger_path=None)

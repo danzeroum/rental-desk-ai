@@ -201,7 +201,9 @@ minuto: ele avisa se a VPS inteira cair, coisa que o próprio sistema não conse
 - **Restaurar de verdade** (RTO ≤ 4 h, RPO ≤ 24 h):
   1. `make restore FILE=latest CONFIRM=sim` (ou `FILE=remote`, ou o caminho de um arquivo em
      `/backups`). Isso para app, worker e scheduler, restaura num banco à parte, confere, troca pelo
-     banco em uso (o antigo fica como `rentaldesk_antes_<data>`), aplica migrações e sobe tudo.
+     banco em uso (o antigo fica como `rentaldesk_antes_<data>`), aplica migrações, **reaplica o
+     livro de eliminações** e sobe tudo. A saída mostra "Livro de eliminações reaplicado: N
+     titular(es) apagado(s) de novo": quem pediu exclusão depois do backup volta a ser apagado.
   2. Confira `/health`, entre no painel e veja a última conversa.
   3. Mensagens recebidas entre o backup e a falha: a Meta reenvia o que não teve resposta 200; o
      resto se perde (RPO). Avise as imobiliárias.
@@ -209,7 +211,13 @@ minuto: ele avisa se a VPS inteira cair, coisa que o próprio sistema não conse
      `docker compose ... exec postgres dropdb -U postgres rentaldesk_antes_<data>`.
 - **VPS perdida:** instale uma nova com o `install.sh`, copie o `.env` guardado no cofre (sem o
   `BACKUP_PASSPHRASE` original os backups não abrem), rode `make restore FILE=remote CONFIRM=sim` e
-  aponte o domínio para a nova VPS.
+  aponte o domínio para a nova VPS. O livro de eliminações vem junto da cópia externa e é juntado
+  ao local automaticamente; exclusões feitas depois do último backup se perdem com a VPS (RPO 24 h):
+  peça às imobiliárias que repitam as do último dia.
+- **Livro de eliminações (D049):** cada exclusão de titular grava uma linha (data, imobiliária,
+  contato; nenhum telefone) no volume `erasures`, fora do banco. O backup copia o livro para
+  `/backups/erasures.jsonl` e para a cópia externa. Não apague o volume `erasures`. Para reaplicar à
+  mão: `docker compose ... run --rm scheduler python -m app.cli replay-erasures`.
 
 ## Falhas
 
