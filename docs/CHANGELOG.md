@@ -28,6 +28,9 @@ versionamento semântico (veja `DECISIONS.md`, D007).
     `ERASURE_LEDGER_PATH` (já definida no docker-compose).
 
 ### Alterado
+- Alertas do operador não se repetem quando só a contagem muda (ex.: "3" → "4 mensagens não
+  entregues"); mudar de nível ou de motivo avisa de novo. Antes, cada entrega falha gerava outro
+  e-mail (A-1).
 - Rastreio: regras puras (rótulos, grupos, filtros, resumos, CSV) separadas em
   `app/domain/trace.py`, testadas sem banco; a rota ficou com HTTP e consulta (C-1). A busca por
   telefone passa a achar também números de fora do Brasil, como o de teste da Meta (+1 555…).

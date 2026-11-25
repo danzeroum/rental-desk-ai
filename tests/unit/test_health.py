@@ -1,7 +1,15 @@
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from app.domain.health import HealthInput, Level, PlatformInput, assess, assess_platform
+from app.domain.health import (
+    Alert,
+    HealthInput,
+    Level,
+    PlatformInput,
+    assess,
+    assess_platform,
+    fingerprint,
+)
 
 NOW = datetime(2026, 12, 20, 15, 0, tzinfo=UTC)
 HEALTHY = HealthInput(
@@ -90,3 +98,12 @@ def test_platform_alerts() -> None:
 def test_llm_failures_alert() -> None:
     health = assess(replace(HEALTHY, llm_failures_1h=3), NOW)
     assert health.level is Level.ALERT and "contingência" in health.reasons[0]
+
+
+def test_fingerprint_ignores_counts_but_not_level_or_reason() -> None:
+    three = Alert("tenant:x", Level.ERROR, "Sol: 3 mensagem(ns) não entregue(s) (código 130497)")
+    four = Alert("tenant:x", Level.ERROR, "Sol: 4 mensagem(ns) não entregue(s) (código 130497)")
+    assert fingerprint(three) == fingerprint(four)
+    assert fingerprint(three) != fingerprint(Alert("tenant:x", Level.ALERT, three.text))
+    assert fingerprint(three) != fingerprint(Alert("tenant:y", Level.ERROR, three.text))
+    assert fingerprint(three) != fingerprint(Alert("tenant:x", Level.ERROR, "Sol: sem planilha"))

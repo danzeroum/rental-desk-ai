@@ -53,6 +53,9 @@ async def test_alerts_email_once_and_cover_platform_and_tenants(
     assert "Imobiliária Sem Planilha: sem planilha aprovada" in mail.body
     assert "https://painel/operador" in mail.body and "erro(s)" in mail.subject
     assert await service.run() == 0  # mesmo alerta não repete
+    for _ in range(10):
+        await redis.xadd(STREAM_NORMAL, {"kind": "conversation", "key": "x:y"})
+    assert await service.run() == 0  # só a contagem mudou (120 → 130): não repete
     await redis.set(
         HEARTBEAT_KEY,
         json.dumps({"at": int((NOW - timedelta(hours=1)).timestamp()), "remote": False}),
