@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -126,6 +128,18 @@ class Alert:
     """Identifica o alerta para não repetir o aviso (ex.: `disco`, `tenant:<id>`)."""
     level: Level
     text: str
+
+
+_NUMBERS: Final = re.compile(r"\d+")
+
+
+def fingerprint(alert: Alert) -> str:
+    """O que identifica o mesmo alerta para não repetir o aviso: chave, nível e texto **sem os
+    números**. "3 mensagens não entregues" e depois "4 mensagens não entregues" são o mesmo
+    problema; um e-mail por nova falha seria barulho (um a cada 5 min com o 130497). Mudar de
+    nível (alerta → erro) ou de motivo avisa de novo."""
+    text = _NUMBERS.sub("#", alert.text)
+    return hashlib.sha256(f"{alert.key}|{alert.level}|{text}".encode()).hexdigest()[:16]
 
 
 def assess_platform(data: PlatformInput, now: datetime) -> list[Alert]:

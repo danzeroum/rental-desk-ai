@@ -1,13 +1,13 @@
 """Alertas ao operador (SPEC seção 10): fila acumulada, IA fora, rejeições do validador,
 disco > 80%, imobiliária sem mensagens, datas vencidas, qualidade do número e backup.
 
-A cada rodada, um único e-mail com os alertas novos; o mesmo alerta (mesma chave e
-mesmo texto) não se repete por 12 h. Tudo também vai para o log (`alerta_operacional`).
+A cada rodada, um único e-mail com os alertas novos; o mesmo alerta (mesma chave, mesmo nível
+e mesmo texto a menos dos números) não se repete por 12 h. Tudo também vai para o log
+(`alerta_operacional`).
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
 import uuid
@@ -22,7 +22,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.adapters.mailer import Mailer, MailError
 from app.core.logging import get_logger
 from app.core.rls import global_session, tenant_session
-from app.domain.health import Alert, Level, PlatformInput, assess, assess_platform
+from app.domain.health import (
+    Alert,
+    Level,
+    PlatformInput,
+    assess,
+    assess_platform,
+    fingerprint,
+)
 from app.models import Tenant
 from app.workers.brokers import operator_emails
 from app.workers.health import collect, dead_jobs_by_tenant
@@ -107,8 +114,7 @@ class AlertService:
         return len(fresh)
 
     async def _is_new(self, alert: Alert) -> bool:
-        digest = hashlib.sha256(f"{alert.level}|{alert.text}".encode()).hexdigest()[:16]
-        key = f"rd:alert:{alert.key}:{digest}"
+        key = f"rd:alert:{alert.key}:{fingerprint(alert)}"
         return bool(await self.redis.set(key, "1", nx=True, ex=REPEAT_AFTER_SECONDS))
 
     async def _notify(self, alerts: list[Alert]) -> None:
