@@ -603,6 +603,26 @@ Anotações para depois da Versão 1.0 (o produto segue focado em temporada; nad
 - **Tenant próprio (M12):** pacote de perguntas e respostas sem disponibilidade nem preço; exige um
   motor alternativo ao `engine` de temporada, escolhido por tenant.
 
+## D048 · Retenção diária de 180 dias (revisão LGPD, Risco-001)
+
+- **Contexto:** a política de privacidade e o SPEC (seção 9) prometem tirar nome e telefone das
+  mensagens após 180 dias "sem disputa aberta", mas nenhuma rotina fazia isso.
+- **Escolha:** job `retencao` no scheduler, uma vez por dia a partir das 4h (Brasília), por
+  imobiliária, com o papel da aplicação (RLS). Prazo em `RETENTION_DAYS` (padrão 180, mínimo 30).
+  "Mais de 180 dias" desde a última mensagem; no dia exato ainda não vence. O texto das mensagens
+  perde telefone e nome do perfil e passa por `mask_pii`; menções ao telefone em outras mensagens
+  (aviso ao corretor) também saem; o contato ganha `anonymized_at`. Até 500 contatos por imobiliária
+  por dia. A trilha recebe `retention_applied` só com contagens.
+- **"Disputa aberta":** o modelo não tem entidade de disputa; interpretamos como passagem ao corretor
+  aberta ou assumida (não encerrada). Ela segura o contato até ser encerrada. **A confirmar com o
+  advogado** junto com a política.
+- **Quem pediu PARAR mantém o telefone** (só ele; o nome sai): sem o número, uma nova mensagem dessa
+  pessoa voltaria a receber atendimento automático, contra o pedido dela (Art. 16, I/II).
+- **Imobiliárias de demonstração** ficam fora: são limpas por inteiro toda madrugada (D045).
+- **Alternativas descartadas:** apagar o contato (perderia a contagem de resultados e a ligação com a
+  trilha; o pedido do hóspede continua útil sem identificá-lo); job por SQL puro (não aplicaria
+  `mask_pii`, que é Python).
+
 ## D041 · Operação: backup, alertas, capacidade, falhas e modo sombra (M8)
 
 - **Backup:** `pg_dump` em formato custom **com dono e permissões** (antes era `--no-owner`: a

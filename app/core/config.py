@@ -106,6 +106,10 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = Field(default=15, ge=1, le=1000)
     rate_limit_silence_seconds: int = Field(default=600, ge=1, le=86400)
 
+    # Retenção (SPEC seção 9; política de privacidade): nome e telefone saem das conversas
+    # paradas há mais que isto, sem passagem ao corretor em aberto.
+    retention_days: int = Field(default=180, ge=30, le=3650)
+
     @property
     def is_production_like(self) -> bool:
         return self.env in {Environment.STAGING, Environment.PRODUCTION}

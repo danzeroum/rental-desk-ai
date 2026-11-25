@@ -89,6 +89,7 @@ EVENT_LABELS: Final = {
     "sheet_blocks_synced": "Bloqueios sincronizados da planilha Google",
     "sheet_sync_failing": "Planilha Google com falhas",
     "simulator_used": "Simulador usado",
+    "retention_applied": "Retenção aplicada (nome e telefone retirados)",
 }
 GROUPS: Final = {
     "conversas": ("message_received", "response_sent", "shadow_response", "delivery_status",
@@ -98,7 +99,7 @@ GROUPS: Final = {
                   "handoff_assumed", "handoff_outcome", "broker_reply"),
     "painel": ("status_changed", "assistant_paused", "settings_changed", "snapshot_imported",
                "snapshot_approved", "snapshot_rejected", "availability_confirmed", "block_added",
-               "block_removed", "subject_erased"),
+               "block_removed", "subject_erased", "retention_applied"),
     "acessos": ("support_access", "trace_viewed", "trace_exported"),
 }  # fmt: skip
 ACCESS_EVENTS: Final = GROUPS["acessos"]

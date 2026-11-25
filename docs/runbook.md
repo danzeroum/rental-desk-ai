@@ -84,6 +84,10 @@ make seed-demo PNID=123456789012345
 - Pedido de acesso ou exclusão: gestor em **Painel → Titulares**, pelo telefone: exportar (JSON) ou
   apagar (digitando APAGAR). Apagar remove conversas, mensagens, transcrições e passagens, e tira o
   telefone das confirmações enviadas a corretores. O `audit_log` fica, sem telefone nem texto do hóspede.
+- **Retenção automática (D048):** todo dia às 4h, hóspede sem mensagem há mais de `RETENTION_DAYS`
+  (180) e sem passagem aberta perde nome e telefone nas conversas; a trilha registra
+  "Retenção aplicada" com as contagens. Log: `retencao_aplicada`. Quem pediu PARAR mantém só o
+  telefone, para o pedido continuar valendo.
 - Aviso de privacidade público: `https://<domínio>/privacidade/<slug>` (a versão vai na 1ª resposta).
   **Texto-base em `app/domain/privacy.py` precisa de revisão jurídica** antes do lançamento.
 

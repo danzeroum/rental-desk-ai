@@ -41,6 +41,7 @@ x-app-env: &app-env
   LLM_API_KEY: ${LLM_API_KEY:-}
   LLM_EFFORT: ${LLM_EFFORT:-low}
   GOOGLE_SERVICE_ACCOUNT_JSON: ${GOOGLE_SERVICE_ACCOUNT_JSON:-}
+  RETENTION_DAYS: ${RETENTION_DAYS:-180}
 
 x-app-common: &app-common
   <<: *app-image
