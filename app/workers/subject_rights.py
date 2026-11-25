@@ -6,20 +6,26 @@ também sai do texto das confirmações enviadas a corretores. O `audit_log` fic
 (imutável, prazo legal) porque não guarda telefone, nome nem texto do hóspede —
 só ids internos que deixam de apontar para alguém. Logs técnicos não têm dado
 pessoal (mascarados) e somem em 30 dias.
+
+Cada exclusão vai também para o livro de eliminações (`app/core/erasure_ledger.py`), fora do
+banco: depois de restaurar um backup, `replay_erasures` apaga de novo quem reapareceu.
 """
 
 from __future__ import annotations
 
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.audit import append_audit
+from app.core.erasure_ledger import Erasure, ErasureLedger
 from app.core.logging import get_logger
+from app.core.rls import tenant_session
 from app.models import AuditLog, Contact, Conversation, Handoff, Intent, Message
 from app.models.enums import HandoffStatus
 
@@ -152,24 +158,57 @@ async def export(session: AsyncSession, phone_e164: str) -> dict[str, Any] | Non
 
 
 async def erase(
-    session: AsyncSession, *, tenant_id: uuid.UUID, phone_e164: str, user_id: uuid.UUID
-) -> SubjectSummary | None:
+    session: AsyncSession, *, tenant_id: uuid.UUID, phone_e164: str, user_id: uuid.UUID,
+    ledger: ErasureLedger, now: datetime,
+) -> SubjectSummary | None:  # fmt: skip
+    """Apaga o titular. Grava antes no livro de eliminações (fora do banco), para a exclusão
+    valer também depois de restaurar um backup antigo."""
     summary = await find(session, phone_e164)
     if summary is None:
         return None
-    await session.execute(delete(Contact).where(Contact.id == summary.contact_id))
-    scrubbed = await session.execute(
-        update(Message)
-        .where(Message.body.contains(phone_e164))
-        .values(body=func.replace(Message.body, phone_e164, ERASED_MARK))
-    )
+    await ledger.append(Erasure(now, tenant_id, summary.contact_id))
+    scrubbed = await _erase_contact(session, summary.contact_id, phone_e164)
     await append_audit(
         session, tenant_id=tenant_id, event_type="subject_erased",
         payload={
             "contact_id": str(summary.contact_id), "by": str(user_id),
             "conversations": summary.conversations, "messages": summary.messages,
-            "mentions_scrubbed": scrubbed.rowcount,  # type: ignore[attr-defined]
+            "mentions_scrubbed": scrubbed,
         },
     )  # fmt: skip
     log.info("titular_apagado", conversations=summary.conversations)
     return summary
+
+
+async def _erase_contact(session: AsyncSession, contact_id: uuid.UUID, phone: str | None) -> int:
+    """Contato e tudo dele em cascata; o telefone sai também do texto de outras mensagens."""
+    await session.execute(delete(Contact).where(Contact.id == contact_id))
+    if not phone:
+        return 0
+    scrubbed = await session.execute(
+        update(Message)
+        .where(Message.body.contains(phone))
+        .values(body=func.replace(Message.body, phone, ERASED_MARK))
+    )
+    return int(scrubbed.rowcount)  # type: ignore[attr-defined]
+
+
+async def replay_erasures(app: async_sessionmaker[AsyncSession], ledger: ErasureLedger) -> int:
+    """Depois de restaurar um backup: apaga de novo quem está no livro e reapareceu."""
+    by_tenant: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
+    for entry in ledger.read():
+        by_tenant[entry.tenant_id].add(entry.contact_id)
+    total = 0
+    for tenant_id, contact_ids in by_tenant.items():
+        async with tenant_session(app, tenant_id) as session:
+            back = list(await session.scalars(select(Contact).where(Contact.id.in_(contact_ids))))
+            for contact in back:
+                await _erase_contact(session, contact.id, contact.phone_e164)
+            if back:
+                await append_audit(
+                    session, tenant_id=tenant_id, event_type="subject_erasure_replayed",
+                    payload={"contacts": len(back)},
+                )  # fmt: skip
+        total += len(back)
+    log.info("eliminacoes_reaplicadas", contatos=total, no_livro=sum(map(len, by_tenant.values())))
+    return total

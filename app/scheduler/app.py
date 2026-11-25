@@ -37,6 +37,7 @@ from app.workers.calendars import SYNC_EVERY_SECONDS, CalendarService
 from app.workers.handoffs import HandoffService
 from app.workers.reminders import ReminderService, reminder_due
 from app.workers.reports import ReportService, report_due
+from app.workers.retention import RETENTION_CHECK_SECONDS, run_retention
 from app.workers.sheets import SheetSyncService
 
 ESCALATION_EVERY_SECONDS = 60
@@ -155,6 +156,11 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
     async def purge_demos() -> int:
         return await purge_sales_demos(redis, ops_engine, sessions, now=datetime.now(UTC))
 
+    async def retain() -> int:
+        return await run_retention(
+            redis, ops_engine, sessions, now=datetime.now(UTC), days=settings.retention_days
+        )
+
     async def remind_all() -> int:
         return await send_daily_reminders(redis, ops_engine, reminders)
 
@@ -168,6 +174,7 @@ async def run_scheduler(stop: asyncio.Event, settings: Settings | None = None) -
         Job("calendarios", SYNC_EVERY_SECONDS, sync_calendars),
         Job("planilha_google", SYNC_EVERY_SECONDS, sync_sheets),
         Job("limpeza_demo", DEMO_PURGE_CHECK_SECONDS, purge_demos),
+        Job("retencao", RETENTION_CHECK_SECONDS, retain),
     ]
     scheduler = Scheduler(redis, jobs)
     try:

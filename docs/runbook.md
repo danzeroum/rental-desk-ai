@@ -84,6 +84,10 @@ make seed-demo PNID=123456789012345
 - Pedido de acesso ou exclusão: gestor em **Painel → Titulares**, pelo telefone: exportar (JSON) ou
   apagar (digitando APAGAR). Apagar remove conversas, mensagens, transcrições e passagens, e tira o
   telefone das confirmações enviadas a corretores. O `audit_log` fica, sem telefone nem texto do hóspede.
+- **Retenção automática (D048):** todo dia às 4h, hóspede sem mensagem há mais de `RETENTION_DAYS`
+  (180) e sem passagem aberta perde nome e telefone nas conversas; a trilha registra
+  "Retenção aplicada" com as contagens. Log: `retencao_aplicada`. Quem pediu PARAR mantém só o
+  telefone, para o pedido continuar valendo.
 - Aviso de privacidade público: `https://<domínio>/privacidade/<slug>` (a versão vai na 1ª resposta).
   **Texto-base em `app/domain/privacy.py` precisa de revisão jurídica** antes do lançamento.
 
@@ -92,7 +96,9 @@ make seed-demo PNID=123456789012345
 Operador → **Rastreio** (`/operador/rastreio`):
 
 1. **Escolha a imobiliária e o período.** Para uma conversa específica, digite o telefone do
-   hóspede, com ou sem o 55 e com ou sem o 9.
+   hóspede, com ou sem o 55 e com ou sem o 9. O telefone vai no corpo do formulário, nunca na
+   URL: um link com `?telefone=` é ignorado (a URL fica no log de acesso). O Caddy também apaga
+   `telefone`/`phone` da URL e encurta o IP nos próprios logs.
 2. **Confira o selo "cadeia íntegra".** O banco recalcula o hash de todos os eventos daquela
    imobiliária na hora. Se aparecer **"cadeia QUEBRADA"**, trate como incidente de segurança
    (seção abaixo): não apague nada.
@@ -195,7 +201,9 @@ minuto: ele avisa se a VPS inteira cair, coisa que o próprio sistema não conse
 - **Restaurar de verdade** (RTO ≤ 4 h, RPO ≤ 24 h):
   1. `make restore FILE=latest CONFIRM=sim` (ou `FILE=remote`, ou o caminho de um arquivo em
      `/backups`). Isso para app, worker e scheduler, restaura num banco à parte, confere, troca pelo
-     banco em uso (o antigo fica como `rentaldesk_antes_<data>`), aplica migrações e sobe tudo.
+     banco em uso (o antigo fica como `rentaldesk_antes_<data>`), aplica migrações, **reaplica o
+     livro de eliminações** e sobe tudo. A saída mostra "Livro de eliminações reaplicado: N
+     titular(es) apagado(s) de novo": quem pediu exclusão depois do backup volta a ser apagado.
   2. Confira `/health`, entre no painel e veja a última conversa.
   3. Mensagens recebidas entre o backup e a falha: a Meta reenvia o que não teve resposta 200; o
      resto se perde (RPO). Avise as imobiliárias.
@@ -203,7 +211,13 @@ minuto: ele avisa se a VPS inteira cair, coisa que o próprio sistema não conse
      `docker compose ... exec postgres dropdb -U postgres rentaldesk_antes_<data>`.
 - **VPS perdida:** instale uma nova com o `install.sh`, copie o `.env` guardado no cofre (sem o
   `BACKUP_PASSPHRASE` original os backups não abrem), rode `make restore FILE=remote CONFIRM=sim` e
-  aponte o domínio para a nova VPS.
+  aponte o domínio para a nova VPS. O livro de eliminações vem junto da cópia externa e é juntado
+  ao local automaticamente; exclusões feitas depois do último backup se perdem com a VPS (RPO 24 h):
+  peça às imobiliárias que repitam as do último dia.
+- **Livro de eliminações (D049):** cada exclusão de titular grava uma linha (data, imobiliária,
+  contato; nenhum telefone) no volume `erasures`, fora do banco. O backup copia o livro para
+  `/backups/erasures.jsonl` e para a cópia externa. Não apague o volume `erasures`. Para reaplicar à
+  mão: `docker compose ... run --rm scheduler python -m app.cli replay-erasures`.
 
 ## Falhas
 

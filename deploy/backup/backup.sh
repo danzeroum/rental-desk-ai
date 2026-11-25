@@ -22,12 +22,17 @@ pg_dump --format=custom "${PGDATABASE}" \
 ${BACKUP_PASSPHRASE}
 EOF_PASS
 mv "${partial}" "${target}"
+# Livro de eliminações (só ids internos): vai junto, para reaplicar depois de uma restauração.
+ledger_src="${ERASURE_LEDGER:-/erasures/erasures.jsonl}"
+ledger="${dir}/erasures.jsonl"
+[ -f "${ledger_src}" ] && cp "${ledger_src}" "${ledger}"
 find "${dir}" -name "${PGDATABASE}-*.dump.gpg" -type f -mtime +"${retention}" -delete
 bytes="$(wc -c < "${target}")"
 
 remote=false
 if [ -n "${BACKUP_S3_BUCKET:-}" ]; then
-  if offsite-sync "${target}" "${retention}"; then
+  if offsite-sync "${target}" "${retention}" \
+    && { [ ! -f "${ledger}" ] || offsite-sync --ledger "${ledger}"; }; then
     remote=true
   else
     printf '{"event":"backup_envio_externo_falhou","level":"error"}\n'

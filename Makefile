@@ -62,6 +62,8 @@ restore: ## Restaura um backup e troca o banco (FILE=/backups/... | latest | rem
 	$(COMPOSE) stop app worker scheduler
 	$(COMPOSE) exec -T backup restore-backup "$(or $(FILE),latest)" --swap
 	$(COMPOSE) run --rm migrate
+	$(COMPOSE) exec -T backup sh -c 'cat /backups/erasures.jsonl 2>/dev/null || true' \
+	  | $(COMPOSE) run --rm -T scheduler python -m app.cli replay-erasures --merge-stdin
 	$(COMPOSE) up -d --wait
 
 restore-drill: ## Exercício de restauração (RTO): restaura o último backup num banco à parte, confere e apaga

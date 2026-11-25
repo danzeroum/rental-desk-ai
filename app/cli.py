@@ -32,6 +32,8 @@ from sqlalchemy.pool import NullPool
 from app.adapters.factory import build_keyring, build_mailer
 from app.core.config import Settings, get_settings
 from app.core.db import async_url, create_engine
+from app.core.erasure_ledger import ErasureLedger
+from app.core.erasure_ledger import parse as parse_ledger
 from app.core.logging import configure_logging
 from app.core.redis import create_redis
 from app.core.rls import global_session, scoped_session_factory
@@ -42,6 +44,7 @@ from app.onboarding import OnboardingError, create_tenant
 from app.sales_demo import seed_sales_demos
 from app.web.auth import AuthService
 from app.workers.sales_demo_chat import DemoAccessError, SalesDemoChat
+from app.workers.subject_rights import replay_erasures
 
 
 class CliError(Exception):
@@ -126,6 +129,13 @@ def _parser() -> argparse.ArgumentParser:
     demo.add_argument("--phone-number-id", default=None, help="número de teste da Meta (opcional)")
     link = commands.add_parser("create-demo-link", help="cria um link do kit de demonstração")
     link.add_argument("--label", required=True, help="para quem é o link (sem telefone/e-mail)")
+    replay = commands.add_parser(
+        "replay-erasures", help="depois de restaurar um backup: reaplica o livro de eliminações"
+    )
+    replay.add_argument(
+        "--merge-stdin", action="store_true",
+        help="junta antes a cópia do livro recebida pela entrada padrão (ex.: a do backup)",
+    )  # fmt: skip
     totp = commands.add_parser("reset-totp", help="apaga o autenticador de um usuário")
     totp.add_argument("--email", required=True)
     return parser
@@ -195,6 +205,18 @@ async def _run(args: argparse.Namespace) -> str:
             return await _seed_demo(service, args.phone_number_id)
         if args.command == "create-demo-link":
             return await create_demo_link(service, args.label, get_settings())
+        if args.command == "replay-erasures":
+            ledger = ErasureLedger(get_settings().erasure_ledger_path)
+            if ledger.path is None:
+                raise CliError("ERASURE_LEDGER_PATH não configurado")
+            added = 0
+            if args.merge_stdin:
+                added = await ledger.merge(parse_ledger(sys.stdin.read()))
+            count = await replay_erasures(service.db, ledger)
+            return (
+                f"Livro de eliminações reaplicado: {count} titular(es) apagado(s) de novo"
+                f" ({added} exclusão(ões) vieram da outra cópia)."
+            )
         if args.command == "create-operator":
             link = await create_operator(service, args.email, args.name)
             return f"Operador pronto. Convite (vale 72 h):\n{link}"

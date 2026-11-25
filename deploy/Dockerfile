@@ -21,7 +21,9 @@ LABEL org.opencontainers.image.title="rental-desk-ai" \
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PATH="/srv/.venv/bin:${PATH}" TZ=America/Sao_Paulo
 RUN groupadd --system --gid 10001 app \
- && useradd --system --uid 10001 --gid app --home-dir /srv --shell /usr/sbin/nologin app
+ && useradd --system --uid 10001 --gid app --home-dir /srv --shell /usr/sbin/nologin app \
+ && install -d -o app -g app -m 0755 /var/lib/rentaldesk/erasures
+# ↑ Volume do livro de eliminações: o volume nomeado herda dono e permissão deste diretório.
 WORKDIR /srv
 COPY --from=build --chown=app:app /srv/.venv /srv/.venv
 COPY --chown=app:app app ./app

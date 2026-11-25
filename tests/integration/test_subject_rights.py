@@ -6,18 +6,22 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
+from app.core.erasure_ledger import Erasure, ErasureLedger
 from app.core.rls import tenant_session
 from app.domain import messages, notices
 from app.models import AuditLog, Contact, Conversation, Message
 from app.models.enums import Direction, MemberRole, MessageKind, MessageOrigin
 from app.onboarding import create_tenant
 from app.workers.processor import SkipReason
+from app.workers.subject_rights import replay_erasures
 from tests.factories import create_tenant as bare_tenant
 from tests.integration.panel_client import PanelClient, panel_client
 from tests.integration.test_handoffs import (  # noqa: F401 - fixtures
@@ -155,6 +159,73 @@ async def test_panel_export_and_erase(
     assert "Nenhum dado com esse telefone" in gone.text
     bad = panel.post("/painel/titular", {"phone": "123", "action": "buscar"})
     assert bad.status_code == 400
+
+
+async def test_erasure_survives_a_backup_restore(
+    panel: PanelClient, manager_team: Team, app_sessions: Sessions, tmp_path: Path
+) -> None:
+    """Revisão LGPD, Risco-003: restaurar um backup não traz de volta quem pediu exclusão."""
+    ledger = ErasureLedger(tmp_path / "erasures.jsonl")
+    panel.app.state.erasure_ledger = ledger
+    tenant = manager_team.tenant_id
+    await _handoff(app_sessions, tenant)  # hóspede +5511977776666
+    broker_conv = await _broker_mention(app_sessions, tenant, "+5511977776666")
+    async with tenant_session(app_sessions, tenant) as session:
+        contact_id = await session.scalar(
+            select(Contact.id).where(Contact.phone_e164 == "+5511977776666")
+        )
+    panel.login(manager_team.gestor_email)
+    panel.post("/painel/titular", {"phone": "11977776666", "action": "apagar", "confirm": "APAGAR"})
+
+    entries = ledger.read()
+    assert [(e.tenant_id, e.contact_id) for e in entries] == [(tenant, contact_id)]
+    assert "977776666" not in ledger.path.read_text()  # type: ignore[union-attr]
+
+    # "Restauração": o contato volta e a menção ao telefone no aviso ao corretor também.
+    async with tenant_session(app_sessions, tenant) as session:
+        session.add(Contact(id=contact_id, tenant_id=tenant, phone_e164="+5511977776666"))
+        await session.execute(
+            update(Message).where(Message.conversation_id == broker_conv)
+            .values(body="Hóspede +5511977776666 aguardando")
+        )  # fmt: skip
+
+    assert await replay_erasures(app_sessions, ledger) == 1
+    assert await replay_erasures(app_sessions, ledger) == 0  # idempotente
+    async with tenant_session(app_sessions, tenant) as session:
+        assert await session.get(Contact, contact_id) is None
+        body = await session.scalar(
+            select(Message.body).where(Message.conversation_id == broker_conv)
+        )
+        replayed = await session.scalar(
+            select(AuditLog).where(AuditLog.event_type == "subject_erasure_replayed")
+        )
+    assert body is not None and "977776666" not in body
+    assert replayed is not None and replayed.payload == {"contacts": 1}
+
+
+def test_ledger_skips_broken_lines(tmp_path: Path) -> None:
+    path = tmp_path / "erasures.jsonl"
+    good = json.dumps({
+        "at": "2026-11-24T10:00:00+00:00", "tenant_id": str(uuid.uuid4()),
+        "contact_id": str(uuid.uuid4()),
+    })  # fmt: skip
+    path.write_text(f'{good}\nnão é json\n\n{{"at": "x"}}\n')
+    assert len(ErasureLedger(path).read()) == 1
+    assert ErasureLedger(None).read() == []
+    assert ErasureLedger(tmp_path / "nao-existe.jsonl").read() == []
+
+
+async def test_ledger_merge_adds_only_missing_entries(tmp_path: Path) -> None:
+    """VPS perdida: o livro local recomeça vazio e recebe o da cópia externa."""
+    ledger = ErasureLedger(tmp_path / "erasures.jsonl")
+    tenant, first, second = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    at = datetime(2026, 11, 24, 10, 0, tzinfo=UTC)
+    await ledger.append(Erasure(at, tenant, first))
+    added = await ledger.merge([Erasure(at, tenant, first), Erasure(at, tenant, second)])
+    assert added == 1
+    assert [e.contact_id for e in ledger.read()] == [first, second]
+    assert await ErasureLedger(None).merge([Erasure(at, tenant, first)]) == 0  # sem caminho
+    assert ErasureLedger(None).read() == []
 
 
 async def test_corretor_cannot_use_subject_page(panel: PanelClient, manager_team: Team) -> None:

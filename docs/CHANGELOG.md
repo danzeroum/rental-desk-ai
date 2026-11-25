@@ -5,6 +5,18 @@ versionamento semântico (veja `DECISIONS.md`, D007).
 
 ## [Não lançado]
 
+### Segurança
+- Revisão LGPD de 24/11/2026 (`docs/revisao-2026-11-24.md`), itens P1:
+  - Risco-002: o filtro por telefone e a exportação do Rastreio passam a ser POST com CSRF; o
+    telefone não vai mais na URL. Os logs do Caddy (acesso e erro) apagam `telefone`/`phone` da URL
+    e encurtam o IP.
+  - Risco-001: retenção diária (D048). Hóspede sem conversa há mais de `RETENTION_DAYS` (180) e sem
+    passagem aberta perde nome e telefone; registrado na trilha como "Retenção aplicada".
+  - Risco-003: livro de eliminações fora do banco (D049). Cada exclusão de titular vai para um volume
+    próprio, copiado no backup e na cópia externa; `make restore` reaplica o livro, e quem pediu
+    exclusão não volta com um backup antigo. Nova variável obrigatória em produção:
+    `ERASURE_LEDGER_PATH` (já definida no docker-compose).
+
 ### Alterado
 - API da Meta na versão v25.0 por padrão (era v21.0). Em instalações existentes, ajuste
   `WHATSAPP_API_BASE_URL` no `.env`.

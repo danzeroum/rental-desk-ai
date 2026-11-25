@@ -53,6 +53,7 @@ def production_settings(**overrides: object) -> Settings:
         "llm_provider": "anthropic",
         "llm_model": "claude-opus-5-5",
         "llm_api_key": "chave-de-teste",
+        "erasure_ledger_path": "/var/lib/rentaldesk/erasures/erasures.jsonl",
     }
     values.update(overrides)
     return make_settings(**values)

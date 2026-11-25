@@ -3,6 +3,21 @@
 	servers {
 		trusted_proxies static private_ranges
 	}
+	# Logs de erro do proxy também trazem a requisição: mesma limpeza do log de acesso.
+	log default {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete telefone
+					delete phone
+				}
+				request>remote_ip ip_mask 16 32
+				request>client_ip ip_mask 16 32
+			}
+		}
+	}
 }
 
 {$DOMAIN} {
@@ -26,8 +41,20 @@
 		health_interval 15s
 	}
 
+	# Sem dado pessoal no log de acesso: apaga o telefone de qualquer URL (o painel só manda
+	# telefone por POST; isto é a segunda barreira) e encurta o IP (revisão LGPD 24/11/2026).
 	log {
 		output stdout
-		format json
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete telefone
+					delete phone
+				}
+				request>remote_ip ip_mask 16 32
+				request>client_ip ip_mask 16 32
+			}
+		}
 	}
 }

@@ -12,7 +12,8 @@
   nada pode ser alterado nem apagado sem quebrar a cadeia). Use para comprovar a um cliente o que chegou, o que o
   assistente respondeu e se a Meta entregou. Cada consulta fica registrada.</p>
 
-<form method="get" action="/operador/rastreio" class="cartao filtros">
+<form method="post" action="/operador/rastreio" class="cartao filtros">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
   <label>Imobiliária
     <select name="imobiliaria" required>
       <option value="">Escolha…</option>
@@ -20,7 +21,7 @@
     </select></label>
   <label>Período
     <select name="periodo">
-      {% for p in periods %}<option value="{{ p }}" {% if filters.period == p %}selected{% endif %}>últimos {{ p | replace('h', ' horas') | replace('d', ' dias') }}</option>{% endfor %}
+      {% for p in periods %}<option value="{{ p }}" {% if filters.period == p %}selected{% endif %}>{{ 'últimas 24 horas' if p == '24h' else 'últimos ' ~ (p | replace('d', ' dias')) }}</option>{% endfor %}
     </select></label>
   <label>Eventos
     <select name="tipo">
@@ -40,7 +41,14 @@
   {% else %}
   <p><span class="selo erro">cadeia QUEBRADA</span> no evento nº {{ broken }}. Isso não acontece em uso normal: avise o responsável técnico e não apague nada.</p>
   {% endif %}
-  <p><a href="/operador/rastreio/exportar?imobiliaria={{ filters.tenant_id }}&periodo={{ filters.period }}&tipo={{ filters.group }}&telefone={{ filters.phone }}">Exportar CSV (com o hash de cada evento{% if not filters.group %}, incluindo os acessos{% endif %})</a></p>
+  <form method="post" action="/operador/rastreio/exportar">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="imobiliaria" value="{{ filters.tenant_id }}">
+    <input type="hidden" name="periodo" value="{{ filters.period }}">
+    <input type="hidden" name="tipo" value="{{ filters.group }}">
+    <input type="hidden" name="telefone" value="{{ filters.phone }}">
+    <button class="secundario">Exportar CSV (com o hash de cada evento{% if not filters.group %}, incluindo os acessos{% endif %})</button>
+  </form>
 </section>
 
 <div class="tabela"><table>

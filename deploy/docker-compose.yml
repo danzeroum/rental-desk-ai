@@ -41,12 +41,17 @@ x-app-env: &app-env
   LLM_API_KEY: ${LLM_API_KEY:-}
   LLM_EFFORT: ${LLM_EFFORT:-low}
   GOOGLE_SERVICE_ACCOUNT_JSON: ${GOOGLE_SERVICE_ACCOUNT_JSON:-}
+  RETENTION_DAYS: ${RETENTION_DAYS:-180}
+  ERASURE_LEDGER_PATH: /var/lib/rentaldesk/erasures/erasures.jsonl
 
 x-app-common: &app-common
   <<: *app-image
   restart: unless-stopped
   read_only: true
   tmpfs: [/tmp]
+  # Livro de eliminações (LGPD): fora do banco, para valer depois de restaurar um backup.
+  volumes:
+    - erasures:/var/lib/rentaldesk/erasures
   security_opt: ["no-new-privileges:true"]
   cap_drop: [ALL]
   environment: *app-env
@@ -180,6 +185,7 @@ services:
       TZ: America/Sao_Paulo
     volumes:
       - backups:/backups
+      - erasures:/erasures:ro
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -191,3 +197,4 @@ volumes:
   postgres_data:
   redis_data:
   backups:
+  erasures:

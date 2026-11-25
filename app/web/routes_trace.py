@@ -5,6 +5,10 @@ período, tipo de evento, telefone ou conversa, confere a cadeia de hash no banc
 CSV. A linha do tempo de uma conversa junta as mensagens (com o status de entrega da Meta) e
 os eventos da trilha.
 
+O telefone do hóspede só chega por formulário POST (com CSRF), nunca na URL: a URL vai para o
+log de acesso do Caddy (revisão LGPD de 24/11/2026, Risco-002). Por GET, só filtros sem dado
+pessoal (imobiliária, período, grupo, conversa).
+
 Roda com o papel da aplicação (RLS): o operador lê cada imobiliária com `tenant_session`, como
 qualquer requisição. Toda consulta e exportação fica registrada na própria trilha
 (`trace_viewed`, `trace_exported`): quem viu dados de quem, e quando (LGPD).
@@ -30,7 +34,7 @@ from app.core.masking import mask_pii, mask_structured
 from app.core.rls import global_session, tenant_session
 from app.models import AuditLog, Contact, Conversation, Message, Tenant
 from app.web.auth import PanelSession
-from app.web.common import local_time, render
+from app.web.common import local_time, render, verify_csrf
 from app.web.routes_operator import Operator
 
 router = APIRouter(prefix="/operador/rastreio")
@@ -66,6 +70,7 @@ EVENT_LABELS: Final = {
     "trace_viewed": "Rastreio consultado",
     "trace_exported": "Rastreio exportado",
     "subject_erased": "Dados do titular apagados (LGPD)",
+    "subject_erasure_replayed": "Exclusões reaplicadas após restaurar backup",
     "tenant_created": "Imobiliária criada",
     "whatsapp_connected": "Número de WhatsApp conectado",
     "member_added": "Pessoa adicionada à equipe",
@@ -85,6 +90,7 @@ EVENT_LABELS: Final = {
     "sheet_blocks_synced": "Bloqueios sincronizados da planilha Google",
     "sheet_sync_failing": "Planilha Google com falhas",
     "simulator_used": "Simulador usado",
+    "retention_applied": "Retenção aplicada (nome e telefone retirados)",
 }
 GROUPS: Final = {
     "conversas": ("message_received", "response_sent", "shadow_response", "delivery_status",
@@ -94,7 +100,8 @@ GROUPS: Final = {
                   "handoff_assumed", "handoff_outcome", "broker_reply"),
     "painel": ("status_changed", "assistant_paused", "settings_changed", "snapshot_imported",
                "snapshot_approved", "snapshot_rejected", "availability_confirmed", "block_added",
-               "block_removed", "subject_erased"),
+               "block_removed", "subject_erased", "subject_erasure_replayed",
+               "retention_applied"),
     "acessos": ("support_access", "trace_viewed", "trace_exported"),
 }  # fmt: skip
 ACCESS_EVENTS: Final = GROUPS["acessos"]
@@ -205,9 +212,29 @@ TenantParam = Annotated[str | None, Query(alias="imobiliaria")]
 
 
 def _filters(
-    imobiliaria: TenantParam = None, periodo: str = "24h", tipo: str = "", telefone: str = "",
+    imobiliaria: TenantParam = None, periodo: str = "24h", tipo: str = "",
     conversa: str | None = None,
 ) -> Filters:  # fmt: skip
+    """Filtros da URL: sem telefone (veja o cabeçalho do módulo)."""
+    return build_filters(imobiliaria, periodo, tipo, "", conversa)
+
+
+async def _posted_filters(request: Request) -> Filters:
+    """Filtros de um formulário POST (CSRF conferido): o único caminho do telefone."""
+    form = await verify_csrf(request)
+
+    def field(name: str) -> str:
+        return str(form.get(name, ""))
+
+    return build_filters(
+        field("imobiliaria") or None, field("periodo") or "24h", field("tipo"),
+        field("telefone"), field("conversa") or None,
+    )  # fmt: skip
+
+
+def build_filters(
+    imobiliaria: str | None, periodo: str, tipo: str, telefone: str, conversa: str | None
+) -> Filters:
     def as_uuid(value: str | None) -> uuid.UUID | None:
         try:
             return uuid.UUID(value) if value else None
@@ -275,10 +302,21 @@ def _rows(events: list[AuditLog]) -> list[Row]:
 
 
 FiltersDep = Annotated[Filters, Depends(_filters)]
+PostedFiltersDep = Annotated[Filters, Depends(_posted_filters)]
 
 
 @router.get("", response_class=HTMLResponse)
 async def trace_page(request: Request, operator: Operator, filters: FiltersDep) -> Response:
+    return await _page(request, operator, filters)
+
+
+@router.post("", response_class=HTMLResponse)
+async def trace_search(request: Request, operator: Operator, filters: PostedFiltersDep) -> Response:
+    """Mesma página, com filtro por telefone vindo do corpo do formulário."""
+    return await _page(request, operator, filters)
+
+
+async def _page(request: Request, operator: PanelSession, filters: Filters) -> Response:
     tenants = await _tenants(request, operator)
     context: dict[str, Any] = {
         "tenants": tenants, "filters": filters, "periods": list(PERIODS), "groups": list(GROUPS),
@@ -299,8 +337,8 @@ async def trace_page(request: Request, operator: Operator, filters: FiltersDep) 
     return render(request, "operator/trace.html", context)
 
 
-@router.get("/exportar")
-async def trace_export(request: Request, operator: Operator, filters: FiltersDep) -> Response:
+@router.post("/exportar")
+async def trace_export(request: Request, operator: Operator, filters: PostedFiltersDep) -> Response:
     """CSV com os eventos completos e o hash de cada um: prova verificável fora do sistema."""
     if filters.tenant_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
@@ -353,7 +391,7 @@ async def conversation_timeline(
     imobiliaria: TenantParam = None,
 ) -> Response:  # fmt: skip
     """Mensagem por mensagem, com hora e status de entrega da Meta, mais os eventos da trilha."""
-    filters = _filters(imobiliaria, "30d", conversa=str(conversation_id))
+    filters = build_filters(imobiliaria, "30d", "", "", str(conversation_id))
     if filters.tenant_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     async with tenant_session(
