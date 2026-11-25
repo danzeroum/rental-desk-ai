@@ -28,6 +28,9 @@ versionamento semântico (veja `DECISIONS.md`, D007).
     `ERASURE_LEDGER_PATH` (já definida no docker-compose).
 
 ### Alterado
+- Rastreio: regras puras (rótulos, grupos, filtros, resumos, CSV) separadas em
+  `app/domain/trace.py`, testadas sem banco; a rota ficou com HTTP e consulta (C-1). A busca por
+  telefone passa a achar também números de fora do Brasil, como o de teste da Meta (+1 555…).
 - Erros de envio da Meta aparecem em português, com o que fazer, no Rastreio, na linha do tempo e na
   Saúde (130497, 131047, 131026, 131049, 131056, 131048, 131031, 368, 190); o texto original segue
   na trilha e no CSV (UX-1, `app/domain/meta_errors.py`).
