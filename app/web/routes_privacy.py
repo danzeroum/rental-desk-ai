@@ -6,17 +6,21 @@ O telefone só trafega no corpo de formulários POST (nunca na URL, que vai para
 from __future__ import annotations
 
 import json
-from typing import Final
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Final
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 
 from app.core.rls import global_session, tenant_session
+from app.domain.access import ACCESS_ACTIONS, ACCESS_EVENTS, describe_payload
 from app.domain.phones import InvalidPhoneError, to_e164
-from app.models import PrivacyNotice, Tenant, TenantRoute
+from app.models import AppUser, AuditLog, PrivacyNotice, Tenant, TenantRoute
 from app.onboarding import SLUG_CHANNEL
-from app.web.common import render, verify_csrf
+from app.web.common import local_time, render, verify_csrf
 from app.web.context import ManagerCtx
 from app.workers import subject_rights
 
@@ -75,6 +79,54 @@ async def subject_action(request: Request, ctx: ManagerCtx) -> Response:
     if summary is None:
         return render(request, "panel/subject.html", {"phone": phone, "not_found": True})
     return render(request, "panel/subject.html", {"phone": phone, "summary": summary})
+
+
+# --- Painel: acessos do suporte (revisão LGPD, Risco-005) -------------------------------
+
+ACCESS_WINDOW: Final = timedelta(days=90)
+MAX_ACCESSES: Final = 300
+
+
+@dataclass(frozen=True)
+class AccessRow:
+    at: datetime
+    who: str
+    action: str
+    reason: str
+
+
+@router.get("/painel/acessos", response_class=HTMLResponse)
+async def support_accesses(request: Request, ctx: ManagerCtx) -> Response:
+    """O gestor (controlador) vê quando o fornecedor entrou na conta dele, o que viu e por quê."""
+    since = request.app.state.auth.clock() - ACCESS_WINDOW
+    async with ctx.db() as session:
+        events = list(await session.scalars(
+            select(AuditLog).where(
+                AuditLog.event_type.in_(ACCESS_EVENTS), AuditLog.created_at >= since
+            ).order_by(AuditLog.seq.desc()).limit(MAX_ACCESSES)
+        ))  # fmt: skip
+        ids = {_user_id(e.payload) for e in events} - {None}
+        rows = await session.execute(
+            select(AppUser.id, AppUser.display_name).where(AppUser.id.in_(ids))
+        )
+        names = {row.id: row.display_name for row in rows}
+    accesses = [
+        AccessRow(
+            e.created_at,
+            names.get(_user_id(e.payload)) or "Suporte Rental Desk",
+            ACCESS_ACTIONS[e.event_type],
+            describe_payload(e.payload) or "não informado (antes desta versão)",
+        )
+        for e in events
+    ]
+    return render(request, "panel/accesses.html", {"rows": accesses, "local": local_time})
+
+
+def _user_id(payload: dict[str, Any]) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(payload.get("user_id")))
+    except ValueError:
+        return None
 
 
 # --- Aviso de privacidade público ---------------------------------------------------------

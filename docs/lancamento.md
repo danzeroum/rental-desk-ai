@@ -29,7 +29,9 @@ O M12 (tenant próprio, demos por segmento) só começa depois da `v1.0.0`.
    `v1.0.0-rc.1` é criada em `main` (autorizada).
 2. **Abrir já os pedidos com espera longa, em paralelo:**
    - conta no parceiro (BSP) e envio dos 5 templates de `docs/whatsapp-templates.md`;
-   - advogado: aviso de privacidade, termos, política de privacidade, contrato e DPA (itens 6 e 7).
+   - advogado: aviso de privacidade, termos, política de privacidade, contrato e DPA (itens 6 e 7),
+     incluindo as cláusulas de transferência internacional (LGPD art. 33; cláusulas-padrão da ANPD)
+     com a Meta, o provedor de IA e o de transcrição (D050).
 3. **Chave da IA** (`LLM_API_KEY`, `LLM_MODEL`) → `make golden-live` → escolher o modelo pela tabela
    (item 2). A mesma chave deixa o kit de demonstração com a IA real.
 4. **VPS de homologação + domínio** → `sudo ./deploy/install.sh` com `ENV=staging` → `make seed-demo`

@@ -6,7 +6,7 @@
   <a href="/operador/demo">Demonstração</a>
 {% endblock %}
 {% block content %}
-<p><a href="/operador/rastreio?imobiliaria={{ filters.tenant_id }}">← Voltar ao rastreio</a></p>
+<p><a href="/operador/rastreio?imobiliaria={{ filters.tenant_id }}&motivo={{ filters.reason.code if filters.reason else "" }}">← Voltar ao rastreio</a></p>
 <h1>Conversa com {{ phone }}</h1>
 <p class="dica">Aberta em {{ local(conversation.created_at, "%d/%m/%Y %H:%M") }}. Mensagens com a hora em que o sistema as
   gravou e, nas que saíram, o status informado pela Meta. "Sem confirmação" quer dizer que a Meta ainda não

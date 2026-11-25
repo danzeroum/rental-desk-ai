@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "operator/_reason.html" import reason_fields %}
 {% block title %}Rastreio{% endblock %}
 {% block nav %}
   <a href="/operador">Saúde</a>
@@ -26,14 +27,18 @@
   <label>Eventos
     <select name="tipo">
       <option value="">todos (exceto acessos)</option>
-      {% for g in groups %}<option value="{{ g }}" {% if filters.group == g %}selected{% endif %}>{{ g }}</option>{% endfor %}
+      {% for g in groups %}<option value="{{ g }}" {% if filters.group == g %}selected{% endif %}>{{ group_labels[g] }}</option>{% endfor %}
     </select></label>
   <label>Telefone do hóspede (opcional)
     <input name="telefone" value="{{ filters.phone }}" inputmode="numeric" placeholder="ex.: 11999990000"></label>
+  {{ reason_fields(reasons, filters.reason.code if filters.reason else "") }}
   <button>Consultar</button>
 </form>
 
-{% if filters.tenant_id %}
+{% if missing_reason %}
+<p class="cartao aviso">Escolha o <strong>motivo da consulta</strong> e clique em Consultar. O motivo fica registrado na
+  trilha da imobiliária, e o gestor dela vê quem consultou e por quê.</p>
+{% elif filters.tenant_id %}
 <section class="cartao">
   {% set total, broken = chain %}
   {% if broken is none %}
@@ -47,6 +52,8 @@
     <input type="hidden" name="periodo" value="{{ filters.period }}">
     <input type="hidden" name="tipo" value="{{ filters.group }}">
     <input type="hidden" name="telefone" value="{{ filters.phone }}">
+    <input type="hidden" name="motivo" value="{{ filters.reason.code }}">
+    <input type="hidden" name="detalhe" value="{{ filters.reason.detail }}">
     <button class="secundario">Exportar CSV (com o hash de cada evento{% if not filters.group %}, incluindo os acessos{% endif %})</button>
   </form>
 </section>
@@ -60,7 +67,7 @@
     <td>{{ local(r.at, "%d/%m %H:%M:%S") }}</td>
     <td>{% if r.failed %}<span class="selo erro">{{ r.label }}</span>{% else %}{{ r.label }}{% endif %}</td>
     <td>{{ r.detail }}</td>
-    <td>{% if r.conversation_id %}<a href="/operador/rastreio/conversa/{{ r.conversation_id }}?imobiliaria={{ filters.tenant_id }}">ver conversa</a>{% endif %}</td>
+    <td>{% if r.conversation_id %}<a href="/operador/rastreio/conversa/{{ r.conversation_id }}?imobiliaria={{ filters.tenant_id }}&motivo={{ filters.reason.code }}">ver conversa</a>{% endif %}</td>
   </tr>
   {% else %}
   <tr><td colspan="5">Nenhum evento nesse filtro.</td></tr>

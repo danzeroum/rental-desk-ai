@@ -43,8 +43,15 @@
 
 	# Sem dado pessoal no log de acesso: apaga o telefone de qualquer URL (o painel só manda
 	# telefone por POST; isto é a segunda barreira) e encurta o IP (revisão LGPD 24/11/2026).
+	# Retenção de 30 dias (SPEC seção 9): arquivo no volume caddy_data, em pedaços de 1 MiB
+	# (cerca de um dia de tráfego), e os pedaços com mais de 30 dias são apagados pelo Caddy.
+	# Ver: docker compose ... exec caddy tail -f /data/logs/acesso.log
 	log {
-		output stdout
+		output file /data/logs/acesso.log {
+			roll_size 1MiB
+			roll_keep 60
+			roll_keep_for 720h
+		}
 		format filter {
 			wrap json
 			fields {

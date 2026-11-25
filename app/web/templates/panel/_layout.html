@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block nav %}
   <span class="dica">{{ session.tenant_name }}</span>
+  {% if session.role == "operador" %}<span class="selo alerta" title="Você está dentro da conta desta imobiliária como suporte. Cada acesso fica registrado e o gestor vê.">Você está como suporte</span>{% endif %}
   <a href="/painel">Início</a>
   <a href="/painel/passagens">Passagens</a>
   <a href="/painel/bloqueios">Datas</a>
@@ -12,6 +13,7 @@
   <a href="/painel/implantacao">Implantação</a>
   <a href="/painel/sombra">Situação</a>
   <a href="/painel/titular">Titulares</a>
+  <a href="/painel/acessos">Acessos do suporte</a>
   <a href="/painel/configuracoes">Configurações</a>
   {% endif %}
   <a href="/ajuda">Ajuda</a>

@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime, timedelta
 
+from app.domain.access import support_line
 from app.domain.hours import BusinessHours
 from app.domain.report import (
     ConversationFacts,
@@ -72,3 +73,13 @@ def test_whatsapp_params() -> None:
         "R$ 100,00",
         "https://p",
     ]
+
+
+def test_weekly_email_tells_the_manager_about_support_accesses() -> None:
+    assert support_line(0) == "Acessos do suporte à sua conta: nenhum"
+    assert "3 (veja quem e por quê" in support_line(3)
+    m = compute(PERIOD, [], [], [], HOURS)
+    _, quiet = email_text("Sol", m, "https://painel/p")
+    assert "Acessos do suporte à sua conta: nenhum" in quiet
+    _, body = email_text("Sol", m, "https://painel/p", support_accesses=2)
+    assert "Acessos do suporte à sua conta: 2" in body

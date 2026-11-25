@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 
 from app.core.rls import global_session, tenant_session
+from app.domain.access import REASONS
 from app.domain.health import Health, Level, assess
 from app.domain.onboarding import current, steps
 from app.models import Tenant
@@ -96,5 +97,6 @@ async def overview(request: Request, operator: Operator) -> Response:
     summary = {level: sum(r.health.level is level for r in rows) for level in Level}
     return render(
         request, "operator/overview.html",
-        {"rows": rows, "summary": summary, "checked": _fmt(now), "status_names": STATUS_NAMES},
+        {"rows": rows, "summary": summary, "checked": _fmt(now), "status_names": STATUS_NAMES,
+         "reasons": REASONS},
     )  # fmt: skip

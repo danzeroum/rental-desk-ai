@@ -11,11 +11,12 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func, select
 
+from app.domain.access import parse_reason
 from app.domain.notices import reason_label, summary_text
 from app.domain.search import FRESHNESS_LIMIT
 from app.models import AppUser, Contact, Conversation, DataSnapshot, Handoff, Tenant
 from app.models.enums import HandoffOutcome, HandoffStatus, SnapshotStatus
-from app.web.auth import AuthError
+from app.web.auth import AuthError, MissingReasonError
 from app.web.common import (
     SESSION_COOKIE,
     auth,
@@ -70,9 +71,12 @@ async def choose_page(request: Request, panel: ActivePanel) -> Response:
 @router.post("/escolher")
 async def choose(request: Request, panel: ActivePanel) -> Response:
     form = await verify_csrf(request)
+    reason = parse_reason(str(form.get("motivo", "")), str(form.get("detalhe", "")))
     try:
         tenant_id = uuid.UUID(str(form.get("tenant_id", "")))
-        await auth(request).choose_tenant(request.cookies[SESSION_COOKIE], panel, tenant_id)
+        await auth(request).choose_tenant(request.cookies[SESSION_COOKIE], panel, tenant_id, reason)
+    except MissingReasonError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     except (ValueError, AuthError) as exc:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, "Você não tem acesso a essa imobiliária."

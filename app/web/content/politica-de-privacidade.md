@@ -18,17 +18,27 @@ primeira resposta do assistente.
 
 ## Como protegemos
 
-- Dados num servidor no Brasil, disco e backups cifrados, conexões com TLS.
+- Banco de dados e backups num servidor no Brasil, disco e backups cifrados, conexões com TLS.
 - Cada imobiliária só vê os próprios dados (isolamento no banco de dados).
 - Acesso ao painel com senha e autenticador para todos.
 - A inteligência artificial recebe o texto sem nome nem telefone e não usa os dados para treino.
 - Registros técnicos sem dados pessoais; trilha de auditoria sem telefone nem texto do hóspede.
 
+## Transferência internacional
+
+A Meta (WhatsApp), o provedor de inteligência artificial e o provedor de transcrição de áudio
+podem tratar dados fora do Brasil. A inteligência artificial recebe só o texto, sem nome nem
+telefone e com CPF, cartão, e-mail e chave Pix mascarados; o áudio vai inteiro para a transcrição e
+é apagado do nosso servidor depois de transcrito. Essas transferências seguem o art. 33 da LGPD,
+com cláusulas contratuais com cada provedor. A lista de provedores e países fica com a imobiliária,
+no contrato de tratamento de dados.
+
 ## Por quanto tempo
 
 - Áudio: apagado depois da transcrição.
 - Nome e telefone nas mensagens: retirados após 180 dias sem disputa aberta.
-- Registros técnicos: 30 dias. Trilha de auditoria: pelo prazo legal.
+- Registros técnicos: sem dados pessoais (o IP de acesso fica encurtado); o registro de acesso ao
+  site é apagado em 30 dias. Trilha de auditoria: pelo prazo legal.
 
 ## Direitos
 

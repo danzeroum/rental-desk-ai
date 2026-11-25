@@ -25,13 +25,21 @@ from datetime import datetime, timedelta
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import append_audit
 from app.core.masking import mask_pii, mask_structured
 from app.core.rls import global_session, tenant_session
+from app.domain.access import (
+    ACCESS_EVENTS,
+    REASONS,
+    AccessReason,
+    describe_payload,
+    parse_reason,
+)
+from app.domain.meta_errors import explain
 from app.models import AuditLog, Contact, Conversation, Message, Tenant
 from app.web.auth import PanelSession
 from app.web.common import local_time, render, verify_csrf
@@ -102,11 +110,17 @@ GROUPS: Final = {
                "snapshot_approved", "snapshot_rejected", "availability_confirmed", "block_added",
                "block_removed", "subject_erased", "subject_erasure_replayed",
                "retention_applied"),
-    "acessos": ("support_access", "trace_viewed", "trace_exported"),
+    "acessos": ACCESS_EVENTS,
 }  # fmt: skip
-ACCESS_EVENTS: Final = GROUPS["acessos"]
-"""Quem consultou o quê (LGPD). Fora da visão "todos" para não encobrir o atendimento; sempre
-no CSV de "todos", que é a prova completa."""
+GROUP_LABELS: Final = {
+    "conversas": "Conversas (recebidas, respostas, entregas)",
+    "entregas": "Status de entrega da Meta",
+    "passagens": "Passagens ao corretor",
+    "painel": "Ações no painel",
+    "acessos": "Acessos (quem consultou e por quê)",
+}
+# ACCESS_EVENTS (quem consultou o quê, LGPD) fica fora da visão "todos" para não encobrir o
+# atendimento; sempre no CSV de "todos", que é a prova completa.
 DELIVERY_LABELS: Final = {
     "sent": "enviada", "delivered": "entregue", "read": "lida", "failed": "NÃO ENTREGUE",
 }  # fmt: skip
@@ -120,13 +134,16 @@ class Filters:
     group: str
     phone: str
     conversation_id: uuid.UUID | None
+    reason: AccessReason | None = None
+    """Para quê o operador consulta (Risco-004): sem motivo, nada é listado."""
 
     def as_audit(self) -> dict[str, Any]:
-        """O que foi consultado, para a trilha: o telefone vai mascarado."""
+        """O que foi consultado, e para quê, para a trilha: o telefone vai mascarado."""
         conversation = str(self.conversation_id) if self.conversation_id else None
         return {"period": self.period, "group": self.group or "todos",
                 "phone": mask_phone(self.phone) if self.phone else None,
-                "conversation_id": conversation}  # fmt: skip
+                "conversation_id": conversation,
+                **(self.reason.as_audit() if self.reason else {})}  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -179,13 +196,24 @@ def _phone_variants(phone: str) -> list[str]:
 
 def _delivery(payload: dict[str, Any]) -> str:
     label = DELIVERY_LABELS.get(str(payload.get("status")), str(payload.get("status")))
-    if payload.get("error_code"):
-        return f"{label}: código {payload['error_code']} ({payload.get('error') or 'sem motivo'})"
+    if payload.get("error_code") or payload.get("error"):
+        code = payload.get("error_code")
+        return f"{label}: {explain(code if isinstance(code, int) else None, payload.get('error'))}"
     return label
 
 
 def _reply_text(payload: dict[str, Any]) -> str:
     return mask_pii(" ".join(str(payload.get("text") or "").split()))[:300]
+
+
+def _access(payload: dict[str, Any]) -> str:
+    """Consulta ao rastreio: motivo e o que foi filtrado (telefone já gravado mascarado)."""
+    parts = [describe_payload(payload) or "sem motivo registrado"]
+    if payload.get("view") == "conversa":
+        parts.append("linha do tempo de uma conversa")
+    elif payload.get("phone"):
+        parts.append(f"hóspede {payload['phone']}")
+    return " · ".join(parts)
 
 
 _SUMMARIES: Final[dict[str, Callable[[dict[str, Any]], str]]] = {
@@ -195,6 +223,9 @@ _SUMMARIES: Final[dict[str, Callable[[dict[str, Any]], str]]] = {
     "broker_reply": _reply_text,
     "message_received": lambda p: f"tipo: {p.get('kind', '?')}",
     "status_changed": lambda p: f"{p.get('from')} → {p.get('to')}",
+    "support_access": lambda p: describe_payload(p) or "sem motivo registrado",
+    "trace_viewed": _access,
+    "trace_exported": lambda p: _access(p) + f" · {p.get('rows', 0)} linha(s)",
     "handoff_outcome": lambda p: f"{p.get('outcome', '')} {p.get('reason') or ''}".strip(),
 }
 
@@ -213,10 +244,11 @@ TenantParam = Annotated[str | None, Query(alias="imobiliaria")]
 
 def _filters(
     imobiliaria: TenantParam = None, periodo: str = "24h", tipo: str = "",
-    conversa: str | None = None,
+    conversa: str | None = None, motivo: str = "",
 ) -> Filters:  # fmt: skip
-    """Filtros da URL: sem telefone (veja o cabeçalho do módulo)."""
-    return build_filters(imobiliaria, periodo, tipo, "", conversa)
+    """Filtros da URL: sem telefone e sem o detalhe do motivo (texto livre), que podem trazer
+    dado pessoal; o código do motivo pode (veja o cabeçalho do módulo)."""
+    return build_filters(imobiliaria, periodo, tipo, "", conversa, motivo=motivo)
 
 
 async def _posted_filters(request: Request) -> Filters:
@@ -229,12 +261,14 @@ async def _posted_filters(request: Request) -> Filters:
     return build_filters(
         field("imobiliaria") or None, field("periodo") or "24h", field("tipo"),
         field("telefone"), field("conversa") or None,
+        motivo=field("motivo"), detalhe=field("detalhe"),
     )  # fmt: skip
 
 
 def build_filters(
-    imobiliaria: str | None, periodo: str, tipo: str, telefone: str, conversa: str | None
-) -> Filters:
+    imobiliaria: str | None, periodo: str, tipo: str, telefone: str, conversa: str | None,
+    *, motivo: str = "", detalhe: str = "",
+) -> Filters:  # fmt: skip
     def as_uuid(value: str | None) -> uuid.UUID | None:
         try:
             return uuid.UUID(value) if value else None
@@ -247,6 +281,7 @@ def build_filters(
         group=tipo if tipo in GROUPS else "",
         phone=_DIGITS.sub("", telefone)[:15],
         conversation_id=as_uuid(conversa),
+        reason=parse_reason(motivo, detalhe),
     )
 
 
@@ -319,10 +354,12 @@ async def trace_search(request: Request, operator: Operator, filters: PostedFilt
 async def _page(request: Request, operator: PanelSession, filters: Filters) -> Response:
     tenants = await _tenants(request, operator)
     context: dict[str, Any] = {
-        "tenants": tenants, "filters": filters, "periods": list(PERIODS), "groups": list(GROUPS),
-        "rows": [], "chain": None, "local": local_time, "max_rows": MAX_ROWS,
+        "tenants": tenants, "filters": filters, "periods": list(PERIODS), "groups": GROUPS,
+        "group_labels": GROUP_LABELS, "reasons": REASONS, "rows": [], "chain": None,
+        "local": local_time, "max_rows": MAX_ROWS,
+        "missing_reason": filters.tenant_id is not None and filters.reason is None,
     }  # fmt: skip
-    if filters.tenant_id is not None:
+    if filters.tenant_id is not None and filters.reason is not None:
         now = request.app.state.auth.clock()
         async with tenant_session(
             request.app.state.sessions, filters.tenant_id, user_id=operator.user_uuid
@@ -342,6 +379,8 @@ async def trace_export(request: Request, operator: Operator, filters: PostedFilt
     """CSV com os eventos completos e o hash de cada um: prova verificável fora do sistema."""
     if filters.tenant_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
+    if filters.reason is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Escolha o motivo da consulta.")
     now = request.app.state.auth.clock()
     async with tenant_session(
         request.app.state.sessions, filters.tenant_id, user_id=operator.user_uuid
@@ -388,12 +427,17 @@ class TimelineItem:
 @router.get("/conversa/{conversation_id}", response_class=HTMLResponse)
 async def conversation_timeline(
     request: Request, conversation_id: uuid.UUID, operator: Operator,
-    imobiliaria: TenantParam = None,
+    imobiliaria: TenantParam = None, motivo: str = "",
 ) -> Response:  # fmt: skip
-    """Mensagem por mensagem, com hora e status de entrega da Meta, mais os eventos da trilha."""
-    filters = build_filters(imobiliaria, "30d", "", "", str(conversation_id))
+    """Mensagem por mensagem, com hora e status de entrega da Meta, mais os eventos da trilha.
+    Vem de um resultado do rastreio, que já tem o motivo; sem ele, volta para o rastreio."""
+    filters = build_filters(imobiliaria, "30d", "", "", str(conversation_id), motivo=motivo)
     if filters.tenant_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
+    if filters.reason is None:
+        return RedirectResponse(
+            f"/operador/rastreio?imobiliaria={filters.tenant_id}", status.HTTP_303_SEE_OTHER
+        )
     async with tenant_session(
         request.app.state.sessions, filters.tenant_id, user_id=operator.user_uuid
     ) as session:
@@ -411,7 +455,8 @@ async def conversation_timeline(
         ))  # fmt: skip
         await append_audit(
             session, tenant_id=filters.tenant_id, conversation_id=conversation_id,
-            event_type="trace_viewed", payload={"user_id": operator.user_id, "view": "conversa"},
+            event_type="trace_viewed",
+            payload={"user_id": operator.user_id, "view": "conversa", **filters.as_audit()},
         )  # fmt: skip
     items = [_message_item(m) for m in messages]
     items += [
@@ -440,7 +485,7 @@ def _message_item(message: Message) -> TimelineItem:
         delivery = status_label
         if message.delivery_status_at:
             delivery += f" em {local_time(message.delivery_status_at, '%d/%m %H:%M:%S')}"
-        if message.delivery_error_code:
-            delivery += f" · código {message.delivery_error_code}: {message.delivery_error or ''}"
+        if message.delivery_error_code or message.delivery_error:
+            delivery += f" · {explain(message.delivery_error_code, message.delivery_error)}"
     return TimelineItem(message.created_at, who, body, delivery,
                         message.delivery_status == "failed")  # fmt: skip

@@ -25,8 +25,10 @@ são agregadas e sem identificação (legítimo interesse).
 
 Com quem compartilhamos, só para prestar o serviço: a Meta e o parceiro oficial do \
 WhatsApp, o provedor de inteligência artificial (que recebe o texto sem seu nome ou \
-telefone e não o usa para treino), o provedor de transcrição de áudio, o servidor e o \
-backup, no Brasil.
+telefone e não o usa para treino) e o provedor de transcrição de áudio. O servidor e o \
+backup ficam no Brasil; a Meta e os provedores de inteligência artificial e de \
+transcrição podem tratar os dados fora do Brasil, com as garantias da LGPD (art. 33), \
+como cláusulas contratuais.
 
 Por quanto tempo: o áudio é apagado depois de transcrito; nome e telefone saem das \
 mensagens após 180 dias; registros de auditoria, sem conteúdo identificável, ficam pelo \
